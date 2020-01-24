@@ -42,16 +42,16 @@ endif()
 # end of copy
 ##
 
-#
-add_library(GDBSCAN SHARED include/Graph.h)
+# GDBSCAN lib
+add_library(GDBSCAN SHARED include/Graph.h include/Dataset.h include/Dimension.h)
 set_target_properties(GDBSCAN PROPERTIES LINKER_LANGUAGE CXX)
 
 # test
 enable_testing()
-add_executable(unittest test/tests.cpp)
+add_executable(unittest test/tests.cpp include/Dataset.h include/Dimension.h)
 add_test(unittest test/test.cpp)
 target_link_libraries(unittest gtest_main gmock_main GDBSCAN)
 
 # example
-add_executable(example example/example.cpp)
+add_executable(example example/example.cpp include/Dataset.h include/Dimension.h)
 target_link_libraries(example GDBSCAN)
