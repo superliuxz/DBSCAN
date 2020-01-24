@@ -143,6 +143,11 @@ TEST(Dataset, setter_getter) {
   d[2] = TwoD(2.0f, 2.0f);
   d[3] = TwoD(3.0f, 3.0f);
   d[4] = TwoD(4.0f, 4.0f);
+  EXPECT_EQ(d.in_dataset(0), true);
+  EXPECT_EQ(d.in_dataset(1), true);
+  EXPECT_EQ(d.in_dataset(2), true);
+  EXPECT_EQ(d.in_dataset(3), true);
+  EXPECT_EQ(d.in_dataset(4), true);
   EXPECT_EQ(d[0], TwoD(0.0f, 0.0f));
   EXPECT_EQ(d[1], TwoD(1.0f, 1.0f));
   EXPECT_EQ(d[2], TwoD(2.0f, 2.0f));
