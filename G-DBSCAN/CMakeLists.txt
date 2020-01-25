@@ -11,16 +11,16 @@ set(CMAKE_CXX_STANDARD 17)
 configure_file(CMakeLists.GoogleTest.in googletest-download/CMakeLists.txt)
 execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
     RESULT_VARIABLE result
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
-if(result)
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download)
+if (result)
   message(FATAL_ERROR "CMake step for googletest failed: ${result}")
-endif()
+endif ()
 execute_process(COMMAND ${CMAKE_COMMAND} --build .
     RESULT_VARIABLE result
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
-if(result)
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download)
+if (result)
   message(FATAL_ERROR "Build step for googletest failed: ${result}")
-endif()
+endif ()
 
 # Prevent overriding the parent project's compiler/linker
 # settings on Windows
@@ -37,21 +37,21 @@ add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/googletest-src
 # later. Otherwise we have to add them here ourselves.
 if (CMAKE_VERSION VERSION_LESS 2.8.11)
   include_directories("${gtest_SOURCE_DIR}/include")
-endif()
+endif ()
 ##
 # end of copy
 ##
 
 # GDBSCAN lib
-add_library(GDBSCAN SHARED include/Graph.h include/Dataset.h include/Dimension.h)
+add_library(GDBSCAN SHARED include/Graph.h include/Dataset.h include/Dimension.h include/Runner.h include/Membership.h)
 set_target_properties(GDBSCAN PROPERTIES LINKER_LANGUAGE CXX)
 
 # test
 enable_testing()
-add_executable(unittest test/tests.cpp include/Dataset.h include/Dimension.h)
+add_executable(unittest test/tests.cpp include/Dataset.h include/Dimension.h include/Runner.h include/Membership.h)
 add_test(unittest test/test.cpp)
 target_link_libraries(unittest gtest_main gmock_main GDBSCAN)
 
 # example
-add_executable(example example/example.cpp include/Dataset.h include/Dimension.h)
+add_executable(example example/example.cpp include/Dataset.h include/Dimension.h include/Runner.h include/Membership.h)
 target_link_libraries(example GDBSCAN)

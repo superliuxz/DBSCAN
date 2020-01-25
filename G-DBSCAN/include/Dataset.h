@@ -14,20 +14,10 @@ template<class DimensionType>
 class Dataset {
  public:
   explicit Dataset(size_t num_nodes) : size_(num_nodes),
-                                       in_dataset_(num_nodes, true),
                                        positions_(num_nodes, DimensionType()) {}
-  void exclude(size_t node) {
-    check_oob(node);
-    in_dataset_[node] = false;
-  }
-  bool in_dataset(size_t node) const {
-    check_oob(node);
-    return in_dataset_[node];
-  }
   // setter
   DimensionType &operator[](const size_t &node) {
     check_oob(node);
-    in_dataset_[node] = true;
     return positions_[node];
   }
   // getter
@@ -35,14 +25,17 @@ class Dataset {
     check_oob(node);
     return positions_[node];
   }
+  // for testing.
+  const std::vector<DimensionType> view() const {
+    return std::vector<DimensionType>(positions_);
+  }
  private:
   size_t size_;
-  std::vector<bool> in_dataset_;
   std::vector<DimensionType> positions_;
   void check_oob(const size_t &pos) const {
     if (pos < 0 || pos >= size_) {
       std::ostringstream oss;
-      oss << pos << " out of bound!" << std::endl;
+      oss << pos << " out of bound!";
       throw std::runtime_error(oss.str());
     }
   }
