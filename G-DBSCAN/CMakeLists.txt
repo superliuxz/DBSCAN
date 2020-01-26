@@ -51,6 +51,7 @@ enable_testing()
 add_executable(unittest test/tests.cpp include/Dataset.h include/Dimension.h include/Runner.h include/Membership.h)
 add_test(unittest test/test.cpp)
 target_link_libraries(unittest gtest_main gmock_main GDBSCAN)
+target_compile_definitions(unittest PRIVATE TESTING)
 
 # example
 add_executable(example example/example.cpp include/Dataset.h include/Dimension.h include/Runner.h include/Membership.h)

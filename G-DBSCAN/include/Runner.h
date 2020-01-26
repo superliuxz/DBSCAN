@@ -20,15 +20,14 @@ class Runner {
   explicit Runner(size_t num_nodes, int min_pts, double radius) :
       num_nodes_(num_nodes), min_pts_(min_pts), radius_(radius) {
   }
-  // for testing.
+#ifdef TESTING
   const std::vector<DimensionType> dataset_view() const {
     return dataset_->view();
   }
-  // for testing.
   const Graph graph_view() const {
     return *graph_;
   }
-
+#endif
   void prepare_dataset(std::unique_ptr<std::ifstream> in) {
     dataset_ = std::make_unique<Dataset<DimensionType>>(num_nodes_);
     size_t n;

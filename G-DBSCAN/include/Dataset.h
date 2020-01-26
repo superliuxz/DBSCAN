@@ -25,10 +25,11 @@ class Dataset {
     check_oob(node);
     return positions_[node];
   }
-  // for testing.
+#ifdef TESTING
   const std::vector<DimensionType> view() const {
     return std::vector<DimensionType>(positions_);
   }
+#endif
  private:
   size_t size_;
   std::vector<DimensionType> positions_;
