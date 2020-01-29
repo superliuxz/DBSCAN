@@ -11,6 +11,7 @@
 #include "Dataset.h"
 #include "Dimension.h"
 #include "Graph.h"
+#include "spdlog/spdlog.h"
 
 namespace GDBSCAN {
 
@@ -23,6 +24,7 @@ class Solver {
                   double radius) :
       num_nodes_(num_nodes), min_pts_(min_pts), radius_(radius) {
     ifs_ = std::move(in);
+    logger_ = spdlog::get("console");
   }
 #ifdef TESTING
   const std::vector<DimensionType> dataset_view() const {
@@ -78,6 +80,7 @@ class Solver {
       if (graph_->cluster_ids[node] == -1
           && graph_->membership[node] == membership::Core) {
         graph_->cluster_ids[node] = cluster;
+        logger_->debug("start bfs on node {} with cluster {}", node, cluster);
         bfs(node, cluster);
         ++cluster;
       }
@@ -91,6 +94,7 @@ class Solver {
   std::unique_ptr<Dataset < DimensionType>> dataset_ = nullptr;
   std::unique_ptr<Graph> graph_ = nullptr;
   std::unique_ptr<std::ifstream> ifs_ = nullptr;
+  std::shared_ptr<spdlog::logger> logger_ = nullptr;
 
   /*
    * Classify nodes to Core or Noise; the Border nodes are classified in the BFS
@@ -118,11 +122,10 @@ class Solver {
     std::vector<size_t> next_level;
     while (!q.empty()) {
       for (size_t &curr : q) {
-        std::cout << "visiting node " << curr << std::endl;
+        logger_->debug("visiting node {}", curr);
         // Relabel a reachable Noise node, but do not keep exploring.
         if (graph_->membership[curr] == membership::Noise) {
-          std::cout << "\tnode " << curr << " is relabeled from Noise to Border"
-                    << std::endl;
+          logger_->debug("\tnode {} is relabeled from Noise to Border", curr);
           graph_->membership[curr] = membership::Border;
           continue;
         }
@@ -134,11 +137,9 @@ class Solver {
           size_t nb = graph_->Ea[start_pos + i];
           if (graph_->cluster_ids[nb] == -1) {
             // cluster the node
-            std::cout << "\tnode " << nb << " is clustered to " << cluster
-                      << std::endl;
+            logger_->debug("\tnode {} is clustered tp {}", nb, cluster);
             graph_->cluster_ids[nb] = cluster;
-            std::cout << "\tneighbour " << nb << " of node " << curr
-                      << " us queued" << std::endl;
+            logger_->debug("\tneighbour {} of node {} is queued", nb, curr);
             next_level.emplace_back(nb);
           }
         }

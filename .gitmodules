@@ -1,0 +1,3 @@
+[submodule "G-DBSCAN/spdlog"]
+	path = G-DBSCAN/spdlog
+	url = https://github.com/gabime/spdlog

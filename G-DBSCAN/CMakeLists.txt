@@ -42,6 +42,9 @@ endif ()
 # end of copy
 ##
 
+# spdlog
+include_directories(spdlog/include)
+
 # GDBSCAN lib
 add_library(GDBSCAN SHARED include/Graph.h include/Dataset.h include/Dimension.h include/Solver.h include/Membership.h)
 set_target_properties(GDBSCAN PROPERTIES LINKER_LANGUAGE CXX)

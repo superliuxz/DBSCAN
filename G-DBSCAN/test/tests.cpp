@@ -2,6 +2,7 @@
 // Created by William Liu on 2020-01-23.
 //
 
+#include "spdlog/sinks/stdout_color_sinks.h"
 #include <gmock/gmock.h> // ASSERT_THAT, testing::ElementsAre
 #include <gtest/gtest.h>
 
@@ -181,7 +182,7 @@ TEST(Solver, identify_cluster_small_graph) {
   EXPECT_THAT(graph.cluster_ids, testing::ElementsAre(1, 1, 1, -1, -1, -1));
 }
 
-TEST(Solver, small_graph2) {
+TEST(Solver, test_input2) {
   using namespace GDBSCAN;
   auto solver =
       GDBSCAN::make_solver<dimension::TwoD>("../test/test_input2.txt", 2, 3.0f);
@@ -220,7 +221,50 @@ TEST(Solver, small_graph2) {
   );
 }
 
+TEST(Solver, test_input3) {
+  using namespace GDBSCAN;
+  auto solver =
+      GDBSCAN::make_solver<dimension::TwoD>("../test/test_input3.txt", 3, 3.0f);
+  ASSERT_NO_THROW(solver->prepare_dataset());
+  ASSERT_NO_THROW(solver->make_graph());
+  ASSERT_NO_THROW(solver->identify_cluster());
+  auto graph = solver->graph_view();
+  using namespace GDBSCAN::membership;
+  EXPECT_THAT(graph.membership,
+              testing::ElementsAre(
+                  Core, // 0
+                  Core, // 1
+                  Core, // 2
+                  Core, // 3
+                  Border, // 4
+                  Noise, // 5
+                  Border, // 6
+                  Core, // 7
+                  Core, // 8
+                  Core, // 9
+                  Core // 10
+              )
+  );
+  EXPECT_THAT(graph.cluster_ids,
+              testing::ElementsAre(
+                  1, // 0
+                  1, // 1
+                  1, // 2
+                  1, // 3
+                  1, // 4
+                  -1, // 5
+                  2, // 6
+                  2, // 7
+                  2, // 8
+                  2, // 9
+                  2 // 10
+              )
+  );
+}
+
 int main(int argc, char *argv[]) {
+  auto logger = spdlog::stdout_color_mt("console");
+  logger->set_level(spdlog::level::info);
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
