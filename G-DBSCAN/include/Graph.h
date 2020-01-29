@@ -11,7 +11,6 @@
 
 namespace GDBSCAN {
 
-// use uint8/16/32/64.
 class Graph {
  public:
   std::vector<size_t> Va;
@@ -23,7 +22,8 @@ class Graph {
       Va(num_nodes * 2, 0),
       Ea_(num_nodes, std::vector<size_t>()),
       membership(num_nodes, membership::Border),
-      cluster_ids(num_nodes, 0) {
+      // -1 as unvisited/un-clustered.
+      cluster_ids(num_nodes, -1) {
   }
 
   void insert_edge(size_t u, size_t v) {

@@ -8,7 +8,7 @@
 #include "../include/Dataset.h"
 #include "../include/Dimension.h"
 #include "../include/Graph.h"
-#include "../include/Runner.h"
+#include "../include/Solver.h"
 
 TEST(Graph, ctor_success) {
   GDBSCAN::Graph g(5);
@@ -111,49 +111,42 @@ TEST(TwoD, distance) {
 }
 
 TEST(Dataset, setter_getter) {
-  using namespace GDBSCAN::dimension;
-  GDBSCAN::Dataset<TwoD> d(5);
-  d[0] = TwoD(0.0f, 0.0f);
-  d[1] = TwoD(1.0f, 1.0f);
-  d[2] = TwoD(2.0f, 2.0f);
-  d[3] = TwoD(3.0f, 3.0f);
-  d[4] = TwoD(4.0f, 4.0f);
-  EXPECT_THAT(d.view(), testing::ElementsAre(TwoD(0.0f, 0.0f),
-                                             TwoD(1.0f, 1.0f),
-                                             TwoD(2.0f, 2.0f),
-                                             TwoD(3.0f, 3.0f),
-                                             TwoD(4.0f, 4.0f)));
+  using namespace GDBSCAN;
+  Dataset<dimension::TwoD> d(5);
+  d[0] = dimension::TwoD(0.0f, 0.0f);
+  d[1] = dimension::TwoD(1.0f, 1.0f);
+  d[2] = dimension::TwoD(2.0f, 2.0f);
+  d[3] = dimension::TwoD(3.0f, 3.0f);
+  d[4] = dimension::TwoD(4.0f, 4.0f);
+  EXPECT_THAT(d.view(), testing::ElementsAre(dimension::TwoD(0.0f, 0.0f),
+                                             dimension::TwoD(1.0f, 1.0f),
+                                             dimension::TwoD(2.0f, 2.0f),
+                                             dimension::TwoD(3.0f, 3.0f),
+                                             dimension::TwoD(4.0f, 4.0f)));
 }
 
-TEST(Runner, prepare_dataset) {
-  auto ifs = std::make_unique<std::ifstream>("../test/test_input1.txt");
-  int num_nodes;
-  *ifs >> num_nodes;
-  EXPECT_EQ(num_nodes, 6);
-
-  using namespace GDBSCAN::dimension;
-  GDBSCAN::Runner<TwoD> runner(num_nodes, 2, 3.0f);
-  ASSERT_NO_THROW(runner.prepare_dataset(std::move(ifs)));
-  EXPECT_THAT(runner.dataset_view(), testing::ElementsAre(TwoD(1.0f, 2.0f),
-                                                          TwoD(2.0f, 2.0f),
-                                                          TwoD(2.0f, 3.0f),
-                                                          TwoD(8.0f, 7.0f),
-                                                          TwoD(8.0f, 8.0f),
-                                                          TwoD(25.0f, 80.0f)));
+TEST(Solver, prepare_dataset) {
+  using namespace GDBSCAN;
+  auto solver =
+      GDBSCAN::make_solver<dimension::TwoD>("../test/test_input1.txt", 2, 3.0f);
+  ASSERT_NO_THROW(solver->prepare_dataset());
+  EXPECT_THAT(solver->dataset_view(),
+              testing::ElementsAre(dimension::TwoD(1.0f, 2.0f),
+                                   dimension::TwoD(2.0f, 2.0f),
+                                   dimension::TwoD(2.0f, 3.0f),
+                                   dimension::TwoD(8.0f, 7.0f),
+                                   dimension::TwoD(8.0f, 8.0f),
+                                   dimension::TwoD(25.0f, 80.0f)));
 }
 
-TEST(Runner, make_graph) {
-  auto ifs = std::make_unique<std::ifstream>("../test/test_input1.txt");
-  int num_nodes;
-  *ifs >> num_nodes;
-  EXPECT_EQ(num_nodes, 6);
+TEST(Solver, make_graph_small_graph) {
+  using namespace GDBSCAN;
+  auto solver =
+      GDBSCAN::make_solver<dimension::TwoD>("../test/test_input1.txt", 2, 3.0f);
+  ASSERT_NO_THROW(solver->prepare_dataset());
 
-  using namespace GDBSCAN::dimension;
-  GDBSCAN::Runner<TwoD> runner(num_nodes, 2, 3.0f);
-  ASSERT_NO_THROW(runner.prepare_dataset(std::move(ifs)));
-
-  ASSERT_NO_THROW(runner.make_graph());
-  auto graph = runner.graph_view();
+  ASSERT_NO_THROW(solver->make_graph());
+  auto graph = solver->graph_view();
   /*
    * Va:
    * 2 2 2 1 1 0 <- number of neighbours
@@ -170,23 +163,61 @@ TEST(Runner, make_graph) {
   EXPECT_THAT(graph.Va,
               testing::ElementsAre(2, 0, 2, 2, 2, 4, 1, 6, 1, 7, 0, 8));
   EXPECT_THAT(graph.Ea, testing::ElementsAre(1, 2, 0, 2, 0, 1, 4, 3));
-}
-
-TEST(Runner, classify_nodes) {
-  auto ifs = std::make_unique<std::ifstream>("../test/test_input1.txt");
-  int num_nodes;
-  *ifs >> num_nodes;
-  EXPECT_EQ(num_nodes, 6);
-
-  using namespace GDBSCAN::dimension;
-  GDBSCAN::Runner<TwoD> runner(num_nodes, 2, 3.0f);
-  ASSERT_NO_THROW(runner.prepare_dataset(std::move(ifs)));
-  ASSERT_NO_THROW(runner.make_graph());
-  ASSERT_NO_THROW(runner.classify_nodes());
-  auto graph = runner.graph_view();
   using namespace GDBSCAN::membership;
   EXPECT_THAT(graph.membership,
               testing::ElementsAre(Core, Core, Core, Noise, Noise, Noise));
+}
+
+TEST(Solver, identify_cluster_small_graph) {
+  using namespace GDBSCAN;
+  auto solver =
+      GDBSCAN::make_solver<dimension::TwoD>("../test/test_input1.txt", 2, 3.0f);
+  ASSERT_NO_THROW(solver->prepare_dataset());
+  ASSERT_NO_THROW(solver->make_graph());
+  ASSERT_NO_THROW(solver->identify_cluster());
+  auto graph = solver->graph_view();
+  // nodes 0 1 and 2 are core nodes with cluster id = 1; nodes 3 4 and 5 are
+  // noise nodes hence cluster id = -1.
+  EXPECT_THAT(graph.cluster_ids, testing::ElementsAre(1, 1, 1, -1, -1, -1));
+}
+
+TEST(Solver, small_graph2) {
+  using namespace GDBSCAN;
+  auto solver =
+      GDBSCAN::make_solver<dimension::TwoD>("../test/test_input2.txt", 2, 3.0f);
+  ASSERT_NO_THROW(solver->prepare_dataset());
+  ASSERT_NO_THROW(solver->make_graph());
+  ASSERT_NO_THROW(solver->identify_cluster());
+  auto graph = solver->graph_view();
+  using namespace GDBSCAN::membership;
+  EXPECT_THAT(graph.membership,
+              testing::ElementsAre(
+                  Core, // 0
+                  Core, // 1
+                  Core, // 2
+                  Border, // 3
+                  Border, // 4
+                  Core, // 5
+                  Core, // 6
+                  Core, // 7
+                  Core, // 8
+                  Noise // 9
+              )
+  );
+  EXPECT_THAT(graph.cluster_ids,
+              testing::ElementsAre(
+                  1, // 0
+                  1, // 1
+                  1, // 2
+                  1, // 3
+                  2, // 4
+                  2, // 5
+                  2, // 6
+                  2, // 7
+                  2, // 8
+                  -1 // 9
+              )
+  );
 }
 
 int main(int argc, char *argv[]) {
