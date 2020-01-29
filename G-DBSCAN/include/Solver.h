@@ -63,6 +63,10 @@ class Solver {
     if (dataset_ == nullptr) {
       throw std::runtime_error("Call prepare_dataset to generate the dataset!");
     }
+
+    using namespace std::chrono;
+    high_resolution_clock::time_point start = high_resolution_clock::now();
+
     graph_ = std::make_unique<Graph>(num_nodes_);
     for (size_t u = 0; u < num_nodes_; ++u) {
       for (size_t v = u + 1; v < num_nodes_; ++v) {
@@ -73,12 +77,20 @@ class Solver {
     }
     graph_->finalize();
     classify_nodes();
+
+    high_resolution_clock::time_point end = high_resolution_clock::now();
+    duration<double> time_spent = duration_cast<duration<double>>(end - start);
+    logger_->info("make_graph (Algorithm 1) takes {} seconds",
+                  time_spent.count());
   }
 
   /*
    * Algorithm 2 (BFS) in Andrade et al.
    */
   void identify_cluster() const {
+    using namespace std::chrono;
+    high_resolution_clock::time_point start = high_resolution_clock::now();
+
     int cluster = 0;
     for (size_t node = 0; node < num_nodes_; ++node) {
       if (graph_->cluster_ids[node] == -1
@@ -89,6 +101,11 @@ class Solver {
         ++cluster;
       }
     }
+
+    high_resolution_clock::time_point end = high_resolution_clock::now();
+    duration<double> time_spent = duration_cast<duration<double>>(end - start);
+    logger_->info("identify_cluster (Algorithm 2) takes {} seconds",
+                  time_spent.count());
   }
 
  private:

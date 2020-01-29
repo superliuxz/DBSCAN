@@ -19,7 +19,7 @@ parser.add_argument('--visualize', action='store_true',
                     help='visualize the clustering result')
 args = parser.parse_args()
 
-centers = [[1, 1], [-1, -1], [1, -1], [-1, 1]]
+centers = [[10, 10], [-10, -10], [10, -10], [-10, 10]]
 points, _ = make_blobs(n_samples=args.n_samples, centers=centers,
                        cluster_std=0.4, random_state=RANDOM_STATE)
 
@@ -32,6 +32,7 @@ if args.generate:
     fout.write(f'{N}\n')
     for i, p in enumerate(points):
       fout.write(f"{i} {p[0]:.6f} {p[1]:.6f}\n")
+  exit(0)
 
 db = DBSCAN(eps=0.3, min_samples=10).fit(points)
 for l in db.labels_:
