@@ -21,7 +21,7 @@ args = parser.parse_args()
 
 centers = [[10, 10], [-10, -10], [10, -10], [-10, 10]]
 points, _ = make_blobs(n_samples=args.n_samples, centers=centers,
-                       cluster_std=0.4, random_state=RANDOM_STATE)
+                       cluster_std=1.0, random_state=RANDOM_STATE)
 
 points = StandardScaler().fit_transform(points)
 
