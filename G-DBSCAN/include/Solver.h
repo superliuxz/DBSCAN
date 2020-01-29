@@ -12,6 +12,7 @@
 #include "Dimension.h"
 #include "Graph.h"
 #include "spdlog/spdlog.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
 
 namespace GDBSCAN {
 
@@ -25,15 +26,18 @@ class Solver {
       num_nodes_(num_nodes), min_pts_(min_pts), radius_(radius) {
     ifs_ = std::move(in);
     logger_ = spdlog::get("console");
+    if (logger_ == nullptr) {
+      throw std::runtime_error("logger not created!");
+    }
   }
 #ifdef TESTING
   const std::vector<DimensionType> dataset_view() const {
     return dataset_->view();
   }
+#endif
   const Graph graph_view() const {
     return *graph_;
   }
-#endif
   void prepare_dataset() {
     dataset_ = std::make_unique<Dataset<DimensionType>>(num_nodes_);
     size_t n;
@@ -75,7 +79,7 @@ class Solver {
    * Algorithm 2 (BFS) in Andrade et al.
    */
   void identify_cluster() const {
-    int cluster = 1;
+    int cluster = 0;
     for (size_t node = 0; node < num_nodes_; ++node) {
       if (graph_->cluster_ids[node] == -1
           && graph_->membership[node] == membership::Core) {

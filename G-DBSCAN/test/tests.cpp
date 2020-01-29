@@ -179,7 +179,7 @@ TEST(Solver, identify_cluster_small_graph) {
   auto graph = solver->graph_view();
   // nodes 0 1 and 2 are core nodes with cluster id = 1; nodes 3 4 and 5 are
   // noise nodes hence cluster id = -1.
-  EXPECT_THAT(graph.cluster_ids, testing::ElementsAre(1, 1, 1, -1, -1, -1));
+  EXPECT_THAT(graph.cluster_ids, testing::ElementsAre(0, 0, 0, -1, -1, -1));
 }
 
 TEST(Solver, test_input2) {
@@ -207,15 +207,15 @@ TEST(Solver, test_input2) {
   );
   EXPECT_THAT(graph.cluster_ids,
               testing::ElementsAre(
-                  1, // 0
-                  1, // 1
-                  1, // 2
-                  1, // 3
-                  2, // 4
-                  2, // 5
-                  2, // 6
-                  2, // 7
-                  2, // 8
+                  0, // 0
+                  0, // 1
+                  0, // 2
+                  0, // 3
+                  1, // 4
+                  1, // 5
+                  1, // 6
+                  1, // 7
+                  1, // 8
                   -1 // 9
               )
   );
@@ -247,17 +247,17 @@ TEST(Solver, test_input3) {
   );
   EXPECT_THAT(graph.cluster_ids,
               testing::ElementsAre(
-                  1, // 0
-                  1, // 1
-                  1, // 2
-                  1, // 3
-                  1, // 4
+                  0, // 0
+                  0, // 1
+                  0, // 2
+                  0, // 3
+                  0, // 4
                   -1, // 5
-                  2, // 6
-                  2, // 7
-                  2, // 8
-                  2, // 9
-                  2 // 10
+                  1, // 6
+                  1, // 7
+                  1, // 8
+                  1, // 9
+                  1 // 10
               )
   );
 }
