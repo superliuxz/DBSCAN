@@ -20,15 +20,15 @@ class Graph {
 
   explicit Graph(size_t num_nodes) :
       Va(num_nodes * 2, 0),
-      Ea_(num_nodes, std::vector<size_t>()),
-      membership(num_nodes, membership::Border),
       // -1 as unvisited/un-clustered.
-      cluster_ids(num_nodes, -1) {
+      cluster_ids(num_nodes, -1),
+      membership(num_nodes, membership::Border),
+      Ea_(num_nodes, std::vector<size_t>()) {
   }
 
   void insert_edge(size_t u, size_t v) {
     assert_mutable();
-    if (u < 0 || u >= Ea_.size() || v < 0 || v >= Ea_.size()) {
+    if (u >= Ea_.size() || v >= Ea_.size()) {
       std::ostringstream oss;
       oss << u << "-" << v << " is out of bound!";
       throw std::runtime_error(oss.str());
@@ -39,7 +39,7 @@ class Graph {
 
   void cluster_node(size_t node, int cluster_id) {
     assert_immutable();
-    if (node < 0 || node >= cluster_ids.size()) {
+    if (node >= cluster_ids.size()) {
       std::ostringstream oss;
       oss << node << " is out of bound!";
       throw std::runtime_error(oss.str());

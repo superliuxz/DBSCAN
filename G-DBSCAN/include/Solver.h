@@ -9,7 +9,7 @@
 #include <memory>
 
 #include "Dataset.h"
-#include "Dimension.h"
+#include "Distance.h"
 #include "Graph.h"
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
@@ -21,7 +21,7 @@ class Solver {
  public:
   explicit Solver(std::unique_ptr<std::ifstream> in,
                   size_t num_nodes,
-                  int min_pts,
+                  uint min_pts,
                   double radius) :
       num_nodes_(num_nodes), min_pts_(min_pts), radius_(radius) {
     ifs_ = std::move(in);
@@ -39,10 +39,13 @@ class Solver {
     return *graph_;
   }
   void prepare_dataset() {
+    using namespace std::chrono;
+    high_resolution_clock::time_point start = high_resolution_clock::now();
+
     dataset_ = std::make_unique<Dataset<DimensionType>>(num_nodes_);
     size_t n;
     float x, y;
-    if (std::is_same_v<DimensionType, dimension::TwoD>) {
+    if (std::is_same_v<DimensionType, distance::EuclideanTwoD>) {
       while (*ifs_ >> n >> x >> y) {
         (*dataset_)[n] = DimensionType(x, y);
       }
@@ -50,6 +53,10 @@ class Solver {
       throw std::runtime_error("DimensionType not supported!");
     }
     ifs_->close();
+
+    high_resolution_clock::time_point end = high_resolution_clock::now();
+    duration<double> time_spent = duration_cast<duration<double>>(end - start);
+    logger_->info("prepare_dataset takes {} seconds", time_spent.count());
   }
 
   /*
@@ -76,12 +83,13 @@ class Solver {
       }
     }
     graph_->finalize();
-    classify_nodes();
 
     high_resolution_clock::time_point end = high_resolution_clock::now();
     duration<double> time_spent = duration_cast<duration<double>>(end - start);
     logger_->info("make_graph (Algorithm 1) takes {} seconds",
                   time_spent.count());
+
+    classify_nodes();
   }
 
   /*
@@ -110,7 +118,7 @@ class Solver {
 
  private:
   size_t num_nodes_;
-  int min_pts_;
+  uint min_pts_;
   double radius_;
   std::unique_ptr<Dataset < DimensionType>> dataset_ = nullptr;
   std::unique_ptr<Graph> graph_ = nullptr;
@@ -125,6 +133,9 @@ class Solver {
     if (graph_ == nullptr) {
       throw std::runtime_error("Call make_graph to generate the graph!");
     }
+    using namespace std::chrono;
+    high_resolution_clock::time_point start = high_resolution_clock::now();
+
     for (size_t node = 0; node < num_nodes_; ++node) {
       if (graph_->Va[node * 2] >= min_pts_) {
         graph_->membership[node] = membership::Core;
@@ -132,6 +143,11 @@ class Solver {
         graph_->membership[node] = membership::Noise;
       }
     }
+
+    high_resolution_clock::time_point end = high_resolution_clock::now();
+    duration<double> time_spent = duration_cast<duration<double>>(end - start);
+    logger_->info("classify_nodes (Algorithm 1) takes {} seconds",
+                  time_spent.count());
   }
 
   /*
@@ -173,7 +189,7 @@ class Solver {
 
 template<class DimensionType>
 static std::unique_ptr<Solver<DimensionType>> make_solver(std::string input,
-                                                          int min_pts,
+                                                          uint min_pts,
                                                           double radius) {
   size_t num_nodes;
   auto ifs = std::make_unique<std::ifstream>(input);

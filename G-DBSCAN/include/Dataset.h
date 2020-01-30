@@ -34,7 +34,7 @@ class Dataset {
   size_t size_;
   std::vector<DimensionType> positions_;
   void check_oob(const size_t &pos) const {
-    if (pos < 0 || pos >= size_) {
+    if (pos >= size_) {
       std::ostringstream oss;
       oss << pos << " out of bound!";
       throw std::runtime_error(oss.str());

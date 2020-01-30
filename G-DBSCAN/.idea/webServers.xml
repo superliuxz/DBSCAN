@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="ee980574-d005-4dc0-b26d-05fe57db3540" name="home" url="http://xiaozhou.duckdns.org">
+        <fileTransfer host="xiaozhou.duckdns.org" port="14159" privateKey="$USER_HOME$/.ssh/id_rsa" accessType="SFTP" keyPair="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+          <option name="port" value="14159" />
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

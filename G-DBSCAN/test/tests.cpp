@@ -7,7 +7,7 @@
 #include <gtest/gtest.h>
 
 #include "../include/Dataset.h"
-#include "../include/Dimension.h"
+#include "../include/Distance.h"
 #include "../include/Graph.h"
 #include "../include/Solver.h"
 
@@ -97,53 +97,58 @@ TEST(Graph, classify_node_fail_oob) {
 }
 
 TEST(TwoD, distance) {
-  using namespace GDBSCAN::dimension;
-  TwoD p(1, 2), q(3, 4);
+  using namespace GDBSCAN::distance;
+  EuclideanTwoD p(1, 2), q(3, 4);
   EXPECT_DOUBLE_EQ(p - q, std::sqrt(std::pow(1 - 3, 2) + std::pow(2 - 4, 2)));
-  p = TwoD(-1, -4);
-  q = TwoD(4, 1);
+  p = EuclideanTwoD(-1, -4);
+  q = EuclideanTwoD(4, 1);
   EXPECT_DOUBLE_EQ(p - q, std::sqrt(std::pow(-1 - 4, 2) + std::pow(-4 - 1, 2)));
-  p = TwoD(0, 0);
+  p = EuclideanTwoD(0, 0);
   EXPECT_DOUBLE_EQ(p - q, std::sqrt(std::pow(0 - 4, 2) + std::pow(0 - 1, 2)));
-  p = TwoD(1, 2);
-  q = TwoD(2.5, 3.4);
+  p = EuclideanTwoD(1, 2);
+  q = EuclideanTwoD(2.5, 3.4);
   EXPECT_DOUBLE_EQ(
       p - q, std::sqrt(std::pow(1.0f - 2.5f, 2) + std::pow(2.0f - 3.4f, 2)));
 }
 
 TEST(Dataset, setter_getter) {
   using namespace GDBSCAN;
-  Dataset<dimension::TwoD> d(5);
-  d[0] = dimension::TwoD(0.0f, 0.0f);
-  d[1] = dimension::TwoD(1.0f, 1.0f);
-  d[2] = dimension::TwoD(2.0f, 2.0f);
-  d[3] = dimension::TwoD(3.0f, 3.0f);
-  d[4] = dimension::TwoD(4.0f, 4.0f);
-  EXPECT_THAT(d.view(), testing::ElementsAre(dimension::TwoD(0.0f, 0.0f),
-                                             dimension::TwoD(1.0f, 1.0f),
-                                             dimension::TwoD(2.0f, 2.0f),
-                                             dimension::TwoD(3.0f, 3.0f),
-                                             dimension::TwoD(4.0f, 4.0f)));
+  Dataset<distance::EuclideanTwoD> d(5);
+  d[0] = distance::EuclideanTwoD(0.0f, 0.0f);
+  d[1] = distance::EuclideanTwoD(1.0f, 1.0f);
+  d[2] = distance::EuclideanTwoD(2.0f, 2.0f);
+  d[3] = distance::EuclideanTwoD(3.0f, 3.0f);
+  d[4] = distance::EuclideanTwoD(4.0f, 4.0f);
+  EXPECT_THAT(d.view(),
+              testing::ElementsAre(distance::EuclideanTwoD(0.0f, 0.0f),
+                                   distance::EuclideanTwoD(1.0f, 1.0f),
+                                   distance::EuclideanTwoD(2.0f, 2.0f),
+                                   distance::EuclideanTwoD(3.0f, 3.0f),
+                                   distance::EuclideanTwoD(4.0f, 4.0f)));
 }
 
 TEST(Solver, prepare_dataset) {
   using namespace GDBSCAN;
   auto solver =
-      GDBSCAN::make_solver<dimension::TwoD>("../test/test_input1.txt", 2, 3.0f);
+      GDBSCAN::make_solver<distance::EuclideanTwoD>("../test/test_input1.txt",
+                                                    2,
+                                                    3.0f);
   ASSERT_NO_THROW(solver->prepare_dataset());
   EXPECT_THAT(solver->dataset_view(),
-              testing::ElementsAre(dimension::TwoD(1.0f, 2.0f),
-                                   dimension::TwoD(2.0f, 2.0f),
-                                   dimension::TwoD(2.0f, 3.0f),
-                                   dimension::TwoD(8.0f, 7.0f),
-                                   dimension::TwoD(8.0f, 8.0f),
-                                   dimension::TwoD(25.0f, 80.0f)));
+              testing::ElementsAre(distance::EuclideanTwoD(1.0f, 2.0f),
+                                   distance::EuclideanTwoD(2.0f, 2.0f),
+                                   distance::EuclideanTwoD(2.0f, 3.0f),
+                                   distance::EuclideanTwoD(8.0f, 7.0f),
+                                   distance::EuclideanTwoD(8.0f, 8.0f),
+                                   distance::EuclideanTwoD(25.0f, 80.0f)));
 }
 
 TEST(Solver, make_graph_small_graph) {
   using namespace GDBSCAN;
   auto solver =
-      GDBSCAN::make_solver<dimension::TwoD>("../test/test_input1.txt", 2, 3.0f);
+      GDBSCAN::make_solver<distance::EuclideanTwoD>("../test/test_input1.txt",
+                                                    2,
+                                                    3.0f);
   ASSERT_NO_THROW(solver->prepare_dataset());
 
   ASSERT_NO_THROW(solver->make_graph());
@@ -172,7 +177,9 @@ TEST(Solver, make_graph_small_graph) {
 TEST(Solver, identify_cluster_small_graph) {
   using namespace GDBSCAN;
   auto solver =
-      GDBSCAN::make_solver<dimension::TwoD>("../test/test_input1.txt", 2, 3.0f);
+      GDBSCAN::make_solver<distance::EuclideanTwoD>("../test/test_input1.txt",
+                                                    2,
+                                                    3.0f);
   ASSERT_NO_THROW(solver->prepare_dataset());
   ASSERT_NO_THROW(solver->make_graph());
   ASSERT_NO_THROW(solver->identify_cluster());
@@ -185,7 +192,9 @@ TEST(Solver, identify_cluster_small_graph) {
 TEST(Solver, test_input2) {
   using namespace GDBSCAN;
   auto solver =
-      GDBSCAN::make_solver<dimension::TwoD>("../test/test_input2.txt", 2, 3.0f);
+      GDBSCAN::make_solver<distance::EuclideanTwoD>("../test/test_input2.txt",
+                                                    2,
+                                                    3.0f);
   ASSERT_NO_THROW(solver->prepare_dataset());
   ASSERT_NO_THROW(solver->make_graph());
   ASSERT_NO_THROW(solver->identify_cluster());
@@ -224,7 +233,9 @@ TEST(Solver, test_input2) {
 TEST(Solver, test_input3) {
   using namespace GDBSCAN;
   auto solver =
-      GDBSCAN::make_solver<dimension::TwoD>("../test/test_input3.txt", 3, 3.0f);
+      GDBSCAN::make_solver<distance::EuclideanTwoD>("../test/test_input3.txt",
+                                                    3,
+                                                    3.0f);
   ASSERT_NO_THROW(solver->prepare_dataset());
   ASSERT_NO_THROW(solver->make_graph());
   ASSERT_NO_THROW(solver->identify_cluster());
@@ -264,7 +275,7 @@ TEST(Solver, test_input3) {
 
 int main(int argc, char *argv[]) {
   auto logger = spdlog::stdout_color_mt("console");
-  logger->set_level(spdlog::level::info);
+  logger->set_level(spdlog::level::critical);
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

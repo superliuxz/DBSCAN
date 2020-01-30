@@ -17,11 +17,20 @@ parser.add_argument('--n-samples', type=int, default=500,
                     help='number of sample points')
 parser.add_argument('--visualize', action='store_true',
                     help='visualize the clustering result')
+parser.add_argument('--cluster-std', type=float, default=2.0,
+                    help='stddiv for generating clustered points')
+parser.add_argument('--eps', type=float, default=0.3,
+                    help='radius')
+parser.add_argument('--min_samples', type=int, default=10,
+                    help='number of points to be considered as a Core')
+parser.add_argument('--print-cluster-id', action='store_true',
+                    help='print the clustered result to stdout')
+
 args = parser.parse_args()
 
 centers = [[10, 10], [-10, -10], [10, -10], [-10, 10]]
 points, _ = make_blobs(n_samples=args.n_samples, centers=centers,
-                       cluster_std=4.0, random_state=RANDOM_STATE)
+                       cluster_std=args.cluster_std, random_state=RANDOM_STATE)
 
 points = StandardScaler().fit_transform(points)
 
@@ -34,9 +43,11 @@ if args.generate:
       fout.write(f"{i} {p[0]:.6f} {p[1]:.6f}\n")
   exit(0)
 
-db = DBSCAN(eps=0.3, min_samples=10).fit(points)
-for l in db.labels_:
-  print(l)
+db = DBSCAN(eps=args.eps, min_samples=args.min_samples).fit(points)
+
+if args.print_cluster_id:
+  for l in db.labels_:
+    print(l)
 
 if args.visualize:
   core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
