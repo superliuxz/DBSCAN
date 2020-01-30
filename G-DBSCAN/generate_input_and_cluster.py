@@ -9,22 +9,26 @@ RANDOM_STATE = 42
 
 parser = argparse.ArgumentParser(
   description='Generate input and perform DBSCAN.')
+
+# random points generation
 parser.add_argument('--generate', action='store_true',
-                    help='generate test input (overwrite the existing one)')
-parser.add_argument('--test-input-name', type=str, default='test.out',
-                    help='the test input name')
+                    help='generate test input (overwrite the existing one). '
+                         'this flag disables other feature of the script.')
+parser.add_argument('--output-name', type=str, default='test.out',
+                    help='the output file name')
 parser.add_argument('--n-samples', type=int, default=500,
                     help='number of sample points')
-parser.add_argument('--visualize', action='store_true',
-                    help='visualize the clustering result')
 parser.add_argument('--cluster-std', type=float, default=2.0,
                     help='stddiv for generating clustered points')
-parser.add_argument('--eps', type=float, default=0.3,
-                    help='radius')
-parser.add_argument('--min_samples', type=int, default=10,
-                    help='number of points to be considered as a Core')
+# DBSCAN clustering
+parser.add_argument('--visualize', action='store_true',
+                    help='visualize the clustering result')
 parser.add_argument('--print-cluster-id', action='store_true',
                     help='print the clustered result to stdout')
+parser.add_argument('--eps', type=float, default=0.3,
+                    help='clustering radius')
+parser.add_argument('--min_samples', type=int, default=10,
+                    help='number of points to be considered as a Core')
 
 args = parser.parse_args()
 
@@ -37,7 +41,7 @@ points = StandardScaler().fit_transform(points)
 N = len(points)
 
 if args.generate:
-  with open(args.test_input_name, 'w') as fout:
+  with open(args.output_name, 'w') as fout:
     fout.write(f'{N}\n')
     for i, p in enumerate(points):
       fout.write(f"{i} {p[0]:.6f} {p[1]:.6f}\n")

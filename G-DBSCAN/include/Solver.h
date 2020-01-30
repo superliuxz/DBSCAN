@@ -11,8 +11,8 @@
 #include "Dataset.h"
 #include "Distance.h"
 #include "Graph.h"
-#include "spdlog/spdlog.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
+#include "spdlog/spdlog.h"
 
 namespace GDBSCAN {
 
@@ -82,12 +82,20 @@ class Solver {
         }
       }
     }
-    graph_->finalize();
 
     high_resolution_clock::time_point end = high_resolution_clock::now();
     duration<double> time_spent = duration_cast<duration<double>>(end - start);
-    logger_->info("make_graph (Algorithm 1) takes {} seconds",
-                  time_spent.count());
+    logger_->info(
+        "make_graph (Algorithm 1) - graph_->insert_edge takes {} seconds",
+        time_spent.count());
+
+    graph_->finalize();
+
+    time_spent =
+        duration_cast<duration<double>>(high_resolution_clock::now() - end);
+    logger_->info(
+        "make_graph (Algorithm 1) - graph_->finalize takes {} seconds",
+        time_spent.count());
 
     classify_nodes();
   }
@@ -146,7 +154,7 @@ class Solver {
 
     high_resolution_clock::time_point end = high_resolution_clock::now();
     duration<double> time_spent = duration_cast<duration<double>>(end - start);
-    logger_->info("classify_nodes (Algorithm 1) takes {} seconds",
+    logger_->info("make_graph (Algorithm 1) - classify_nodes takes {} seconds",
                   time_spent.count());
   }
 
