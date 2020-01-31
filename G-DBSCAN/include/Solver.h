@@ -9,14 +9,18 @@
 #include <memory>
 
 #include "Dataset.h"
-#include "Distance.h"
+#include "Point.h"
 #include "Graph.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/spdlog.h"
 
+#ifdef __APPLE__
+#include<sys/sysctl.h>
+#endif
+
 namespace GDBSCAN {
 
-template<class DimensionType>
+template<class PointType>
 class Solver {
  public:
   explicit Solver(std::unique_ptr<std::ifstream> in,
@@ -31,7 +35,7 @@ class Solver {
     }
   }
 #ifdef TESTING
-  const std::vector<DimensionType> dataset_view() const {
+  const std::vector<PointType> dataset_view() const {
     return dataset_->view();
   }
 #endif
@@ -42,15 +46,15 @@ class Solver {
     using namespace std::chrono;
     high_resolution_clock::time_point start = high_resolution_clock::now();
 
-    dataset_ = std::make_unique<Dataset<DimensionType>>(num_nodes_);
+    dataset_ = std::make_unique<Dataset<PointType>>(num_nodes_);
     size_t n;
     float x, y;
-    if (std::is_same_v<DimensionType, distance::EuclideanTwoD>) {
+    if (std::is_same_v<PointType, point::EuclideanTwoD>) {
       while (*ifs_ >> n >> x >> y) {
-        (*dataset_)[n] = DimensionType(x, y);
+        (*dataset_)[n] = PointType(x, y);
       }
     } else {
-      throw std::runtime_error("DimensionType not supported!");
+      throw std::runtime_error("PointType not supported!");
     }
     ifs_->close();
 
@@ -75,6 +79,43 @@ class Solver {
     high_resolution_clock::time_point start = high_resolution_clock::now();
 
     graph_ = std::make_unique<Graph>(num_nodes_);
+
+#ifdef USE_TILING
+    logger_->info("use tiling...");
+    size_t cache_line_size; // cache line size in bytes
+// https://stackoverflow.com/questions/794632/programmatically-get-the-cache-line-size
+#if defined(__APPLE__)
+    logger_->info("platform: APPLE");
+    size_t size_t_size = sizeof(cache_line_size);
+    sysctlbyname("hw.cachelinesize", &cache_line_size, &size_t_size, 0, 0);
+#elif defined(__linux__)
+    logger_->info("platform: LINUX");
+    cache_line_size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
+#else
+    throw std::runtime_error("Only Mac and Linux are supported!");
+#endif
+    size_t block_size = cache_line_size / PointType::size();
+    logger_->info(
+        "cache line size {} bytes; "
+        "PointType size: {} bytes; "
+        "read block size {} bytes",
+        cache_line_size,
+        PointType::size(),
+        block_size);
+    for (size_t u = 0; u < num_nodes_; u += block_size) {
+      size_t uu = std::min(u + block_size, num_nodes_);
+      for (size_t v = u + 1; v < num_nodes_; v += block_size) {
+        size_t vv = std::min(v + block_size, num_nodes_);
+        for (size_t i = u; i < uu; ++i) {
+          for (size_t j = v; j < vv; ++j) {
+            if ((*dataset_)[i] - (*dataset_)[j] <= radius_) {
+              graph_->insert_edge(i, j);
+            }
+          }
+        }
+      }
+    }
+#else
     for (size_t u = 0; u < num_nodes_; ++u) {
       for (size_t v = u + 1; v < num_nodes_; ++v) {
         if ((*dataset_)[u] - (*dataset_)[v] <= radius_) {
@@ -82,7 +123,7 @@ class Solver {
         }
       }
     }
-
+#endif
     high_resolution_clock::time_point end = high_resolution_clock::now();
     duration<double> time_spent = duration_cast<duration<double>>(end - start);
     logger_->info(
@@ -128,7 +169,7 @@ class Solver {
   size_t num_nodes_;
   uint min_pts_;
   double radius_;
-  std::unique_ptr<Dataset < DimensionType>> dataset_ = nullptr;
+  std::unique_ptr<Dataset < PointType>> dataset_ = nullptr;
   std::unique_ptr<Graph> graph_ = nullptr;
   std::unique_ptr<std::ifstream> ifs_ = nullptr;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
@@ -195,17 +236,17 @@ class Solver {
   }
 };
 
-template<class DimensionType>
-static std::unique_ptr<Solver<DimensionType>> make_solver(std::string input,
-                                                          uint min_pts,
-                                                          double radius) {
+template<class PointType>
+static std::unique_ptr<Solver<PointType>> make_solver(std::string input,
+                                                      uint min_pts,
+                                                      double radius) {
   size_t num_nodes;
   auto ifs = std::make_unique<std::ifstream>(input);
   *ifs >> num_nodes;
-  return std::make_unique<Solver<DimensionType>>(std::move(ifs),
-                                                 num_nodes,
-                                                 min_pts,
-                                                 radius);
+  return std::make_unique<Solver<PointType>>(std::move(ifs),
+                                             num_nodes,
+                                             min_pts,
+                                             radius);
 }
 }
 

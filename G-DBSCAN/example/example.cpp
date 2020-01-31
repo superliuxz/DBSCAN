@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include "../include/Solver.h"
-#include "../include/Distance.h"
+#include "../include/Point.h"
 
 int main(int argc, char *argv[]) {
   (void) argc;
@@ -13,9 +13,9 @@ int main(int argc, char *argv[]) {
   float radius = std::stof(argv[3]);
 
   auto runner =
-      GDBSCAN::make_solver<GDBSCAN::distance::EuclideanTwoD>(std::string(argv[1]),
-                                                             min_pts,
-                                                             radius);
+      GDBSCAN::make_solver<GDBSCAN::point::EuclideanTwoD>(std::string(argv[1]),
+                                                          min_pts,
+                                                          radius);
   runner->prepare_dataset();
   runner->make_graph();
   runner->identify_cluster();

@@ -4,6 +4,21 @@ project(GDBSCAN)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -O3")
 
+if (DEFINED ENV{TILING} $ENV{TILING} STREQUAL "TRUE")
+  message("tiling enabled!")
+  set(TILING USE_TILING)
+endif ()
+
+if (DEFINED ENV{OPTM_1} STREQUAL "TRUE")
+  message("Optimisation in Graph.h - finalize() enabled!")
+  set(OPTM_1 OPTM_1)
+endif ()
+
+if (DEFINED ENV{OPTM_2} STREQUAL "TRUE")
+  message("Optimisation in Graph.h - ctor() enabled!")
+  set(OPTM_2 OPTM_2)
+endif ()
+
 ##
 # Copied from
 # https://github.com/google/googletest/tree/master/googletest#incorporating-into-an-existing-cmake-project
@@ -47,16 +62,17 @@ endif ()
 include_directories(spdlog/include)
 
 # GDBSCAN lib
-add_library(GDBSCAN SHARED include/Graph.h include/Dataset.h include/Distance.h include/Solver.h include/Membership.h)
+add_library(GDBSCAN SHARED include/Graph.h include/Dataset.h include/Point.h include/Solver.h include/Membership.h)
 set_target_properties(GDBSCAN PROPERTIES LINKER_LANGUAGE CXX)
 
 # test
 enable_testing()
-add_executable(unittest test/tests.cpp include/Dataset.h include/Distance.h include/Solver.h include/Membership.h)
+add_executable(unittest test/tests.cpp include/Dataset.h include/Point.h include/Solver.h include/Membership.h)
 add_test(unittest test/test.cpp)
 target_link_libraries(unittest gtest_main gmock_main GDBSCAN)
 target_compile_definitions(unittest PRIVATE TESTING)
 
 # example
-add_executable(example example/example.cpp include/Dataset.h include/Distance.h include/Solver.h include/Membership.h)
+add_executable(example example/example.cpp include/Dataset.h include/Point.h include/Solver.h include/Membership.h)
 target_link_libraries(example GDBSCAN)
+target_compile_definitions(example PRIVATE "${TILING}" "${OPTM_1}" "${OPTM_2}")

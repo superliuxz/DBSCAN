@@ -10,29 +10,29 @@
 
 namespace GDBSCAN {
 
-template<class DimensionType>
+template<class PointType>
 class Dataset {
  public:
   explicit Dataset(size_t num_nodes) : size_(num_nodes),
-                                       positions_(num_nodes, DimensionType()) {}
+                                       positions_(num_nodes, PointType()) {}
   // setter
-  DimensionType &operator[](const size_t &node) {
+  PointType &operator[](const size_t &node) {
     check_oob(node);
     return positions_[node];
   }
   // getter
-  const DimensionType &operator[](const size_t &node) const {
+  const PointType &operator[](const size_t &node) const {
     check_oob(node);
     return positions_[node];
   }
 #ifdef TESTING
-  const std::vector<DimensionType> view() const {
-    return std::vector<DimensionType>(positions_);
+  const std::vector<PointType> view() const {
+    return std::vector<PointType>(positions_);
   }
 #endif
  private:
   size_t size_;
-  std::vector<DimensionType> positions_;
+  std::vector<PointType> positions_;
   void check_oob(const size_t &pos) const {
     if (pos >= size_) {
       std::ostringstream oss;

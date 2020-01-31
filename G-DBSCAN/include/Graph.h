@@ -22,9 +22,19 @@ class Graph {
       Va(num_nodes * 2, 0),
       // -1 as unvisited/un-clustered.
       cluster_ids(num_nodes, -1),
+#ifndef OPTM_2
       membership(num_nodes, membership::Border),
-      Ea_(num_nodes, std::vector<size_t>()) {
+      Ea_(num_nodes, std::vector<size_t>()) {}
+#else
+  membership(num_nodes, membership::Border) {
+  Ea_.reserve(num_nodes);
+  for (size_t i = 0; i < num_nodes; ++i) {
+    std::vector<size_t> n;
+    n.reserve(num_nodes - 1);
+    Ea_.emplace_back(n);
   }
+}
+#endif
 
   void insert_edge(size_t u, size_t v) {
     assert_mutable();
@@ -56,12 +66,27 @@ class Graph {
       Va[curr_node * 2] = static_cast<size_t>(nbs.size());
       // pos in Ea
       Va[curr_node * 2 + 1] =
-          static_cast<size_t>(curr_node == 0 ? 0 : Ea.size());
+          static_cast<size_t>(
+              curr_node ==
+                  0 ? 0 : (Va[curr_node * 2 - 1] + Va[curr_node * 2 - 2])
+          );
+#ifndef OPTM_1
       for (const auto &nb: nbs) {
-        Ea.emplace_back(nb);
+        Ea.push_back(nb);
       }
+#endif
       ++curr_node;
     }
+#ifdef OPTM_1
+    size_t Ea_size = Va[Va.size() - 1] + Va[Va.size() - 2];
+    Ea.reserve(Ea_size);
+
+    for (const auto &nbs: Ea_) {
+      for (const auto &nb: nbs) {
+        Ea.push_back(nb);
+      }
+    }
+#endif
 
     immutable_ = true;
     Ea_.clear();
