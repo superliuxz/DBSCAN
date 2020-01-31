@@ -24,27 +24,27 @@ class Graph {
       cluster_ids(num_nodes, -1),
 #ifndef OPTM_2
       membership(num_nodes, membership::Border),
-      Ea_(num_nodes, std::vector<size_t>()) {}
+      temp_adj_list_(num_nodes, std::vector<size_t>()) {}
 #else
   membership(num_nodes, membership::Border) {
-  Ea_.reserve(num_nodes);
+  temp_adj_list_.reserve(num_nodes);
   for (size_t i = 0; i < num_nodes; ++i) {
     std::vector<size_t> n;
     n.reserve(num_nodes - 1);
-    Ea_.emplace_back(n);
+    temp_adj_list_.emplace_back(n);
   }
 }
 #endif
 
   void insert_edge(size_t u, size_t v) {
     assert_mutable();
-    if (u >= Ea_.size() || v >= Ea_.size()) {
+    if (u >= temp_adj_list_.size() || v >= temp_adj_list_.size()) {
       std::ostringstream oss;
       oss << u << "-" << v << " is out of bound!";
       throw std::runtime_error(oss.str());
     }
-    Ea_[u].push_back(v);
-    Ea_[v].push_back(u);
+    temp_adj_list_[u].push_back(v);
+    temp_adj_list_[v].push_back(u);
   }
 
   void cluster_node(size_t node, int cluster_id) {
@@ -61,7 +61,7 @@ class Graph {
     assert_mutable();
 
     size_t curr_node = 0;
-    for (const auto &nbs: Ea_) {
+    for (const auto &nbs: temp_adj_list_) {
       // number of neighbours
       Va[curr_node * 2] = static_cast<size_t>(nbs.size());
       // pos in Ea
@@ -81,7 +81,7 @@ class Graph {
     size_t Ea_size = Va[Va.size() - 1] + Va[Va.size() - 2];
     Ea.reserve(Ea_size);
 
-    for (const auto &nbs: Ea_) {
+    for (const auto &nbs: temp_adj_list_) {
       for (const auto &nb: nbs) {
         Ea.push_back(nb);
       }
@@ -89,7 +89,7 @@ class Graph {
 #endif
 
     immutable_ = true;
-    Ea_.clear();
+    temp_adj_list_.clear();
   }
 
  private:
@@ -104,7 +104,7 @@ class Graph {
     }
   }
   bool immutable_ = false;
-  std::vector<std::vector<size_t>> Ea_;
+  std::vector<std::vector<size_t>> temp_adj_list_;
 };
 } // namespace GDBSCAN
 
