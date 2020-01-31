@@ -62,7 +62,7 @@ endif ()
 include_directories(spdlog/include)
 
 # GDBSCAN lib
-add_library(GDBSCAN SHARED include/Graph.h include/Dataset.h include/Point.h include/Solver.h include/Membership.h)
+add_library(GDBSCAN SHARED include/Graph.h include/Dataset.h include/Point.h include/Solver.h include/Membership.h include/Helper.h)
 set_target_properties(GDBSCAN PROPERTIES LINKER_LANGUAGE CXX)
 
 # test
@@ -73,6 +73,6 @@ target_link_libraries(unittest gtest_main gmock_main GDBSCAN)
 target_compile_definitions(unittest PRIVATE TESTING)
 
 # example
-add_executable(example example/example.cpp include/Dataset.h include/Point.h include/Solver.h include/Membership.h)
+add_executable(example example/example.cpp include/Dataset.h include/Point.h include/Solver.h include/Membership.h include/Helper.h)
 target_link_libraries(example GDBSCAN)
 target_compile_definitions(example PRIVATE "${TILING}" "${OPTM_1}" "${OPTM_2}")

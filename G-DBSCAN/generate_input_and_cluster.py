@@ -27,7 +27,7 @@ parser.add_argument('--print-cluster-id', action='store_true',
                     help='print the clustered result to stdout')
 parser.add_argument('--eps', type=float, default=0.3,
                     help='clustering radius')
-parser.add_argument('--min_samples', type=int, default=10,
+parser.add_argument('--min_samples', type=int, default=9,
                     help='number of points to be considered as a Core')
 
 args = parser.parse_args()
@@ -47,7 +47,7 @@ if args.generate:
       fout.write(f"{i} {p[0]:.6f} {p[1]:.6f}\n")
   exit(0)
 
-db = DBSCAN(eps=args.eps, min_samples=args.min_samples).fit(points)
+db = DBSCAN(eps=args.eps, min_samples=args.min_samples + 1).fit(points)
 
 if args.print_cluster_id:
   for l in db.labels_:

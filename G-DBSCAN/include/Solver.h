@@ -186,9 +186,19 @@ class Solver {
     high_resolution_clock::time_point start = high_resolution_clock::now();
 
     for (size_t node = 0; node < num_nodes_; ++node) {
+      logger_->debug("{} has {} neighbours within {}",
+                     node,
+                     graph_->Va[node * 2],
+                     radius_);
+      logger_->debug("{} >= {}: {}",
+                     graph_->Va[node * 2],
+                     min_pts_,
+                     graph_->Va[node * 2] >= min_pts_ ? "true" : "false");
       if (graph_->Va[node * 2] >= min_pts_) {
+        logger_->debug("{} to Core", node);
         graph_->membership[node] = membership::Core;
       } else {
+        logger_->debug("{} to Noise", node);
         graph_->membership[node] = membership::Noise;
       }
     }
