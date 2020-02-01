@@ -85,7 +85,7 @@ class Graph {
       for (const auto &nb: nbs) {
         Ea.push_back(nb);
       }
-#endif
+#endif // OPTM_1
       ++curr_node;
     }
 #ifdef OPTM_1
@@ -97,9 +97,8 @@ class Graph {
         Ea.push_back(nb);
       }
     }
-#endif
-    logger_->debug(GDBSCAN::helper::print_vector("Va", Va));
-    logger_->debug(GDBSCAN::helper::print_vector("Ea", Ea));
+#endif // OPTM_1
+
     immutable_ = true;
     temp_adj_list_.clear();
   }
@@ -117,7 +116,7 @@ class Graph {
       Va[curr_node * 2 + 1] = Va_pos;
       Va_pos += num_neighbours;
     }
-    logger_->debug(GDBSCAN::helper::print_vector("Va", Va));
+
     // construct Ea
     Ea.reserve(Va[Va.size() - 1] + Va[Va.size() - 2]);
     curr_node = 0;
@@ -128,11 +127,11 @@ class Graph {
         Ea.push_back(temp_adj_list_[i + 1 + j]);
       }
     }
-    logger_->debug(GDBSCAN::helper::print_vector("Ea", Ea));
+
     immutable_ = true;
     temp_adj_list_.clear();
   }
-#endif
+#endif // OPTM_2
 
  private:
   void constexpr assert_mutable() const {
