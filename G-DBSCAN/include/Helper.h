@@ -15,7 +15,12 @@ static std::string print_vector(const std::string &vector_name,
                                 std::vector<T> vector) {
   std::ostringstream oss;
   oss << vector_name << ": ";
-  for (const auto &v : vector) oss << v << " ";
+  const auto &it = vector.cbegin();
+  while (it != vector.cend() - 1) {
+    std::cout << *it << ", ";
+    std::advance(it);
+  }
+  std::cout << *(it++) << std::endl;
   return oss.str();
 }
 }

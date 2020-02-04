@@ -20,25 +20,36 @@ class Graph {
   std::vector<int> cluster_ids;
   std::vector<membership::Membership> membership;
 
+#ifndef FLAT_ADJ
   explicit Graph(size_t num_nodes) :
       Va(num_nodes * 2, 0),
       // -1 as unvisited/un-clustered.
       cluster_ids(num_nodes, -1),
       membership(num_nodes, membership::Border),
       num_nodes_(num_nodes),
-#ifndef OPTM_2
       temp_adj_list_(num_nodes, std::vector<size_t>()) {
-#else
-      temp_adj_list_(num_nodes * num_nodes, 0) {
-        for (size_t i = 0; i < temp_adj_list_.capacity(); i += num_nodes) {
-          temp_adj_list_[i] = i + 1;
-        }
-#endif
     logger_ = spdlog::get("console");
     if (logger_ == nullptr) {
       throw std::runtime_error("logger not created!");
     }
   }
+#else // FLAT_ADJ
+  explicit Graph(size_t num_nodes) :
+      Va(num_nodes * 2, 0),
+      // -1 as unvisited/un-clustered.
+      cluster_ids(num_nodes, -1),
+      membership(num_nodes, membership::Border),
+      num_nodes_(num_nodes),
+      temp_adj_list_(num_nodes * num_nodes, 0) {
+    for (size_t i = 0; i < temp_adj_list_.size(); i += num_nodes) {
+      temp_adj_list_[i] = i + 1;
+    }
+    logger_ = spdlog::get("console");
+    if (logger_ == nullptr) {
+      throw std::runtime_error("logger not created!");
+    }
+  }
+#endif // FLAT_ADJ
 
   void insert_edge(size_t u, size_t v) {
     assert_mutable();
@@ -48,15 +59,26 @@ class Graph {
       oss << u << "-" << v << " is out of bound!";
       throw std::runtime_error(oss.str());
     }
-#ifndef OPTM_2
+
+#ifndef FLAT_ADJ
+    logger_->debug("push {} as a neighbour of {}", v, u);
     temp_adj_list_[u].push_back(v);
+
+#ifndef SQRE_ENUM
+    logger_->debug("push {} as a neighbour of {}", u, v);
     temp_adj_list_[v].push_back(u);
-#else
-    size_t u_start = u * num_nodes_;
-    size_t v_start = v * num_nodes_;
-    temp_adj_list_[temp_adj_list_[u_start]++] = v;
-    temp_adj_list_[temp_adj_list_[v_start]++] = u;
-#endif // OPTM_2
+#endif // SQRE_ENUM
+
+#else // FLAT_ADJ
+    logger_->debug("push {} as a neighbour of {}", v, u);
+    temp_adj_list_[temp_adj_list_[u * num_nodes_]++] = v;
+
+#ifndef SQRE_ENUM
+    logger_->debug("push {} as a neighbour of {}", u, v);
+    temp_adj_list_[temp_adj_list_[v * num_nodes_]++] = u;
+#endif // SQRE_ENUM
+
+#endif // FLAT_ADJ
   }
 
   void cluster_node(size_t node, int cluster_id) {
@@ -69,7 +91,7 @@ class Graph {
     cluster_ids[node] = cluster_id;
   }
 
-#ifndef OPTM_2
+#ifndef FLAT_ADJ
   void finalize() {
     assert_mutable();
 
@@ -98,11 +120,10 @@ class Graph {
       }
     }
 #endif // OPTM_1
-
     immutable_ = true;
     temp_adj_list_.clear();
   }
-#else
+#else // FLAT_ADJ
   void finalize() {
     assert_mutable();
 
@@ -131,7 +152,7 @@ class Graph {
     immutable_ = true;
     temp_adj_list_.clear();
   }
-#endif // OPTM_2
+#endif // FLAT_ADJ
 
  private:
   void constexpr assert_mutable() const {
@@ -147,7 +168,7 @@ class Graph {
   bool immutable_ = false;
   size_t num_nodes_;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
-#ifndef OPTM_2
+#ifndef FLAT_ADJ
   std::vector<std::vector<size_t>> temp_adj_list_;
 #else
   std::vector<size_t> temp_adj_list_;

@@ -5,8 +5,13 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -O3")
 
 if (DEFINED ENV{TILING})
-  message("tiling enabled!")
-  set(TILING USE_TILING)
+  message("*** tiling enabled!")
+  set(TILING TILING)
+endif ()
+
+if (DEFINED ENV{SQRE_ENUM})
+  message("*** square enumeration enabled!")
+  set(SQRE_ENUM SQRE_ENUM)
 endif ()
 
 if (DEFINED ENV{OPTM_1})
@@ -14,9 +19,9 @@ if (DEFINED ENV{OPTM_1})
   set(OPTM_1 OPTM_1)
 endif ()
 
-if (DEFINED ENV{OPTM_2})
-  message("Optimisation in Graph.h - ctor() enabled!")
-  set(OPTM_2 OPTM_2)
+if (DEFINED ENV{FLAT_ADJ})
+  message("*** using flat adjacency list to construct Ea and Va!")
+  set(FLAT_ADJ FLAT_ADJ)
 endif ()
 
 ##
@@ -62,17 +67,18 @@ endif ()
 include_directories(spdlog/include)
 
 # GDBSCAN lib
-add_library(GDBSCAN SHARED include/Graph.h include/Dataset.h include/Point.h include/Solver.h include/Membership.h include/Helper.h)
+add_library(GDBSCAN SHARED include/Graph.h include/Point.h include/Solver.h include/Membership.h include/Helper.h)
 set_target_properties(GDBSCAN PROPERTIES LINKER_LANGUAGE CXX)
 
 # test
 enable_testing()
-add_executable(unittest test/tests.cpp include/Dataset.h include/Point.h include/Solver.h include/Membership.h)
+add_executable(unittest test/tests.cpp include/Point.h include/Solver.h include/Membership.h)
 add_test(unittest test/test.cpp)
 target_link_libraries(unittest gtest_main gmock_main GDBSCAN)
 target_compile_definitions(unittest PRIVATE TESTING)
+target_compile_definitions(unittest PRIVATE "${TILING}" "${OPTM_1}" "${FLAT_ADJ}" "${SQRE_ENUM}")
 
 # example
-add_executable(example example/example.cpp include/Dataset.h include/Point.h include/Solver.h include/Membership.h include/Helper.h)
+add_executable(example example/example.cpp include/Point.h include/Solver.h include/Membership.h include/Helper.h)
 target_link_libraries(example GDBSCAN)
-target_compile_definitions(example PRIVATE "${TILING}" "${OPTM_1}" "${OPTM_2}")
+target_compile_definitions(example PRIVATE "${TILING}" "${OPTM_1}" "${FLAT_ADJ}" "${SQRE_ENUM}")
