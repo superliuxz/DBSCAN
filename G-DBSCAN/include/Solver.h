@@ -8,7 +8,6 @@
 #include <fstream>
 #include <memory>
 
-#include "Dataset.h"
 #include "Point.h"
 #include "Graph.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
@@ -36,7 +35,7 @@ class Solver {
   }
 #ifdef TESTING
   const std::vector<PointType> dataset_view() const {
-    return dataset_->view();
+    return *dataset_;
   }
 #endif
   const Graph graph_view() const {
@@ -45,8 +44,8 @@ class Solver {
   void prepare_dataset() {
     using namespace std::chrono;
     high_resolution_clock::time_point start = high_resolution_clock::now();
-
-    dataset_ = std::make_unique<Dataset<PointType>>(num_nodes_);
+    dataset_ =
+        std::make_unique<std::vector<PointType>>(num_nodes_, PointType());
     size_t n;
     float x, y;
     if (std::is_same_v<PointType, point::EuclideanTwoD>) {
@@ -80,34 +79,50 @@ class Solver {
 
     graph_ = std::make_unique<Graph>(num_nodes_);
 
-#ifdef USE_TILING
-    logger_->info("use tiling...");
+#ifdef TILING
+    logger_->debug("use tiling...");
     size_t cache_line_size; // cache line size in bytes
 // https://stackoverflow.com/questions/794632/programmatically-get-the-cache-line-size
 #if defined(__APPLE__)
-    logger_->info("platform: APPLE");
+    logger_->debug("platform: APPLE");
     size_t size_t_size = sizeof(cache_line_size);
     sysctlbyname("hw.cachelinesize", &cache_line_size, &size_t_size, 0, 0);
 #elif defined(__linux__)
-    logger_->info("platform: LINUX");
+    logger_->debug("platform: LINUX");
     cache_line_size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
 #else
     throw std::runtime_error("Only Mac and Linux are supported!");
 #endif
     size_t block_size = cache_line_size / PointType::size();
-    logger_->info(
+    logger_->debug(
         "cache line size {} bytes; "
         "PointType size: {} bytes; "
         "read block size {} bytes",
         cache_line_size,
         PointType::size(),
         block_size);
+
+#ifdef SQRE_ENUM
+    for (size_t u = 0; u < num_nodes_; u += block_size) {
+      size_t uu = std::min(u + block_size, num_nodes_);
+      for (size_t v = 0; v < num_nodes_; v += block_size) {
+        size_t vv = std::min(v + block_size, num_nodes_);
+        for (size_t i = u; i < uu; ++i) {
+          for (size_t j = v; j < vv; ++j) {
+            if (i != j && (*dataset_)[i] - (*dataset_)[j] <= radius_) {
+              graph_->insert_edge(i, j);
+            }
+          }
+        }
+      }
+    }
+#else // SQRE_ENUM
     for (size_t u = 0; u < num_nodes_; u += block_size) {
       size_t uu = std::min(u + block_size, num_nodes_);
       for (size_t v = u + 1; v < num_nodes_; v += block_size) {
         size_t vv = std::min(v + block_size, num_nodes_);
         for (size_t i = u; i < uu; ++i) {
-          for (size_t j = v; j < vv; ++j) {
+          for (size_t j = std::max(i + 1, v); j < vv; ++j) {
             if ((*dataset_)[i] - (*dataset_)[j] <= radius_) {
               graph_->insert_edge(i, j);
             }
@@ -115,7 +130,19 @@ class Solver {
         }
       }
     }
-#else
+#endif // SQRE_ENUM
+
+#else // TILING
+
+#ifdef SQRE_ENUM
+    for (size_t u = 0; u < num_nodes_; ++u) {
+      for (size_t v = 0; v < num_nodes_; ++v) {
+        if (u != v && (*dataset_)[u] - (*dataset_)[v] <= radius_) {
+          graph_->insert_edge(u, v);
+        }
+      }
+    }
+#else // SQRE_ENUM
     for (size_t u = 0; u < num_nodes_; ++u) {
       for (size_t v = u + 1; v < num_nodes_; ++v) {
         if ((*dataset_)[u] - (*dataset_)[v] <= radius_) {
@@ -123,7 +150,9 @@ class Solver {
         }
       }
     }
-#endif
+#endif // SQRE_ENUM
+
+#endif // TILING
     high_resolution_clock::time_point end = high_resolution_clock::now();
     duration<double> time_spent = duration_cast<duration<double>>(end - start);
     logger_->info(
@@ -169,7 +198,7 @@ class Solver {
   size_t num_nodes_;
   uint min_pts_;
   double radius_;
-  std::unique_ptr<Dataset < PointType>> dataset_ = nullptr;
+  std::unique_ptr<std::vector<PointType>> dataset_ = nullptr;
   std::unique_ptr<Graph> graph_ = nullptr;
   std::unique_ptr<std::ifstream> ifs_ = nullptr;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
@@ -186,9 +215,19 @@ class Solver {
     high_resolution_clock::time_point start = high_resolution_clock::now();
 
     for (size_t node = 0; node < num_nodes_; ++node) {
+      logger_->debug("{} has {} neighbours within {}",
+                     node,
+                     graph_->Va[node * 2],
+                     radius_);
+      logger_->debug("{} >= {}: {}",
+                     graph_->Va[node * 2],
+                     min_pts_,
+                     graph_->Va[node * 2] >= min_pts_ ? "true" : "false");
       if (graph_->Va[node * 2] >= min_pts_) {
+        logger_->debug("{} to Core", node);
         graph_->membership[node] = membership::Core;
       } else {
+        logger_->debug("{} to Noise", node);
         graph_->membership[node] = membership::Noise;
       }
     }

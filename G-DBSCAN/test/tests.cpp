@@ -6,10 +6,20 @@
 #include <gmock/gmock.h> // ASSERT_THAT, testing::ElementsAre
 #include <gtest/gtest.h>
 
-#include "../include/Dataset.h"
 #include "../include/Point.h"
 #include "../include/Graph.h"
 #include "../include/Solver.h"
+
+namespace {
+std::string abs_loc;
+}
+
+class GDBSCAN_TestEnvironment : public testing::Environment {
+ public:
+  explicit GDBSCAN_TestEnvironment(const std::string &command_line_arg) {
+    abs_loc = command_line_arg;
+  }
+};
 
 TEST(Graph, ctor_success) {
   GDBSCAN::Graph g(5);
@@ -37,9 +47,21 @@ TEST(Graph, insert_edge_failed_oob) {
 TEST(Graph, finalize_success) {
   GDBSCAN::Graph g(5);
   ASSERT_NO_THROW(g.insert_edge(2, 1));
+#ifdef SQRE_ENUM
+  ASSERT_NO_THROW(g.insert_edge(1, 2));
+#endif
   ASSERT_NO_THROW(g.insert_edge(2, 4));
+#ifdef SQRE_ENUM
+  ASSERT_NO_THROW(g.insert_edge(4, 2));
+#endif
   ASSERT_NO_THROW(g.insert_edge(2, 0));
+#ifdef SQRE_ENUM
+  ASSERT_NO_THROW(g.insert_edge(0, 2));
+#endif
   ASSERT_NO_THROW(g.insert_edge(0, 3));
+#ifdef SQRE_ENUM
+  ASSERT_NO_THROW(g.insert_edge(3, 0));
+#endif
   ASSERT_NO_THROW(g.finalize());
 
   ASSERT_THAT(g.Va, testing::ElementsAre(2, 0, 1, 2, 3, 3, 1, 6, 1, 7));
@@ -60,10 +82,18 @@ TEST(Graph, finalize_fail_second_finalize) {
 TEST(Graph, finalize_success_disconnected_graph) {
   GDBSCAN::Graph g(5);
   ASSERT_NO_THROW(g.insert_edge(2, 1));
+#ifdef SQRE_ENUM
+  ASSERT_NO_THROW(g.insert_edge(1, 2));
+#endif
   ASSERT_NO_THROW(g.insert_edge(2, 4));
+#ifdef SQRE_ENUM
+  ASSERT_NO_THROW(g.insert_edge(4, 2));
+#endif
+  ASSERT_NO_THROW(g.insert_edge(0, 2));
+#ifdef SQRE_ENUM
   ASSERT_NO_THROW(g.insert_edge(2, 0));
+#endif
   ASSERT_NO_THROW(g.finalize());
-
   ASSERT_THAT(g.Va, testing::ElementsAre(1, 0, 1, 1, 3, 2, 0, 5, 1, 5));
   ASSERT_THAT(g.Ea, testing::ElementsAre(2, 2, 1, 4, 0, 2));
 }
@@ -111,26 +141,10 @@ TEST(TwoD, distance) {
       p - q, std::sqrt(std::pow(1.0f - 2.5f, 2) + std::pow(2.0f - 3.4f, 2)));
 }
 
-TEST(Dataset, setter_getter) {
-  using namespace GDBSCAN;
-  Dataset<point::EuclideanTwoD> d(5);
-  d[0] = point::EuclideanTwoD(0.0f, 0.0f);
-  d[1] = point::EuclideanTwoD(1.0f, 1.0f);
-  d[2] = point::EuclideanTwoD(2.0f, 2.0f);
-  d[3] = point::EuclideanTwoD(3.0f, 3.0f);
-  d[4] = point::EuclideanTwoD(4.0f, 4.0f);
-  EXPECT_THAT(d.view(),
-              testing::ElementsAre(point::EuclideanTwoD(0.0f, 0.0f),
-                                   point::EuclideanTwoD(1.0f, 1.0f),
-                                   point::EuclideanTwoD(2.0f, 2.0f),
-                                   point::EuclideanTwoD(3.0f, 3.0f),
-                                   point::EuclideanTwoD(4.0f, 4.0f)));
-}
-
 TEST(Solver, prepare_dataset) {
   using namespace GDBSCAN;
   auto solver =
-      GDBSCAN::make_solver<point::EuclideanTwoD>("../test/test_input1.txt",
+      GDBSCAN::make_solver<point::EuclideanTwoD>(abs_loc + "/test_input1.txt",
                                                  2,
                                                  3.0f);
   ASSERT_NO_THROW(solver->prepare_dataset());
@@ -146,7 +160,7 @@ TEST(Solver, prepare_dataset) {
 TEST(Solver, make_graph_small_graph) {
   using namespace GDBSCAN;
   auto solver =
-      GDBSCAN::make_solver<point::EuclideanTwoD>("../test/test_input1.txt",
+      GDBSCAN::make_solver<point::EuclideanTwoD>(abs_loc + "/test_input1.txt",
                                                  2,
                                                  3.0f);
   ASSERT_NO_THROW(solver->prepare_dataset());
@@ -177,7 +191,7 @@ TEST(Solver, make_graph_small_graph) {
 TEST(Solver, identify_cluster_small_graph) {
   using namespace GDBSCAN;
   auto solver =
-      GDBSCAN::make_solver<point::EuclideanTwoD>("../test/test_input1.txt",
+      GDBSCAN::make_solver<point::EuclideanTwoD>(abs_loc + "/test_input1.txt",
                                                  2,
                                                  3.0f);
   ASSERT_NO_THROW(solver->prepare_dataset());
@@ -192,7 +206,7 @@ TEST(Solver, identify_cluster_small_graph) {
 TEST(Solver, test_input2) {
   using namespace GDBSCAN;
   auto solver =
-      GDBSCAN::make_solver<point::EuclideanTwoD>("../test/test_input2.txt",
+      GDBSCAN::make_solver<point::EuclideanTwoD>(abs_loc + "/test_input2.txt",
                                                  2,
                                                  3.0f);
   ASSERT_NO_THROW(solver->prepare_dataset());
@@ -233,7 +247,7 @@ TEST(Solver, test_input2) {
 TEST(Solver, test_input3) {
   using namespace GDBSCAN;
   auto solver =
-      GDBSCAN::make_solver<point::EuclideanTwoD>("../test/test_input3.txt",
+      GDBSCAN::make_solver<point::EuclideanTwoD>(abs_loc + "/test_input3.txt",
                                                  3,
                                                  3.0f);
   ASSERT_NO_THROW(solver->prepare_dataset());
@@ -273,9 +287,27 @@ TEST(Solver, test_input3) {
   );
 }
 
+TEST(Solver, test_input4) {
+  using namespace GDBSCAN;
+  auto solver =
+      GDBSCAN::make_solver<point::EuclideanTwoD>(abs_loc + "/test_input4.txt",
+                                                 30,
+                                                 0.15f);
+  ASSERT_NO_THROW(solver->prepare_dataset());
+  ASSERT_NO_THROW(solver->make_graph());
+  ASSERT_NO_THROW(solver->identify_cluster());
+  std::vector<int> expected_labels;
+  std::ifstream ifs(abs_loc + "/test_input4_labels.txt");
+  int label;
+  while (ifs >> label) expected_labels.push_back(label);
+  auto graph = solver->graph_view();
+  EXPECT_THAT(graph.cluster_ids, testing::ElementsAreArray(expected_labels));
+}
+
 int main(int argc, char *argv[]) {
   auto logger = spdlog::stdout_color_mt("console");
   logger->set_level(spdlog::level::critical);
   testing::InitGoogleTest(&argc, argv);
+  testing::AddGlobalTestEnvironment(new GDBSCAN_TestEnvironment(argv[1]));
   return RUN_ALL_TESTS();
 }
