@@ -94,7 +94,7 @@ class Solver {
     throw std::runtime_error("Only Mac and Linux are supported!");
 #endif
     size_t block_size = cache_line_size / PointType::size();
-    logger_->debug(
+    logger_->info(
         "cache line size {} bytes; "
         "PointType size: {} bytes; "
         "read block size {} bytes",

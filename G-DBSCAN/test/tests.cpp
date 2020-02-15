@@ -10,14 +10,14 @@
 #include "../include/Graph.h"
 #include "../include/Solver.h"
 
-namespace {
+namespace GDBSCAN_TestVariables {
 std::string abs_loc;
 }
 
 class GDBSCAN_TestEnvironment : public testing::Environment {
  public:
   explicit GDBSCAN_TestEnvironment(const std::string &command_line_arg) {
-    abs_loc = command_line_arg;
+    GDBSCAN_TestVariables::abs_loc = command_line_arg;
   }
 };
 
@@ -144,9 +144,10 @@ TEST(TwoD, distance) {
 TEST(Solver, prepare_dataset) {
   using namespace GDBSCAN;
   auto solver =
-      GDBSCAN::make_solver<point::EuclideanTwoD>(abs_loc + "/test_input1.txt",
-                                                 2,
-                                                 3.0f);
+      GDBSCAN::make_solver<point::EuclideanTwoD>(
+          GDBSCAN_TestVariables::abs_loc + "/test_input1.txt",
+          2,
+          3.0f);
   ASSERT_NO_THROW(solver->prepare_dataset());
   EXPECT_THAT(solver->dataset_view(),
               testing::ElementsAre(point::EuclideanTwoD(1.0f, 2.0f),
@@ -160,9 +161,10 @@ TEST(Solver, prepare_dataset) {
 TEST(Solver, make_graph_small_graph) {
   using namespace GDBSCAN;
   auto solver =
-      GDBSCAN::make_solver<point::EuclideanTwoD>(abs_loc + "/test_input1.txt",
-                                                 2,
-                                                 3.0f);
+      GDBSCAN::make_solver<point::EuclideanTwoD>(
+          GDBSCAN_TestVariables::abs_loc + "/test_input1.txt",
+          2,
+          3.0f);
   ASSERT_NO_THROW(solver->prepare_dataset());
 
   ASSERT_NO_THROW(solver->make_graph());
@@ -191,9 +193,10 @@ TEST(Solver, make_graph_small_graph) {
 TEST(Solver, identify_cluster_small_graph) {
   using namespace GDBSCAN;
   auto solver =
-      GDBSCAN::make_solver<point::EuclideanTwoD>(abs_loc + "/test_input1.txt",
-                                                 2,
-                                                 3.0f);
+      GDBSCAN::make_solver<point::EuclideanTwoD>(
+          GDBSCAN_TestVariables::abs_loc + "/test_input1.txt",
+          2,
+          3.0f);
   ASSERT_NO_THROW(solver->prepare_dataset());
   ASSERT_NO_THROW(solver->make_graph());
   ASSERT_NO_THROW(solver->identify_cluster());
@@ -206,9 +209,10 @@ TEST(Solver, identify_cluster_small_graph) {
 TEST(Solver, test_input2) {
   using namespace GDBSCAN;
   auto solver =
-      GDBSCAN::make_solver<point::EuclideanTwoD>(abs_loc + "/test_input2.txt",
-                                                 2,
-                                                 3.0f);
+      GDBSCAN::make_solver<point::EuclideanTwoD>(
+          GDBSCAN_TestVariables::abs_loc + "/test_input2.txt",
+          2,
+          3.0f);
   ASSERT_NO_THROW(solver->prepare_dataset());
   ASSERT_NO_THROW(solver->make_graph());
   ASSERT_NO_THROW(solver->identify_cluster());
@@ -247,9 +251,10 @@ TEST(Solver, test_input2) {
 TEST(Solver, test_input3) {
   using namespace GDBSCAN;
   auto solver =
-      GDBSCAN::make_solver<point::EuclideanTwoD>(abs_loc + "/test_input3.txt",
-                                                 3,
-                                                 3.0f);
+      GDBSCAN::make_solver<point::EuclideanTwoD>(
+          GDBSCAN_TestVariables::abs_loc + "/test_input3.txt",
+          3,
+          3.0f);
   ASSERT_NO_THROW(solver->prepare_dataset());
   ASSERT_NO_THROW(solver->make_graph());
   ASSERT_NO_THROW(solver->identify_cluster());
@@ -290,14 +295,16 @@ TEST(Solver, test_input3) {
 TEST(Solver, test_input4) {
   using namespace GDBSCAN;
   auto solver =
-      GDBSCAN::make_solver<point::EuclideanTwoD>(abs_loc + "/test_input4.txt",
-                                                 30,
-                                                 0.15f);
+      GDBSCAN::make_solver<point::EuclideanTwoD>(
+          GDBSCAN_TestVariables::abs_loc + "/test_input4.txt",
+          30,
+          0.15f);
   ASSERT_NO_THROW(solver->prepare_dataset());
   ASSERT_NO_THROW(solver->make_graph());
   ASSERT_NO_THROW(solver->identify_cluster());
   std::vector<int> expected_labels;
-  std::ifstream ifs(abs_loc + "/test_input4_labels.txt");
+  std::ifstream
+      ifs(GDBSCAN_TestVariables::abs_loc + "/test_input4_labels.txt");
   int label;
   while (ifs >> label) expected_labels.push_back(label);
   auto graph = solver->graph_view();
