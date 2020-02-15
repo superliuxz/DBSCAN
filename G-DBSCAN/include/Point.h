@@ -26,6 +26,6 @@ class EuclideanTwoD {
  private:
   float x_, y_;
 };
-} // namespace GDBSCAN::point
+}  // namespace GDBSCAN::point
 
-#endif //GDBSCAN_INCLUDE_POINT_H_
+#endif  // GDBSCAN_INCLUDE_POINT_H_

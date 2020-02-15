@@ -6,11 +6,7 @@
 #define GDBSCAN_INCLUDE_MEMBERSHIP_H_
 
 namespace GDBSCAN::membership {
-enum Membership {
-  Core,
-  Border,
-  Noise
-};
+enum Membership { Core, Border, Noise };
 }
 
-#endif //GDBSCAN_INCLUDE_MEMBERSHIP_H_
+#endif  // GDBSCAN_INCLUDE_MEMBERSHIP_H_

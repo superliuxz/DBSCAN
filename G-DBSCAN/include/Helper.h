@@ -10,7 +10,7 @@
 #include <vector>
 
 namespace GDBSCAN::helper {
-template<class T>
+template <class T>
 static std::string print_vector(const std::string &vector_name,
                                 std::vector<T> vector) {
   std::ostringstream oss;
@@ -23,6 +23,6 @@ static std::string print_vector(const std::string &vector_name,
   std::cout << *(it++) << std::endl;
   return oss.str();
 }
-}
+}  // namespace GDBSCAN::helper
 
-#endif //GDBSCAN_INCLUDE_HELPER_H_
+#endif  // GDBSCAN_INCLUDE_HELPER_H_

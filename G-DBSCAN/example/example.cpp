@@ -1,10 +1,10 @@
 #include <iostream>
 
-#include "../include/Solver.h"
 #include "../include/Point.h"
+#include "../include/Solver.h"
 
 int main(int argc, char *argv[]) {
-  (void) argc;
+  (void)argc;
 
   auto logger = spdlog::stdout_color_mt("console");
   logger->set_level(spdlog::level::info);
@@ -14,10 +14,8 @@ int main(int argc, char *argv[]) {
 
   logger->debug("radius {} min_pts {}", radius, min_pts);
 
-  auto runner =
-      GDBSCAN::make_solver<GDBSCAN::point::EuclideanTwoD>(std::string(argv[1]),
-                                                          min_pts,
-                                                          radius);
+  auto runner = GDBSCAN::make_solver<GDBSCAN::point::EuclideanTwoD>(
+      std::string(argv[1]), min_pts, radius);
   runner->prepare_dataset();
   runner->make_graph();
   runner->identify_cluster();

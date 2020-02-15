@@ -8,25 +8,23 @@
 #include <fstream>
 #include <memory>
 
-#include "Point.h"
 #include "Graph.h"
+#include "Point.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/spdlog.h"
 
 #ifdef __APPLE__
-#include<sys/sysctl.h>
+#include <sys/sysctl.h>
 #endif
 
 namespace GDBSCAN {
 
-template<class PointType>
+template <class PointType>
 class Solver {
  public:
-  explicit Solver(std::unique_ptr<std::ifstream> in,
-                  size_t num_nodes,
-                  uint min_pts,
-                  double radius) :
-      num_nodes_(num_nodes), min_pts_(min_pts), radius_(radius) {
+  explicit Solver(std::unique_ptr<std::ifstream> in, size_t num_nodes,
+                  uint min_pts, double radius)
+      : num_nodes_(num_nodes), min_pts_(min_pts), radius_(radius) {
     ifs_ = std::move(in);
     logger_ = spdlog::get("console");
     if (logger_ == nullptr) {
@@ -34,13 +32,9 @@ class Solver {
     }
   }
 #ifdef TESTING
-  const std::vector<PointType> dataset_view() const {
-    return *dataset_;
-  }
+  const std::vector<PointType> dataset_view() const { return *dataset_; }
 #endif
-  const Graph graph_view() const {
-    return *graph_;
-  }
+  const Graph graph_view() const { return *graph_; }
   void prepare_dataset() {
     using namespace std::chrono;
     high_resolution_clock::time_point start = high_resolution_clock::now();
@@ -81,7 +75,7 @@ class Solver {
 
 #ifdef TILING
     logger_->debug("use tiling...");
-    size_t cache_line_size; // cache line size in bytes
+    size_t cache_line_size;  // cache line size in bytes
 // https://stackoverflow.com/questions/794632/programmatically-get-the-cache-line-size
 #if defined(__APPLE__)
     logger_->debug("platform: APPLE");
@@ -98,9 +92,7 @@ class Solver {
         "cache line size {} bytes; "
         "PointType size: {} bytes; "
         "read block size {} bytes",
-        cache_line_size,
-        PointType::size(),
-        block_size);
+        cache_line_size, PointType::size(), block_size);
 
 #ifdef SQRE_ENUM
     for (size_t u = 0; u < num_nodes_; u += block_size) {
@@ -116,7 +108,7 @@ class Solver {
         }
       }
     }
-#else // SQRE_ENUM
+#else   // SQRE_ENUM
     for (size_t u = 0; u < num_nodes_; u += block_size) {
       size_t uu = std::min(u + block_size, num_nodes_);
       for (size_t v = u + 1; v < num_nodes_; v += block_size) {
@@ -130,9 +122,9 @@ class Solver {
         }
       }
     }
-#endif // SQRE_ENUM
+#endif  // SQRE_ENUM
 
-#else // TILING
+#else  // TILING
 
 #ifdef SQRE_ENUM
     for (size_t u = 0; u < num_nodes_; ++u) {
@@ -142,7 +134,7 @@ class Solver {
         }
       }
     }
-#else // SQRE_ENUM
+#else   // SQRE_ENUM
     for (size_t u = 0; u < num_nodes_; ++u) {
       for (size_t v = u + 1; v < num_nodes_; ++v) {
         if ((*dataset_)[u] - (*dataset_)[v] <= radius_) {
@@ -150,9 +142,9 @@ class Solver {
         }
       }
     }
-#endif // SQRE_ENUM
+#endif  // SQRE_ENUM
 
-#endif // TILING
+#endif  // TILING
     high_resolution_clock::time_point end = high_resolution_clock::now();
     duration<double> time_spent = duration_cast<duration<double>>(end - start);
     logger_->info(
@@ -179,8 +171,8 @@ class Solver {
 
     int cluster = 0;
     for (size_t node = 0; node < num_nodes_; ++node) {
-      if (graph_->cluster_ids[node] == -1
-          && graph_->membership[node] == membership::Core) {
+      if (graph_->cluster_ids[node] == -1 &&
+          graph_->membership[node] == membership::Core) {
         graph_->cluster_ids[node] = cluster;
         logger_->debug("start bfs on node {} with cluster {}", node, cluster);
         bfs(node, cluster);
@@ -215,13 +207,9 @@ class Solver {
     high_resolution_clock::time_point start = high_resolution_clock::now();
 
     for (size_t node = 0; node < num_nodes_; ++node) {
-      logger_->debug("{} has {} neighbours within {}",
-                     node,
-                     graph_->Va[node * 2],
-                     radius_);
-      logger_->debug("{} >= {}: {}",
-                     graph_->Va[node * 2],
-                     min_pts_,
+      logger_->debug("{} has {} neighbours within {}", node,
+                     graph_->Va[node * 2], radius_);
+      logger_->debug("{} >= {}: {}", graph_->Va[node * 2], min_pts_,
                      graph_->Va[node * 2] >= min_pts_ ? "true" : "false");
       if (graph_->Va[node * 2] >= min_pts_) {
         logger_->debug("{} to Core", node);
@@ -275,18 +263,16 @@ class Solver {
   }
 };
 
-template<class PointType>
+template <class PointType>
 static std::unique_ptr<Solver<PointType>> make_solver(std::string input,
                                                       uint min_pts,
                                                       double radius) {
   size_t num_nodes;
   auto ifs = std::make_unique<std::ifstream>(input);
   *ifs >> num_nodes;
-  return std::make_unique<Solver<PointType>>(std::move(ifs),
-                                             num_nodes,
-                                             min_pts,
+  return std::make_unique<Solver<PointType>>(std::move(ifs), num_nodes, min_pts,
                                              radius);
 }
-}
+}  // namespace GDBSCAN
 
-#endif //GDBSCAN_INCLUDE_SOLVER_H_
+#endif  // GDBSCAN_INCLUDE_SOLVER_H_
