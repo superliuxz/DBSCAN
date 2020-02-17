@@ -14,7 +14,7 @@ Clustering](https://www.sciencedirect.com/science/article/pii/S1877050913003438)
   - 20,000 points with 3.0 stddiv;
 
 1. Cluster the input and visualize it:
-`python3 gdbscan.py --eps=0.1 --min_points=12`
+`python3 gdbscan.py --input-name=test_input.txt --eps=0.1 --min-points=12`
   - 0.1 radius and 12 neighbour points for clustering.
 
-2. `./build/example test_input.txt 0.1 12`.
+2. `./build/main --input=$(pwd)/test_input.txt --eps=0.1 --min-points=12`.
