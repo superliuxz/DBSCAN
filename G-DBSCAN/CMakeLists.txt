@@ -64,7 +64,10 @@ endif ()
 ##
 
 # spdlog
-include_directories(spdlog/include)
+include_directories(third_party/spdlog/include)
+
+# cxxopts
+include_directories(third_party/cxxopts/include)
 
 # GDBSCAN lib
 add_library(GDBSCAN SHARED include/Graph.h include/Point.h include/Solver.h include/Membership.h include/Helper.h)
@@ -79,6 +82,6 @@ target_compile_definitions(unittest PRIVATE TESTING)
 target_compile_definitions(unittest PRIVATE "${TILING}" "${OPTM_1}" "${FLAT_ADJ}" "${SQRE_ENUM}")
 
 # example
-add_executable(example example/example.cpp include/Point.h include/Solver.h include/Membership.h include/Helper.h)
-target_link_libraries(example GDBSCAN)
-target_compile_definitions(example PRIVATE "${TILING}" "${OPTM_1}" "${FLAT_ADJ}" "${SQRE_ENUM}")
+add_executable(main main.cpp include/Point.h include/Solver.h include/Membership.h include/Helper.h)
+target_link_libraries(main GDBSCAN)
+target_compile_definitions(main PRIVATE "${TILING}" "${OPTM_1}" "${FLAT_ADJ}" "${SQRE_ENUM}")

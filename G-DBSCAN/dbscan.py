@@ -1,5 +1,6 @@
 import argparse
 import numpy as np
+import time
 
 from sklearn.cluster import DBSCAN
 
@@ -9,13 +10,13 @@ parser = argparse.ArgumentParser(
   description='Perform DBSCAN clustering on test input')
 
 # DBSCAN clustering
-parser.add_argument('--input-name', type=str, default='test_input.txt',
+parser.add_argument('--input-name', type=str,
                     help='visualize the clustering result')
 parser.add_argument('--print-cluster-id', action='store_true',
                     help='print the clustered result to stdout')
 parser.add_argument('--eps', type=float, default=0.3,
                     help='clustering radius')
-parser.add_argument('--min_samples', type=int, default=9,
+parser.add_argument('--min-samples', type=int, default=9,
                     help='number of points to be considered as a Core')
 
 args = parser.parse_args()
@@ -32,7 +33,9 @@ points = np.array(points)
 
 N = len(points)
 
+t = time.time()
 db = DBSCAN(eps=args.eps, min_samples=args.min_samples + 1).fit(points)
+print(f"DBSCAN takes {time.time() - t:.4f} seconds")
 
 if args.print_cluster_id:
   for l in db.labels_:

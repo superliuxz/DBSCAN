@@ -34,7 +34,7 @@ class Solver {
 #ifdef TESTING
   const std::vector<PointType> dataset_view() const { return *dataset_; }
 #endif
-  const Graph graph_view() const { return *graph_; }
+  const Graph& graph_view() const { return *graph_; }
   void prepare_dataset() {
     using namespace std::chrono;
     high_resolution_clock::time_point start = high_resolution_clock::now();
@@ -188,7 +188,7 @@ class Solver {
 
  private:
   size_t num_nodes_;
-  uint min_pts_;
+  size_t min_pts_;
   double radius_;
   std::unique_ptr<std::vector<PointType>> dataset_ = nullptr;
   std::unique_ptr<Graph> graph_ = nullptr;
@@ -234,7 +234,7 @@ class Solver {
     std::vector<size_t> q{node};
     std::vector<size_t> next_level;
     while (!q.empty()) {
-      for (size_t &curr : q) {
+      for (const size_t& curr : q) {
         logger_->debug("visiting node {}", curr);
         // Relabel a reachable Noise node, but do not keep exploring.
         if (graph_->membership[curr] == membership::Noise) {
