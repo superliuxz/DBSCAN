@@ -28,8 +28,9 @@ int main(int argc, char* argv[]) {
 
   auto runner = GDBSCAN::make_solver<GDBSCAN::point::EuclideanTwoD>(
       std::string(input), min_pts, radius);
-  runner->prepare_dataset();
-  runner->make_graph();
+  runner->insert_edges();
+  runner->finalize_graph();
+  runner->classify_nodes();
   runner->identify_cluster();
 
   if (output_labels) {

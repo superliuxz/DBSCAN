@@ -13,10 +13,6 @@
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/spdlog.h"
 
-#ifdef __APPLE__
-#include <sys/sysctl.h>
-#endif
-
 namespace GDBSCAN {
 
 template <class PointType>
@@ -30,14 +26,10 @@ class Solver {
     if (logger_ == nullptr) {
       throw std::runtime_error("logger not created!");
     }
-  }
-#ifdef TESTING
-  const std::vector<PointType> dataset_view() const { return *dataset_; }
-#endif
-  const Graph& graph_view() const { return *graph_; }
-  void prepare_dataset() {
+
     using namespace std::chrono;
     high_resolution_clock::time_point start = high_resolution_clock::now();
+
     dataset_ =
         std::make_unique<std::vector<PointType>>(num_nodes_, PointType());
     size_t n;
@@ -51,15 +43,25 @@ class Solver {
     }
     ifs_->close();
 
-    high_resolution_clock::time_point end = high_resolution_clock::now();
-    duration<double> time_spent = duration_cast<duration<double>>(end - start);
-    logger_->info("prepare_dataset takes {} seconds", time_spent.count());
+    duration<double> time_spent =
+        duration_cast<duration<double>>(high_resolution_clock::now() - start);
+    logger_->info("reading vertices takes {} seconds", time_spent.count());
   }
 
+#ifdef TESTING
+  const std::vector<PointType> dataset_view() const { return *dataset_; }
+#endif
+
+  const Graph& graph_view() const { return *graph_; }
+
   /*
-   * Algorithm 1 in Andrade et al.
+   * For each two nodes, if the distance is <= |radius_|, insert them into the
+   * graph (|temp_adjacency_list_|). Part of Algorithm 1 (Andrade et al).
    */
-  void make_graph() {
+  void insert_edges() {
+    using namespace std::chrono;
+    high_resolution_clock::time_point start = high_resolution_clock::now();
+
     if (ifs_->is_open()) {
       throw std::runtime_error(
           "Input file stream still open (should not happen)!");
@@ -68,98 +70,122 @@ class Solver {
       throw std::runtime_error("Call prepare_dataset to generate the dataset!");
     }
 
-    using namespace std::chrono;
-    high_resolution_clock::time_point start = high_resolution_clock::now();
-
     graph_ = std::make_unique<Graph>(num_nodes_);
 
 #ifdef TILING
     logger_->debug("use tiling...");
-    size_t cache_line_size;  // cache line size in bytes
-// https://stackoverflow.com/questions/794632/programmatically-get-the-cache-line-size
-#if defined(__APPLE__)
-    logger_->debug("platform: APPLE");
-    size_t size_t_size = sizeof(cache_line_size);
-    sysctlbyname("hw.cachelinesize", &cache_line_size, &size_t_size, 0, 0);
-#elif defined(__linux__)
-    logger_->debug("platform: LINUX");
-    cache_line_size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
-#else
-    throw std::runtime_error("Only Mac and Linux are supported!");
-#endif
-    size_t block_size = cache_line_size / PointType::size();
+    // 8k bytes __should__ fit most of modern CPU's L1 dcache.
+    const size_t block_size = 8192 / PointType::size();
     logger_->info(
-        "cache line size {} bytes; "
         "PointType size: {} bytes; "
-        "read block size {} bytes",
-        cache_line_size, PointType::size(), block_size);
+        "block_size: {}",
+        PointType::size(), block_size);
 
-#ifdef SQRE_ENUM
+#ifdef TRIA_ENUM  // triangle enumeration
+    logger_->info("triangle enumeration with tiling...");
     for (size_t u = 0; u < num_nodes_; u += block_size) {
       size_t uu = std::min(u + block_size, num_nodes_);
-      for (size_t v = 0; v < num_nodes_; v += block_size) {
-        size_t vv = std::min(v + block_size, num_nodes_);
-        for (size_t i = u; i < uu; ++i) {
-          for (size_t j = v; j < vv; ++j) {
-            if (i != j && (*dataset_)[i] - (*dataset_)[j] <= radius_) {
-              graph_->insert_edge(i, j);
-            }
-          }
-        }
-      }
-    }
-#else   // SQRE_ENUM
-    for (size_t u = 0; u < num_nodes_; u += block_size) {
-      size_t uu = std::min(u + block_size, num_nodes_);
-      for (size_t v = u + 1; v < num_nodes_; v += block_size) {
-        size_t vv = std::min(v + block_size, num_nodes_);
-        for (size_t i = u; i < uu; ++i) {
-          for (size_t j = std::max(i + 1, v); j < vv; ++j) {
-            if ((*dataset_)[i] - (*dataset_)[j] <= radius_) {
-              graph_->insert_edge(i, j);
-            }
-          }
-        }
-      }
-    }
-#endif  // SQRE_ENUM
-
-#else  // TILING
-
-#ifdef SQRE_ENUM
-    for (size_t u = 0; u < num_nodes_; ++u) {
-      for (size_t v = 0; v < num_nodes_; ++v) {
-        if (u != v && (*dataset_)[u] - (*dataset_)[v] <= radius_) {
-          graph_->insert_edge(u, v);
-        }
-      }
-    }
-#else   // SQRE_ENUM
-    for (size_t u = 0; u < num_nodes_; ++u) {
       for (size_t v = u + 1; v < num_nodes_; ++v) {
-        if ((*dataset_)[u] - (*dataset_)[v] <= radius_) {
-          graph_->insert_edge(u, v);
+        size_t uuu = std::min(uu, v);
+        const PointType& vpoint = (*dataset_)[v];
+        for (size_t i = u; i < uuu; ++i) {
+          if ((*dataset_)[i] - vpoint <= radius_) {
+            graph_->insert_edge(v, i);
+          }
+        }
+      }
+    }
+#else   // square enumeration
+    logger_->info("square enumeration with tiling...");
+    for (size_t u = 0; u < num_nodes_; u += block_size) {
+      size_t uu = std::min(u + block_size, num_nodes_);
+      for (size_t v = 0; v < num_nodes_; ++v) {
+        const PointType& vpoint = (*dataset_)[v];
+        for (size_t i = u; i < uu; ++i) {
+          if (i != v && (*dataset_)[i] - vpoint <= radius_) {
+            graph_->insert_edge(i, v);
+          }
         }
       }
     }
 #endif  // SQRE_ENUM
+
+#else  // no tiling
+
+#ifdef TRIA_ENUM  // triangle enumeration
+    logger_->info("triangle enumeration no tiling...");
+    for (size_t u = 0; u < num_nodes_; ++u) {
+      const PointType& upoint = (*dataset_)[u];
+      for (size_t v = u + 1; v < num_nodes_; ++v) {
+        if (upoint - (*dataset_)[v] <= radius_) {
+          graph_->insert_edge(u, v);
+        }
+      }
+    }
+#else             // square enumeration
+    logger_->info("square enumeration no tiling...");
+    for (size_t u = 0; u < num_nodes_; ++u) {
+      const PointType& upoint = (*dataset_)[u];
+      for (size_t v = 0; v < num_nodes_; ++v) {
+        if (u != v && upoint - (*dataset_)[v] <= radius_) {
+          graph_->insert_edge(u, v);
+        }
+      }
+    }
+#endif            // TRIA_ENUM
 
 #endif  // TILING
     high_resolution_clock::time_point end = high_resolution_clock::now();
     duration<double> time_spent = duration_cast<duration<double>>(end - start);
     logger_->info(
-        "make_graph (Algorithm 1) - graph_->insert_edge takes {} seconds",
+        "insert_edges (Algorithm 1) - graph_->insert_edge takes {} seconds",
         time_spent.count());
+  }
+
+  /*
+   * Construct |Va| and |Ea| from |temp_adjacency_list_|. Part of Algorithm 1
+   * (Andrade et al).
+   */
+  void finalize_graph() const {
+    using namespace std::chrono;
+    high_resolution_clock::time_point start = high_resolution_clock::now();
 
     graph_->finalize();
 
-    time_spent =
-        duration_cast<duration<double>>(high_resolution_clock::now() - end);
-    logger_->info(
-        "make_graph (Algorithm 1) - graph_->finalize takes {} seconds",
-        time_spent.count());
+    duration<double> time_spent =
+        duration_cast<duration<double>>(high_resolution_clock::now() - start);
+    logger_->info("finalize_graph takes {} seconds", time_spent.count());
+  }
 
-    classify_nodes();
+  /*
+   * Classify nodes to Core or Noise; the Border nodes are classified in the BFS
+   * stage (Algorithm 2 in Andrade et al).
+   */
+  void classify_nodes() const {
+    using namespace std::chrono;
+    high_resolution_clock::time_point start = high_resolution_clock::now();
+
+    if (graph_ == nullptr) {
+      throw std::runtime_error("Call insert_edges to generate the graph!");
+    }
+
+    for (size_t node = 0; node < num_nodes_; ++node) {
+      logger_->debug("{} has {} neighbours within {}", node,
+                     graph_->Va[node * 2], radius_);
+      logger_->debug("{} >= {}: {}", graph_->Va[node * 2], min_pts_,
+                     graph_->Va[node * 2] >= min_pts_ ? "true" : "false");
+      if (graph_->Va[node * 2] >= min_pts_) {
+        logger_->debug("{} to Core", node);
+        graph_->membership[node] = membership::Core;
+      } else {
+        logger_->debug("{} to Noise", node);
+        graph_->membership[node] = membership::Noise;
+      }
+    }
+
+    duration<double> time_spent =
+        duration_cast<duration<double>>(high_resolution_clock::now() - start);
+    logger_->info("classify_nodes takes {} seconds", time_spent.count());
   }
 
   /*
@@ -180,8 +206,8 @@ class Solver {
       }
     }
 
-    high_resolution_clock::time_point end = high_resolution_clock::now();
-    duration<double> time_spent = duration_cast<duration<double>>(end - start);
+    duration<double> time_spent =
+        duration_cast<duration<double>>(high_resolution_clock::now() - start);
     logger_->info("identify_cluster (Algorithm 2) takes {} seconds",
                   time_spent.count());
   }
@@ -194,37 +220,6 @@ class Solver {
   std::unique_ptr<Graph> graph_ = nullptr;
   std::unique_ptr<std::ifstream> ifs_ = nullptr;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
-
-  /*
-   * Classify nodes to Core or Noise; the Border nodes are classified in the BFS
-   * stage (Algorithm 2 in Andrade et al).
-   */
-  void classify_nodes() const {
-    if (graph_ == nullptr) {
-      throw std::runtime_error("Call make_graph to generate the graph!");
-    }
-    using namespace std::chrono;
-    high_resolution_clock::time_point start = high_resolution_clock::now();
-
-    for (size_t node = 0; node < num_nodes_; ++node) {
-      logger_->debug("{} has {} neighbours within {}", node,
-                     graph_->Va[node * 2], radius_);
-      logger_->debug("{} >= {}: {}", graph_->Va[node * 2], min_pts_,
-                     graph_->Va[node * 2] >= min_pts_ ? "true" : "false");
-      if (graph_->Va[node * 2] >= min_pts_) {
-        logger_->debug("{} to Core", node);
-        graph_->membership[node] = membership::Core;
-      } else {
-        logger_->debug("{} to Noise", node);
-        graph_->membership[node] = membership::Noise;
-      }
-    }
-
-    high_resolution_clock::time_point end = high_resolution_clock::now();
-    duration<double> time_spent = duration_cast<duration<double>>(end - start);
-    logger_->info("make_graph (Algorithm 1) - classify_nodes takes {} seconds",
-                  time_spent.count());
-  }
 
   /*
    * BFS. Start from |node| and visit all the reachable neighbours. If a

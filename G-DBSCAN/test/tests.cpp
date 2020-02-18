@@ -47,19 +47,19 @@ TEST(Graph, insert_edge_failed_oob) {
 TEST(Graph, finalize_success) {
   GDBSCAN::Graph g(5);
   ASSERT_NO_THROW(g.insert_edge(2, 1));
-#ifdef SQRE_ENUM
+#ifndef TRIA_ENUM
   ASSERT_NO_THROW(g.insert_edge(1, 2));
 #endif
   ASSERT_NO_THROW(g.insert_edge(2, 4));
-#ifdef SQRE_ENUM
+#ifndef TRIA_ENUM
   ASSERT_NO_THROW(g.insert_edge(4, 2));
 #endif
   ASSERT_NO_THROW(g.insert_edge(2, 0));
-#ifdef SQRE_ENUM
+#ifndef TRIA_ENUM
   ASSERT_NO_THROW(g.insert_edge(0, 2));
 #endif
   ASSERT_NO_THROW(g.insert_edge(0, 3));
-#ifdef SQRE_ENUM
+#ifndef TRIA_ENUM
   ASSERT_NO_THROW(g.insert_edge(3, 0));
 #endif
   ASSERT_NO_THROW(g.finalize());
@@ -82,15 +82,15 @@ TEST(Graph, finalize_fail_second_finalize) {
 TEST(Graph, finalize_success_disconnected_graph) {
   GDBSCAN::Graph g(5);
   ASSERT_NO_THROW(g.insert_edge(2, 1));
-#ifdef SQRE_ENUM
+#ifndef TRIA_ENUM
   ASSERT_NO_THROW(g.insert_edge(1, 2));
 #endif
   ASSERT_NO_THROW(g.insert_edge(2, 4));
-#ifdef SQRE_ENUM
+#ifndef TRIA_ENUM
   ASSERT_NO_THROW(g.insert_edge(4, 2));
 #endif
   ASSERT_NO_THROW(g.insert_edge(0, 2));
-#ifdef SQRE_ENUM
+#ifndef TRIA_ENUM
   ASSERT_NO_THROW(g.insert_edge(2, 0));
 #endif
   ASSERT_NO_THROW(g.finalize());
@@ -145,7 +145,6 @@ TEST(Solver, prepare_dataset) {
   using namespace GDBSCAN;
   auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
       GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f);
-  ASSERT_NO_THROW(solver->prepare_dataset());
   EXPECT_THAT(solver->dataset_view(),
               testing::ElementsAre(point::EuclideanTwoD(1.0f, 2.0f),
                                    point::EuclideanTwoD(2.0f, 2.0f),
@@ -159,9 +158,9 @@ TEST(Solver, make_graph_small_graph) {
   using namespace GDBSCAN;
   auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
       GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f);
-  ASSERT_NO_THROW(solver->prepare_dataset());
-
-  ASSERT_NO_THROW(solver->make_graph());
+  ASSERT_NO_THROW(solver->insert_edges());
+  ASSERT_NO_THROW(solver->finalize_graph());
+  ASSERT_NO_THROW(solver->classify_nodes());
   auto graph = solver->graph_view();
   /*
    * Va:
@@ -188,8 +187,9 @@ TEST(Solver, identify_cluster_small_graph) {
   using namespace GDBSCAN;
   auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
       GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f);
-  ASSERT_NO_THROW(solver->prepare_dataset());
-  ASSERT_NO_THROW(solver->make_graph());
+  ASSERT_NO_THROW(solver->insert_edges());
+  ASSERT_NO_THROW(solver->finalize_graph());
+  ASSERT_NO_THROW(solver->classify_nodes());
   ASSERT_NO_THROW(solver->identify_cluster());
   auto graph = solver->graph_view();
   // nodes 0 1 and 2 are core nodes with cluster id = 1; nodes 3 4 and 5 are
@@ -201,8 +201,9 @@ TEST(Solver, test_input2) {
   using namespace GDBSCAN;
   auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
       GDBSCAN_TestVariables::abs_loc + "/test_input2.txt", 2, 3.0f);
-  ASSERT_NO_THROW(solver->prepare_dataset());
-  ASSERT_NO_THROW(solver->make_graph());
+  ASSERT_NO_THROW(solver->insert_edges());
+  ASSERT_NO_THROW(solver->finalize_graph());
+  ASSERT_NO_THROW(solver->classify_nodes());
   ASSERT_NO_THROW(solver->identify_cluster());
   auto graph = solver->graph_view();
   using namespace GDBSCAN::membership;
@@ -236,8 +237,9 @@ TEST(Solver, test_input3) {
   using namespace GDBSCAN;
   auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
       GDBSCAN_TestVariables::abs_loc + "/test_input3.txt", 3, 3.0f);
-  ASSERT_NO_THROW(solver->prepare_dataset());
-  ASSERT_NO_THROW(solver->make_graph());
+  ASSERT_NO_THROW(solver->insert_edges());
+  ASSERT_NO_THROW(solver->finalize_graph());
+  ASSERT_NO_THROW(solver->classify_nodes());
   ASSERT_NO_THROW(solver->identify_cluster());
   auto graph = solver->graph_view();
   using namespace GDBSCAN::membership;
@@ -273,8 +275,9 @@ TEST(Solver, test_input4) {
   using namespace GDBSCAN;
   auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
       GDBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f);
-  ASSERT_NO_THROW(solver->prepare_dataset());
-  ASSERT_NO_THROW(solver->make_graph());
+  ASSERT_NO_THROW(solver->insert_edges());
+  ASSERT_NO_THROW(solver->finalize_graph());
+  ASSERT_NO_THROW(solver->classify_nodes());
   ASSERT_NO_THROW(solver->identify_cluster());
   std::vector<int> expected_labels;
   std::ifstream ifs(GDBSCAN_TestVariables::abs_loc + "/test_input4_labels.txt");
