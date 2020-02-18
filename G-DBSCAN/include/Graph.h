@@ -53,7 +53,7 @@ class Graph {
 #endif  // FLAT_ADJ
 
   void insert_edge(size_t u, size_t v) {
-    assert_mutable();
+    assert_mutable_();
 
     if (u >= num_nodes_ || v >= num_nodes_) {
       std::ostringstream oss;
@@ -65,7 +65,7 @@ class Graph {
     logger_->debug("push {} as a neighbour of {}", v, u);
     temp_adj_list_[u].push_back(v);
 
-#ifndef SQRE_ENUM
+#ifdef TRIA_ENUM
     logger_->debug("push {} as a neighbour of {}", u, v);
     temp_adj_list_[v].push_back(u);
 #endif  // SQRE_ENUM
@@ -74,7 +74,7 @@ class Graph {
     logger_->debug("push {} as a neighbour of {}", v, u);
     temp_adj_list_[temp_adj_list_[u * num_nodes_]++] = v;
 
-#ifndef SQRE_ENUM
+#ifdef TRIA_ENUM
     logger_->debug("push {} as a neighbour of {}", u, v);
     temp_adj_list_[temp_adj_list_[v * num_nodes_]++] = u;
 #endif  // SQRE_ENUM
@@ -83,7 +83,7 @@ class Graph {
   }
 
   void cluster_node(size_t node, int cluster_id) {
-    assert_immutable();
+    assert_immutable_();
     if (node >= num_nodes_) {
       std::ostringstream oss;
       oss << node << " is out of bound!";
@@ -94,7 +94,7 @@ class Graph {
 
 #ifndef FLAT_ADJ
   void finalize() {
-    assert_mutable();
+    assert_mutable_();
 
     size_t curr_node = 0;
     for (const auto &nbs : temp_adj_list_) {
@@ -112,6 +112,7 @@ class Graph {
       ++curr_node;
     }
 #ifdef OPTM_1
+    logger_->info("OPTM_1: using seperate loop to construct Ea");
     size_t Ea_size = Va[Va.size() - 1] + Va[Va.size() - 2];
     Ea.reserve(Ea_size);
 
@@ -126,7 +127,7 @@ class Graph {
   }
 #else   // FLAT_ADJ
   void finalize() {
-    assert_mutable();
+    assert_mutable_();
 
     size_t curr_node = 0;
     size_t Va_pos = 0;
@@ -156,12 +157,12 @@ class Graph {
 #endif  // FLAT_ADJ
 
  private:
-  void constexpr assert_mutable() const {
+  void constexpr assert_mutable_() const {
     if (immutable_) {
       throw std::runtime_error("Graph is immutable!");
     }
   }
-  void constexpr assert_immutable() const {
+  void constexpr assert_immutable_() const {
     if (!immutable_) {
       throw std::runtime_error("finalize is not called on graph!");
     }

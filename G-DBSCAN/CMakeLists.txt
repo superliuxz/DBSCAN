@@ -2,20 +2,20 @@ cmake_minimum_required(VERSION 3.10)
 project(GDBSCAN)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -O3")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Og -march=native")
 
 if (DEFINED ENV{TILING})
   message("*** tiling enabled!")
   set(TILING TILING)
 endif ()
 
-if (DEFINED ENV{SQRE_ENUM})
-  message("*** square enumeration enabled!")
-  set(SQRE_ENUM SQRE_ENUM)
+if (DEFINED ENV{TRIA_ENUM})
+  message("*** triangle enumeration enabled!")
+  set(TRIA_ENUM TRIA_ENUM)
 endif ()
 
 if (DEFINED ENV{OPTM_1})
-  message("Optimisation in Graph.h - finalize() enabled!")
+  message("*** Optimisation in Graph.h - finalize() enabled!")
   set(OPTM_1 OPTM_1)
 endif ()
 
@@ -79,9 +79,9 @@ add_executable(unittest test/tests.cpp include/Point.h include/Solver.h include/
 add_test(unittest test/test.cpp)
 target_link_libraries(unittest gtest_main gmock_main GDBSCAN)
 target_compile_definitions(unittest PRIVATE TESTING)
-target_compile_definitions(unittest PRIVATE "${TILING}" "${OPTM_1}" "${FLAT_ADJ}" "${SQRE_ENUM}")
+target_compile_definitions(unittest PRIVATE "${TILING}" "${OPTM_1}" "${FLAT_ADJ}" "${TRIA_ENUM}")
 
 # example
 add_executable(main main.cpp include/Point.h include/Solver.h include/Membership.h include/Helper.h)
 target_link_libraries(main GDBSCAN)
-target_compile_definitions(main PRIVATE "${TILING}" "${OPTM_1}" "${FLAT_ADJ}" "${SQRE_ENUM}")
+target_compile_definitions(main PRIVATE "${TILING}" "${OPTM_1}" "${FLAT_ADJ}" "${TRIA_ENUM}")
