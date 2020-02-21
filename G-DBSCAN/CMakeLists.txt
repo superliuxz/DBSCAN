@@ -2,28 +2,58 @@ cmake_minimum_required(VERSION 3.10)
 project(GDBSCAN)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Og -march=native")
+
+if (DEFINED ENV{BENCH})
+  set(CMAKE_CXX_FLAGS "-Wall -Wextra -g -Og")
+else ()
+  set(CMAKE_CXX_FLAGS "-Wall -Wextra -g -O3 -march=native")
+endif ()
+
+message("*********************************************************************")
 
 if (DEFINED ENV{TILING})
-  message("*** tiling enabled!")
+  message("*** apply tiling at nested loop of insert_edges ")
   set(TILING TILING)
+  if (DEFINED ENV{UNROLL_INSE})
+    message("*** unroll inner loop at insert_edges")
+    set(UNROLL_INSE UNROLL_INSE)
+  endif ()
 endif ()
 
 if (DEFINED ENV{TRIA_ENUM})
   message("*** triangle enumeration enabled!")
   set(TRIA_ENUM TRIA_ENUM)
-endif ()
-
-if (DEFINED ENV{OPTM_1})
-  message("*** Optimisation in Graph.h - finalize() enabled!")
-  set(OPTM_1 OPTM_1)
+else ()
+  message("*** square enumeration")
 endif ()
 
 if (DEFINED ENV{FLAT_ADJ})
-  message("*** using flat adjacency list to construct Ea and Va!")
+  message("*** using 1D flat adjacency matrix (vector<size_t> of size NxN)")
   set(FLAT_ADJ FLAT_ADJ)
+elseif (DEFINED ENV{BIT_ADJ})
+  message("*** using packed uint64_t adjacency matrix (vector<vector<std::uint64_t>> of size NxN/64)")
+  set(BIT_ADJ BIT_ADJ)
+else ()
+  message("*** using default dynamic adjacency list (std::vector<std::vector<size_t>>)")
+  if (DEFINED ENV{OPTM_1}) # consider drop this optimisation since the change is so small
+    message("*** using separate loops to construct Ea")
+    set(OPTM_1 OPTM_1)
+  else ()
+    message("*** construct Va and Ea in the same loop")
+  endif ()
 endif ()
 
+if (DEFINED ENV{SQRE_RADIUS})
+  message("*** square the radius to avoid square root computing (which uses DIV unit)")
+  set(SQRE_RADIUS SQRE_RADIUS)
+elseif (DEFINED ENV{HYPOTF})
+  message("*** using std::hypotf to calculate radius")
+  set(HYPOTF HYPOTF)
+else ()
+  message("*** using std::srqt with std::pow to calculate radius")
+endif ()
+
+message("*********************************************************************")
 ##
 # Copied from
 # https://github.com/google/googletest/tree/master/googletest#incorporating-into-an-existing-cmake-project
@@ -79,9 +109,9 @@ add_executable(unittest test/tests.cpp include/Point.h include/Solver.h include/
 add_test(unittest test/test.cpp)
 target_link_libraries(unittest gtest_main gmock_main GDBSCAN)
 target_compile_definitions(unittest PRIVATE TESTING)
-target_compile_definitions(unittest PRIVATE "${TILING}" "${OPTM_1}" "${FLAT_ADJ}" "${TRIA_ENUM}")
+target_compile_definitions(unittest PRIVATE "${TILING}" "${OPTM_1}" "${FLAT_ADJ}" "${TRIA_ENUM}" "${BIT_ADJ}" "${HYPOTF}" "${SQRE_RADIUS}" "${UNROLL_INSE}")
 
 # example
 add_executable(main main.cpp include/Point.h include/Solver.h include/Membership.h include/Helper.h)
 target_link_libraries(main GDBSCAN)
-target_compile_definitions(main PRIVATE "${TILING}" "${OPTM_1}" "${FLAT_ADJ}" "${TRIA_ENUM}")
+target_compile_definitions(main PRIVATE "${TILING}" "${OPTM_1}" "${FLAT_ADJ}" "${TRIA_ENUM}" "${BIT_ADJ}" "${HYPOTF}" "${SQRE_RADIUS}" "${UNROLL_INSE}")

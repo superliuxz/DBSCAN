@@ -19,8 +19,13 @@ template <class PointType>
 class Solver {
  public:
   explicit Solver(std::unique_ptr<std::ifstream> in, size_t num_nodes,
-                  uint min_pts, double radius)
-      : num_nodes_(num_nodes), min_pts_(min_pts), radius_(radius) {
+                  uint min_pts, float radius)
+      : num_nodes_(num_nodes), min_pts_(min_pts) {
+#ifdef SQRE_RADIUS
+    radius_ = radius * radius;
+#else
+    radius_ = radius;
+#endif
     ifs_ = std::move(in);
     logger_ = spdlog::get("console");
     if (logger_ == nullptr) {
@@ -73,47 +78,90 @@ class Solver {
     graph_ = std::make_unique<Graph>(num_nodes_);
 
 #ifdef TILING
-    logger_->debug("use tiling...");
+    logger_->info("insert_edges - TILING");
     // 8k bytes __should__ fit most of modern CPU's L1 dcache.
-    const size_t block_size = 8192 / PointType::size();
+    const size_t block_size = 8192u / PointType::size();
     logger_->info(
         "PointType size: {} bytes; "
         "block_size: {}",
         PointType::size(), block_size);
 
 #ifdef TRIA_ENUM  // triangle enumeration
-    logger_->info("triangle enumeration with tiling...");
+    logger_->info("insert_edges - TRIA_ENUM");
     for (size_t u = 0; u < num_nodes_; u += block_size) {
       size_t uu = std::min(u + block_size, num_nodes_);
       for (size_t v = u + 1; v < num_nodes_; ++v) {
         size_t uuu = std::min(uu, v);
         const PointType& vpoint = (*dataset_)[v];
+
+#ifdef UNROLL_INSE
+        logger_->debug("insert_edges - UNROLL_INSE");
+        for (size_t i = u; i < uuu; i += 4) {
+          if ((*dataset_)[i] - vpoint <= radius_) {
+            graph_->insert_edge(v, i);
+          }
+          if (i + 1 < uuu && (*dataset_)[i + 1] - vpoint <= radius_) {
+            graph_->insert_edge(v, i + 1);
+          }
+          if (i + 2 < uuu && (*dataset_)[i + 2] - vpoint <= radius_) {
+            graph_->insert_edge(v, i + 2);
+          }
+          if (i + 3 < uuu && (*dataset_)[i + 3] - vpoint <= radius_) {
+            graph_->insert_edge(v, i + 3);
+          }
+        }
+#else
+        logger_->debug("insert_edges - default");
         for (size_t i = u; i < uuu; ++i) {
           if ((*dataset_)[i] - vpoint <= radius_) {
             graph_->insert_edge(v, i);
           }
         }
+#endif
       }
     }
-#else   // square enumeration
-    logger_->info("square enumeration with tiling...");
+#else  // square enumeration
+    logger_->info("insert_edges - square enumeration");
     for (size_t u = 0; u < num_nodes_; u += block_size) {
       size_t uu = std::min(u + block_size, num_nodes_);
       for (size_t v = 0; v < num_nodes_; ++v) {
         const PointType& vpoint = (*dataset_)[v];
-        for (size_t i = u; i < uu; ++i) {
+
+#ifdef UNROLL_INSE
+        logger_->debug("insert_edges - UNROLL_INSE");
+        for (size_t i = u; i < uu; i += 4) {
           if (i != v && (*dataset_)[i] - vpoint <= radius_) {
-            graph_->insert_edge(i, v);
+            graph_->insert_edge(v, i);
+          }
+          if (i + 1 < num_nodes_ && i + 1 != v &&
+              (*dataset_)[i + 1] - vpoint <= radius_) {
+            graph_->insert_edge(v, i + 1);
+          }
+          if (i + 2 < num_nodes_ && i + 2 != v &&
+              (*dataset_)[i + 2] - vpoint <= radius_) {
+            graph_->insert_edge(v, i + 2);
+          }
+          if (i + 3 < num_nodes_ && i + 3 != v &&
+              (*dataset_)[i + 3] - vpoint <= radius_) {
+            graph_->insert_edge(v, i + 3);
           }
         }
+#else
+        logger_->debug("insert_edges - default");
+        for (size_t i = u; i < uu; ++i) {
+          if (i != v && (*dataset_)[i] - vpoint <= radius_) {
+            graph_->insert_edge(v, i);
+          }
+        }
+#endif
       }
     }
 #endif  // SQRE_ENUM
 
-#else  // no tiling
-
+#else             // no tiling
+    logger_->info("insert_edges - default");
 #ifdef TRIA_ENUM  // triangle enumeration
-    logger_->info("triangle enumeration no tiling...");
+    logger_->info("insert_edges - TRIA_ENUM");
     for (size_t u = 0; u < num_nodes_; ++u) {
       const PointType& upoint = (*dataset_)[u];
       for (size_t v = u + 1; v < num_nodes_; ++v) {
@@ -123,7 +171,7 @@ class Solver {
       }
     }
 #else             // square enumeration
-    logger_->info("square enumeration no tiling...");
+    logger_->info("insert_edges - square enumeration");
     for (size_t u = 0; u < num_nodes_; ++u) {
       const PointType& upoint = (*dataset_)[u];
       for (size_t v = 0; v < num_nodes_; ++v) {
@@ -215,7 +263,7 @@ class Solver {
  private:
   size_t num_nodes_;
   size_t min_pts_;
-  double radius_;
+  float radius_;
   std::unique_ptr<std::vector<PointType>> dataset_ = nullptr;
   std::unique_ptr<Graph> graph_ = nullptr;
   std::unique_ptr<std::ifstream> ifs_ = nullptr;
@@ -252,7 +300,7 @@ class Solver {
           }
         }
       }
-      q = next_level;
+      q = std::move(next_level);
       next_level.clear();
     }
   }
@@ -261,7 +309,7 @@ class Solver {
 template <class PointType>
 static std::unique_ptr<Solver<PointType>> make_solver(std::string input,
                                                       uint min_pts,
-                                                      double radius) {
+                                                      float radius) {
   size_t num_nodes;
   auto ifs = std::make_unique<std::ifstream>(input);
   *ifs >> num_nodes;

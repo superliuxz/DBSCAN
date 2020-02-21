@@ -65,7 +65,13 @@ TEST(Graph, finalize_success) {
   ASSERT_NO_THROW(g.finalize());
 
   ASSERT_THAT(g.Va, testing::ElementsAre(2, 0, 1, 2, 3, 3, 1, 6, 1, 7));
+// if use bitset / bit adjacency list, the neighbours are ascending order, where
+// as other type of adjacency list respect the insertion order.
+#ifdef BIT_ADJ
+  ASSERT_THAT(g.Ea, testing::ElementsAre(2, 3, 2, 0, 1, 4, 0, 2));
+#else
   ASSERT_THAT(g.Ea, testing::ElementsAre(2, 3, 2, 1, 4, 0, 0, 2));
+#endif
 }
 
 TEST(Graph, finalize_fail_second_finalize) {
@@ -95,7 +101,11 @@ TEST(Graph, finalize_success_disconnected_graph) {
 #endif
   ASSERT_NO_THROW(g.finalize());
   ASSERT_THAT(g.Va, testing::ElementsAre(1, 0, 1, 1, 3, 2, 0, 5, 1, 5));
+#ifdef BIT_ADJ
+  ASSERT_THAT(g.Ea, testing::ElementsAre(2, 2, 0, 1, 4, 2));
+#else
   ASSERT_THAT(g.Ea, testing::ElementsAre(2, 2, 1, 4, 0, 2));
+#endif
 }
 
 TEST(Graph, finalize_success_no_edges) {
@@ -129,16 +139,32 @@ TEST(Graph, classify_node_fail_oob) {
 TEST(TwoD, distance) {
   using namespace GDBSCAN::point;
   EuclideanTwoD p(1, 2), q(3, 4);
-  EXPECT_DOUBLE_EQ(p - q, std::sqrt(std::pow(1 - 3, 2) + std::pow(2 - 4, 2)));
+#ifdef SQRE_RADIUS
+  EXPECT_FLOAT_EQ(p - q, std::pow(1 - 3, 2) + std::pow(2 - 4, 2));
+#else
+  EXPECT_FLOAT_EQ(p - q, std::sqrt(std::pow(1 - 3, 2) + std::pow(2 - 4, 2)));
+#endif
   p = EuclideanTwoD(-1, -4);
   q = EuclideanTwoD(4, 1);
-  EXPECT_DOUBLE_EQ(p - q, std::sqrt(std::pow(-1 - 4, 2) + std::pow(-4 - 1, 2)));
+#ifdef SQRE_RADIUS
+  EXPECT_FLOAT_EQ(p - q, std::pow(-1 - 4, 2) + std::pow(-4 - 1, 2));
+#else
+  EXPECT_FLOAT_EQ(p - q, std::sqrt(std::pow(-1 - 4, 2) + std::pow(-4 - 1, 2)));
+#endif
   p = EuclideanTwoD(0, 0);
-  EXPECT_DOUBLE_EQ(p - q, std::sqrt(std::pow(0 - 4, 2) + std::pow(0 - 1, 2)));
+#ifdef SQRE_RADIUS
+  EXPECT_FLOAT_EQ(p - q, std::pow(0 - 4, 2) + std::pow(0 - 1, 2));
+#else
+  EXPECT_FLOAT_EQ(p - q, std::sqrt(std::pow(0 - 4, 2) + std::pow(0 - 1, 2)));
+#endif
   p = EuclideanTwoD(1, 2);
   q = EuclideanTwoD(2.5, 3.4);
-  EXPECT_DOUBLE_EQ(
+#ifdef SQRE_RADIUS
+  EXPECT_FLOAT_EQ(p - q, std::pow(1.0f - 2.5f, 2) + std::pow(2.0f - 3.4f, 2));
+#else
+  EXPECT_FLOAT_EQ(
       p - q, std::sqrt(std::pow(1.0f - 2.5f, 2) + std::pow(2.0f - 3.4f, 2)));
+#endif
 }
 
 TEST(Solver, prepare_dataset) {

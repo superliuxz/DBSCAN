@@ -13,8 +13,14 @@ class EuclideanTwoD {
  public:
   EuclideanTwoD() {}
   EuclideanTwoD(float x, float y) : x_(x), y_(y) {}
-  double operator-(const EuclideanTwoD &o) const {
+  inline float operator-(const EuclideanTwoD &o) const {
+#ifdef HYPOTF
+    return std::hypotf(x_ - o.x_, y_ - o.y_);
+#elif defined(SQRE_RADIUS)
+    return std::pow(x_ - o.x_, 2) + std::pow(y_ - o.y_, 2);
+#else
     return std::sqrt(std::pow(x_ - o.x_, 2) + std::pow(y_ - o.y_, 2));
+#endif
   }
   // two floats; each float is 4 bytes.
   static size_t size() { return 8; }
