@@ -14,7 +14,7 @@ class EuclideanTwoD {
   EuclideanTwoD() {}
   EuclideanTwoD(float x, float y) : x_(x), y_(y) {}
   inline float operator-(const EuclideanTwoD &o) const {
-#ifdef HYPOTF
+#if defined(HYPOTF)
     return std::hypotf(x_ - o.x_, y_ - o.y_);
 #elif defined(SQRE_RADIUS)
     return std::pow(x_ - o.x_, 2) + std::pow(y_ - o.y_, 2);
@@ -24,7 +24,7 @@ class EuclideanTwoD {
   }
   // two floats; each float is 4 bytes.
   static size_t size() { return 8; }
-#ifdef TESTING
+#if defined(TESTING)
   bool operator==(const EuclideanTwoD &o) const {
     return x_ == o.x_ && y_ == o.y_;
   }

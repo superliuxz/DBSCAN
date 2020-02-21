@@ -7,6 +7,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <bitset>
 #include <vector>
 
 #include "Helper.h"
@@ -21,18 +22,31 @@ class Graph {
   std::vector<int> cluster_ids;
   std::vector<membership::Membership> membership;
 
-#ifdef FLAT_ADJ
+#if defined(FLAT_ADJ)
   explicit Graph(size_t num_nodes)
       : Va(num_nodes * 2, 0),
         // -1 as unvisited/un-clustered.
         cluster_ids(num_nodes, -1),
-        membership(num_nodes, membership::Border),
+        membership(num_nodes, membership::Noise),
         num_nodes_(num_nodes),
         temp_adj_list_(num_nodes * num_nodes, 0) {
     set_logger_();
     for (size_t i = 0; i < temp_adj_list_.size(); i += num_nodes) {
       temp_adj_list_[i] = i + 1;
     }
+  }
+#elif defined(BOOL_ADJ)
+  explicit Graph(size_t num_nodes)
+      : Va(num_nodes * 2, 0),
+        // -1 as unvisited/un-clustered.
+        cluster_ids(num_nodes, -1),
+        membership(num_nodes, membership::Noise),
+        num_nodes_(num_nodes) {
+    set_logger_();
+    const size_t r = num_nodes_ % 8;
+    const size_t padding = r ? 8 - r : 0;
+    temp_adj_list_.resize(num_nodes_,
+                          std::vector<bool>(num_nodes_ + padding, false));
   }
 #elif defined(BIT_ADJ)
   explicit Graph(size_t num_nodes)
@@ -46,7 +60,18 @@ class Graph {
     size_t num_uint64 = num_nodes_ / 64u + (num_nodes_ % 64u != 0);
     temp_adj_list_.resize(num_nodes_, std::vector<uint64_t>(num_uint64, 0u));
   }
-
+#elif defined(BITSET_ADJ)
+  explicit Graph(size_t num_nodes)
+      : Va(num_nodes * 2, 0),
+        // -1 as unvisited/un-clustered.
+        cluster_ids(num_nodes, -1),
+        membership(num_nodes, membership::Noise),
+        num_nodes_(num_nodes) {
+    set_logger_();
+    size_t num_bitset = num_nodes_ / 64u + (num_nodes_ % 64u != 0);
+    temp_adj_list_.resize(
+        num_nodes_, std::vector<std::bitset<64> >(num_bitset, 0x00000000));
+  }
 #else
   explicit Graph(size_t num_nodes)
       : Va(num_nodes * 2, 0),
@@ -68,14 +93,21 @@ class Graph {
       throw std::runtime_error(oss.str());
     }
 
-#ifdef FLAT_ADJ  // vector of size_t (node numbers)
+#if defined(FLAT_ADJ)  // vector of size_t (node numbers)
     logger_->debug("push {} as a neighbour of {}", v, u);
     temp_adj_list_[temp_adj_list_[u * num_nodes_]++] = v;
 
-#ifdef TRIA_ENUM
+#if defined(TRIA_ENUM)
     logger_->debug("push {} as a neighbour of {}", u, v);
     temp_adj_list_[temp_adj_list_[v * num_nodes_]++] = u;
 #endif  // TRIA_ENUM
+
+#elif defined(BOOL_ADJ)
+    temp_adj_list_[u][v] = true;
+
+#if defined(TRIA_ENUM)
+    temp_adj_list_[v][u] = true;
+#endif
 
 #elif defined(BIT_ADJ)  // vector of vector of uint64
     size_t vidx = v / 64u;
@@ -85,7 +117,7 @@ class Graph {
     logger_->debug("insert {} to neighbours of {}", v, u);
     logger_->debug("vidx {}, voffset {} vmask {:b}", vidx, voffset, vmask);
 
-#ifdef TRIA_ENUM
+#if defined(TRIA_ENUM)
     size_t uidx = u / 64u;
     uint8_t uoffset = u % 64u;
     uint64_t umask = 1llu << uoffset;
@@ -94,11 +126,26 @@ class Graph {
     logger_->debug("uidx {}, uoffset {} umask {:b}", uidx, uoffset, umask);
 #endif  // TRIA_ENUM
 
+#elif defined(BITSET_ADJ)
+    size_t vidx = v / 64u;
+    uint8_t voffset = v % 64u;  // 8bits -> 0-255, which is enough
+    temp_adj_list_[u][vidx].set(voffset);
+    logger_->debug("insert {} to neighbours of {}", v, u);
+    logger_->debug("vidx {}, voffset {}", vidx, voffset);
+
+#if defined(TRIA_ENUM)
+    size_t uidx = u / 64u;
+    uint8_t uoffset = u % 64u;
+    temp_adj_list_[v][uidx].set(uoffset);
+    logger_->debug("insert {} to neighbours of {}", u, v);
+    logger_->debug("uidx {}, uoffset {}", uidx, uoffset);
+#endif  // TRIA_ENUM
+
 #else  // vector of vector of size_t
     logger_->debug("push {} as a neighbour of {}", v, u);
     temp_adj_list_[u].push_back(v);
 
-#ifdef TRIA_ENUM
+#if defined(TRIA_ENUM)
     logger_->debug("push {} as a neighbour of {}", u, v);
     temp_adj_list_[v].push_back(u);
 #endif  // TRIA_ENUM
@@ -116,28 +163,26 @@ class Graph {
     cluster_ids[node] = cluster_id;
   }
 
-#ifdef FLAT_ADJ
+#if defined(FLAT_ADJ)
   void finalize() {
     logger_->info("finalize - FLAT_ADJ");
     assert_mutable_();
 
-    size_t curr_node = 0;
+    size_t node = 0;
     size_t Va_pos = 0;
     // construct Va
-    for (size_t i = 0; i < temp_adj_list_.capacity();
-         i += num_nodes_, ++curr_node) {
+    for (size_t i = 0; i < temp_adj_list_.capacity(); i += num_nodes_, ++node) {
       size_t num_neighbours = temp_adj_list_[i] - i - 1;
-      Va[curr_node * 2] = num_neighbours;
-      Va[curr_node * 2 + 1] = Va_pos;
+      Va[node * 2] = num_neighbours;
+      Va[node * 2 + 1] = Va_pos;
       Va_pos += num_neighbours;
     }
 
     // construct Ea
     Ea.reserve(Va[Va.size() - 1] + Va[Va.size() - 2]);
-    curr_node = 0;
-    for (size_t i = 0; i < temp_adj_list_.capacity();
-         i += num_nodes_, ++curr_node) {
-      size_t num_neighbours = Va[curr_node * 2];
+    node = 0;
+    for (size_t i = 0; i < temp_adj_list_.capacity(); i += num_nodes_, ++node) {
+      size_t num_neighbours = Va[node * 2];
       for (size_t j = 0; j < num_neighbours; ++j) {
         Ea.push_back(temp_adj_list_[i + 1 + j]);
       }
@@ -146,22 +191,57 @@ class Graph {
     immutable_ = true;
     temp_adj_list_.clear();
   }
+#elif defined(BOOL_ADJ)
+  void finalize() {
+    logger_->info("finalize - BOOL_ADJ");
+    assert_mutable_();
+    for (size_t node = 0; node < num_nodes_; ++node) {
+      Va[node * 2] = GDBSCAN::helper::popcount_bool(temp_adj_list_[node]);
+      Va[node * 2 + 1] = node == 0 ? 0 : (Va[node * 2 - 1] + Va[node * 2 - 2]);
+    }
+    Ea.reserve(Va[Va.size() - 1] + Va[Va.size() - 2]);
+    for (const auto& nbs : temp_adj_list_) {
+      const std::vector<size_t> temp{GDBSCAN::helper::true_pos(nbs)};
+      Ea.insert(Ea.end(), temp.cbegin(), temp.cend());
+    }
+    immutable_ = true;
+    temp_adj_list_.clear();
+  }
 #elif defined(BIT_ADJ)
   void finalize() {
     logger_->info("finalize - BIT_ADJ");
     assert_mutable_();
-    for (size_t curr_node = 0; curr_node < num_nodes_; ++curr_node) {
-      for (const uint64_t& val : temp_adj_list_[curr_node]) {
-        Va[curr_node * 2] += GDBSCAN::helper::popcount64(val);
+    for (size_t node = 0; node < num_nodes_; ++node) {
+      for (const uint64_t& val : temp_adj_list_[node]) {
+        Va[node * 2] += GDBSCAN::helper::popcount64(val);
       }
-      Va[curr_node * 2 + 1] =
-          curr_node == 0 ? 0 : (Va[curr_node * 2 - 1] + Va[curr_node * 2 - 2]);
+      Va[node * 2 + 1] = node == 0 ? 0 : (Va[node * 2 - 1] + Va[node * 2 - 2]);
     }
     Ea.reserve(Va[Va.size() - 1] + Va[Va.size() - 2]);
-    for (size_t curr_node = 0; curr_node < num_nodes_; ++curr_node) {
-      const std::vector<uint64_t>& vals = temp_adj_list_[curr_node];
-      for (size_t i = 0; i < vals.size(); ++i) {
-        const std::vector<size_t> temp{GDBSCAN::helper::bit_pos(vals[i], i)};
+    for (const auto& nbs : temp_adj_list_) {
+      for (size_t i = 0; i < nbs.size(); ++i) {
+        const std::vector<size_t> temp{GDBSCAN::helper::bit_pos(nbs[i], i)};
+        Ea.insert(Ea.end(), temp.cbegin(), temp.cend());
+      }
+    }
+    immutable_ = true;
+    temp_adj_list_.clear();
+  }
+#elif defined(BITSET_ADJ)
+  void finalize() {
+    logger_->info("finalize - BITSET_ADJ");
+    assert_mutable_();
+    for (size_t node = 0; node < num_nodes_; ++node) {
+      for (const auto& val : temp_adj_list_[node]) {
+        Va[node * 2] += val.count();
+      }
+      Va[node * 2 + 1] = node == 0 ? 0 : (Va[node * 2 - 1] + Va[node * 2 - 2]);
+    }
+    Ea.reserve(Va[Va.size() - 1] + Va[Va.size() - 2]);
+    for (const auto& nbs : temp_adj_list_) {
+      for (size_t i = 0; i < nbs.size(); ++i) {
+        const std::vector<size_t> temp{
+            GDBSCAN::helper::bit_pos(nbs[i].to_ullong(), i)};
         Ea.insert(Ea.end(), temp.cbegin(), temp.cend());
       }
     }
@@ -173,30 +253,24 @@ class Graph {
     logger_->info("finalize - DEFAULT");
     assert_mutable_();
 
-    size_t curr_node = 0;
+    size_t node = 0;
     for (const auto &nbs : temp_adj_list_) {
       // number of neighbours
-      Va[curr_node * 2] = nbs.size();
+      Va[node * 2] = nbs.size();
       // pos in Ea
-      Va[curr_node * 2 + 1] =
-          curr_node == 0 ? 0 : (Va[curr_node * 2 - 1] + Va[curr_node * 2 - 2]);
+      Va[node * 2 + 1] = node == 0 ? 0 : (Va[node * 2 - 1] + Va[node * 2 - 2]);
 
-#ifndef OPTM_1
-      for (const auto &nb : nbs) {
-        Ea.push_back(nb);
-      }
+#if !defined(OPTM_1)
+      Ea.insert(Ea.end(), nbs.cbegin(), nbs.cend());
 #endif  // OPTM_1
-      ++curr_node;
+      ++node;
     }
-#ifdef OPTM_1
+#if defined(OPTM_1)
     logger_->info("OPTM_1: using separate loop to construct Ea");
-    size_t Ea_size = Va[Va.size() - 1] + Va[Va.size() - 2];
-    Ea.reserve(Ea_size);
+    Ea.reserve(Va[Va.size() - 1] + Va[Va.size() - 2]);
 
     for (const auto &nbs : temp_adj_list_) {
-      for (const auto &nb : nbs) {
-        Ea.push_back(nb);
-      }
+      Ea.insert(Ea.end(), nbs.cbegin(), nbs.cend());
     }
 #endif  // OPTM_1
     immutable_ = true;
@@ -224,10 +298,14 @@ class Graph {
   bool immutable_ = false;
   size_t num_nodes_;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
-#ifdef FLAT_ADJ
+#if defined(FLAT_ADJ)
   std::vector<size_t> temp_adj_list_;
+#elif defined(BOOL_ADJ)
+  std::vector<std::vector<bool> > temp_adj_list_;
 #elif defined(BIT_ADJ)
   std::vector<std::vector<uint64_t> > temp_adj_list_;
+#elif defined(BITSET_ADJ)
+  std::vector<std::vector<std::bitset<64> > > temp_adj_list_;
 #else
   std::vector<std::vector<size_t> > temp_adj_list_;
 #endif

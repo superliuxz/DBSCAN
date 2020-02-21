@@ -21,7 +21,7 @@ class Solver {
   explicit Solver(std::unique_ptr<std::ifstream> in, size_t num_nodes,
                   uint min_pts, float radius)
       : num_nodes_(num_nodes), min_pts_(min_pts) {
-#ifdef SQRE_RADIUS
+#if defined(SQRE_RADIUS)
     radius_ = radius * radius;
 #else
     radius_ = radius;
@@ -53,7 +53,7 @@ class Solver {
     logger_->info("reading vertices takes {} seconds", time_spent.count());
   }
 
-#ifdef TESTING
+#if defined( TESTING)
   const std::vector<PointType> dataset_view() const { return *dataset_; }
 #endif
 
@@ -77,7 +77,7 @@ class Solver {
 
     graph_ = std::make_unique<Graph>(num_nodes_);
 
-#ifdef TILING
+#if defined(TILING)
     logger_->info("insert_edges - TILING");
     // 8k bytes __should__ fit most of modern CPU's L1 dcache.
     const size_t block_size = 8192u / PointType::size();
@@ -86,7 +86,7 @@ class Solver {
         "block_size: {}",
         PointType::size(), block_size);
 
-#ifdef TRIA_ENUM  // triangle enumeration
+#if defined(TRIA_ENUM)  // triangle enumeration
     logger_->info("insert_edges - TRIA_ENUM");
     for (size_t u = 0; u < num_nodes_; u += block_size) {
       size_t uu = std::min(u + block_size, num_nodes_);
@@ -94,7 +94,7 @@ class Solver {
         size_t uuu = std::min(uu, v);
         const PointType& vpoint = (*dataset_)[v];
 
-#ifdef UNROLL_INSE
+#if defined(UNROLL_INSE)
         logger_->debug("insert_edges - UNROLL_INSE");
         for (size_t i = u; i < uuu; i += 4) {
           if ((*dataset_)[i] - vpoint <= radius_) {
@@ -127,7 +127,7 @@ class Solver {
       for (size_t v = 0; v < num_nodes_; ++v) {
         const PointType& vpoint = (*dataset_)[v];
 
-#ifdef UNROLL_INSE
+#if defined(UNROLL_INSE)
         logger_->debug("insert_edges - UNROLL_INSE");
         for (size_t i = u; i < uu; i += 4) {
           if (i != v && (*dataset_)[i] - vpoint <= radius_) {
@@ -160,7 +160,7 @@ class Solver {
 
 #else             // no tiling
     logger_->info("insert_edges - default");
-#ifdef TRIA_ENUM  // triangle enumeration
+#if defined(TRIA_ENUM)  // triangle enumeration
     logger_->info("insert_edges - TRIA_ENUM");
     for (size_t u = 0; u < num_nodes_; ++u) {
       const PointType& upoint = (*dataset_)[u];
@@ -237,7 +237,7 @@ class Solver {
   }
 
   /*
-   * Algorithm 2 (BFS) in Andrade et al.
+   * Algorithm 2 (BFS/DFS) in Andrade et al.
    */
   void identify_cluster() const {
     using namespace std::chrono;
@@ -248,8 +248,13 @@ class Solver {
       if (graph_->cluster_ids[node] == -1 &&
           graph_->membership[node] == membership::Core) {
         graph_->cluster_ids[node] = cluster;
+#if defined(DFS)
+        logger_->debug("start dfs on node {} with cluster {}", node, cluster);
+        dfs(node, cluster);
+#else
         logger_->debug("start bfs on node {} with cluster {}", node, cluster);
         bfs(node, cluster);
+#endif
         ++cluster;
       }
     }
@@ -288,7 +293,50 @@ class Solver {
 
         size_t num_neighbours = graph_->Va[2 * curr];
         size_t start_pos = graph_->Va[2 * curr + 1];
-
+#if defined(UNROLL_BFS)
+        for (size_t i = 0; i < num_neighbours; i += 4) {
+          if (i < num_neighbours) {
+            size_t nb0 = graph_->Ea[start_pos + i];
+            if (graph_->cluster_ids[nb0] == -1) {
+              // cluster the node
+              logger_->debug("\tnode {} is clustered tp {}", nb0, cluster);
+              graph_->cluster_ids[nb0] = cluster;
+              logger_->debug("\tneighbour {} of node {} is queued", nb0, curr);
+              next_level.emplace_back(nb0);
+            }
+          }
+          if (i + 1 < num_neighbours) {
+            size_t nb1 = graph_->Ea[start_pos + i + 1];
+            if (graph_->cluster_ids[nb1] == -1) {
+              // cluster the node
+              logger_->debug("\tnode {} is clustered tp {}", nb1, cluster);
+              graph_->cluster_ids[nb1] = cluster;
+              logger_->debug("\tneighbour {} of node {} is queued", nb1, curr);
+              next_level.emplace_back(nb1);
+            }
+          }
+          if (i + 2 < num_neighbours) {
+            size_t nb2 = graph_->Ea[start_pos + i + 2];
+            if (graph_->cluster_ids[nb2] == -1) {
+              // cluster the node
+              logger_->debug("\tnode {} is clustered tp {}", nb2, cluster);
+              graph_->cluster_ids[nb2] = cluster;
+              logger_->debug("\tneighbour {} of node {} is queued", nb2, curr);
+              next_level.emplace_back(nb2);
+            }
+          }
+          if (i + 3 < num_neighbours) {
+            size_t nb3 = graph_->Ea[start_pos + i + 3];
+            if (graph_->cluster_ids[nb3] == -1) {
+              // cluster the node
+              logger_->debug("\tnode {} is clustered tp {}", nb3, cluster);
+              graph_->cluster_ids[nb3] = cluster;
+              logger_->debug("\tneighbour {} of node {} is queued", nb3, curr);
+              next_level.emplace_back(nb3);
+            }
+          }
+        }
+#else
         for (size_t i = 0; i < num_neighbours; ++i) {
           size_t nb = graph_->Ea[start_pos + i];
           if (graph_->cluster_ids[nb] == -1) {
@@ -299,9 +347,43 @@ class Solver {
             next_level.emplace_back(nb);
           }
         }
+#endif
       }
       q = std::move(next_level);
       next_level.clear();
+    }
+  }
+
+  /*
+   * DFS version.
+   */
+  void dfs(size_t node, int cluster) const {
+    std::vector<size_t> stack{node};
+    while (!stack.empty()) {
+      size_t curr = stack.back();
+      stack.pop_back();
+
+      logger_->debug("visiting node {}", curr);
+      // Relabel a reachable Noise node, but do not keep exploring.
+      if (graph_->membership[curr] == membership::Noise) {
+        logger_->debug("\tnode {} is relabeled from Noise to Border", curr);
+        graph_->membership[curr] = membership::Border;
+        continue;
+      }
+
+      size_t num_neighbours = graph_->Va[2 * curr];
+      size_t start_pos = graph_->Va[2 * curr + 1];
+
+      for (size_t i = 0; i < num_neighbours; ++i) {
+        size_t nb = graph_->Ea[start_pos + i];
+        if (graph_->cluster_ids[nb] == -1) {
+          // cluster the node
+          logger_->debug("\tnode {} is clustered tp {}", nb, cluster);
+          graph_->cluster_ids[nb] = cluster;
+          logger_->debug("\tneighbour {} of node {} is stacked", nb, curr);
+          stack.emplace_back(nb);
+        }
+      }
     }
   }
 };

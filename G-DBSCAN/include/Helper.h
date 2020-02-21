@@ -5,13 +5,14 @@
 #ifndef GDBSCAN_INCLUDE_HELPER_H_
 #define GDBSCAN_INCLUDE_HELPER_H_
 
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <vector>
 
 namespace GDBSCAN::helper {
 template <class T>
-std::string print_vector(const std::string &vector_name,
+std::string print_vector(const std::string& vector_name,
                          std::vector<T> vector) {
   std::ostringstream oss;
   oss << vector_name << ": ";
@@ -22,6 +23,20 @@ std::string print_vector(const std::string &vector_name,
   }
   oss << *it << std::endl;
   return oss.str();
+}
+inline size_t popcount_bool(const std::vector<bool>& vec) {
+  std::vector<size_t> temp(8, 0llu);
+  for (auto i = 0llu; i < vec.size(); i += 8) {
+    temp[0] += vec[i] == true;
+    temp[1] += vec[i + 1] == true;
+    temp[2] += vec[i + 2] == true;
+    temp[3] += vec[i + 3] == true;
+    temp[4] += vec[i + 4] == true;
+    temp[5] += vec[i + 5] == true;
+    temp[6] += vec[i + 6] == true;
+    temp[7] += vec[i + 7] == true;
+  }
+  return std::accumulate(temp.cbegin(), temp.cend(), 0llu);
 }
 // clang-format off
 const uint64_t m1  = 0x5555555555555555; //binary: 0101...
@@ -50,6 +65,7 @@ const uint64_t lookup[64] = {
 
 inline std::vector<size_t> bit_pos(uint64_t val, size_t mul) {
   std::vector<size_t> retval;
+  retval.reserve(64u);  // set the capacity to 64.
   for (size_t outer = 0; outer < 64; outer += 8) {
     size_t base = 64 * mul + outer;
     if (val & (lookup[outer])) retval.push_back(base);
@@ -60,6 +76,21 @@ inline std::vector<size_t> bit_pos(uint64_t val, size_t mul) {
     if (val & (lookup[outer + 5])) retval.push_back(base + 5);
     if (val & (lookup[outer + 6])) retval.push_back(base + 6);
     if (val & (lookup[outer + 7])) retval.push_back(base + 7);
+  }
+  return retval;
+}
+
+inline std::vector<size_t> true_pos(const std::vector<bool>& nbs) {
+  std::vector<size_t> retval;
+  for (size_t i = 0llu; i < nbs.size(); i += 8) {
+    if (nbs[i]) retval.push_back(i);
+    if (nbs[i + 1]) retval.push_back(i + 1);
+    if (nbs[i + 2]) retval.push_back(i + 2);
+    if (nbs[i + 3]) retval.push_back(i + 3);
+    if (nbs[i + 4]) retval.push_back(i + 4);
+    if (nbs[i + 5]) retval.push_back(i + 5);
+    if (nbs[i + 6]) retval.push_back(i + 6);
+    if (nbs[i + 7]) retval.push_back(i + 7);
   }
   return retval;
 }

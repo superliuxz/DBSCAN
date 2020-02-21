@@ -47,19 +47,19 @@ TEST(Graph, insert_edge_failed_oob) {
 TEST(Graph, finalize_success) {
   GDBSCAN::Graph g(5);
   ASSERT_NO_THROW(g.insert_edge(2, 1));
-#ifndef TRIA_ENUM
+#if !defined(TRIA_ENUM)
   ASSERT_NO_THROW(g.insert_edge(1, 2));
 #endif
   ASSERT_NO_THROW(g.insert_edge(2, 4));
-#ifndef TRIA_ENUM
+#if !defined(TRIA_ENUM)
   ASSERT_NO_THROW(g.insert_edge(4, 2));
 #endif
   ASSERT_NO_THROW(g.insert_edge(2, 0));
-#ifndef TRIA_ENUM
+#if !defined(TRIA_ENUM)
   ASSERT_NO_THROW(g.insert_edge(0, 2));
 #endif
   ASSERT_NO_THROW(g.insert_edge(0, 3));
-#ifndef TRIA_ENUM
+#if !defined(TRIA_ENUM)
   ASSERT_NO_THROW(g.insert_edge(3, 0));
 #endif
   ASSERT_NO_THROW(g.finalize());
@@ -67,7 +67,7 @@ TEST(Graph, finalize_success) {
   ASSERT_THAT(g.Va, testing::ElementsAre(2, 0, 1, 2, 3, 3, 1, 6, 1, 7));
 // if use bitset / bit adjacency list, the neighbours are ascending order, where
 // as other type of adjacency list respect the insertion order.
-#ifdef BIT_ADJ
+#if defined(BIT_ADJ) || defined(BOOL_ADJ) || defined(BITSET_ADJ)
   ASSERT_THAT(g.Ea, testing::ElementsAre(2, 3, 2, 0, 1, 4, 0, 2));
 #else
   ASSERT_THAT(g.Ea, testing::ElementsAre(2, 3, 2, 1, 4, 0, 0, 2));
@@ -88,20 +88,20 @@ TEST(Graph, finalize_fail_second_finalize) {
 TEST(Graph, finalize_success_disconnected_graph) {
   GDBSCAN::Graph g(5);
   ASSERT_NO_THROW(g.insert_edge(2, 1));
-#ifndef TRIA_ENUM
+#if !defined(TRIA_ENUM)
   ASSERT_NO_THROW(g.insert_edge(1, 2));
 #endif
   ASSERT_NO_THROW(g.insert_edge(2, 4));
-#ifndef TRIA_ENUM
+#if !defined(TRIA_ENUM)
   ASSERT_NO_THROW(g.insert_edge(4, 2));
 #endif
   ASSERT_NO_THROW(g.insert_edge(0, 2));
-#ifndef TRIA_ENUM
+#if !defined(TRIA_ENUM)
   ASSERT_NO_THROW(g.insert_edge(2, 0));
 #endif
   ASSERT_NO_THROW(g.finalize());
   ASSERT_THAT(g.Va, testing::ElementsAre(1, 0, 1, 1, 3, 2, 0, 5, 1, 5));
-#ifdef BIT_ADJ
+#if defined(BIT_ADJ) || defined(BOOL_ADJ) || defined(BITSET_ADJ)
   ASSERT_THAT(g.Ea, testing::ElementsAre(2, 2, 0, 1, 4, 2));
 #else
   ASSERT_THAT(g.Ea, testing::ElementsAre(2, 2, 1, 4, 0, 2));

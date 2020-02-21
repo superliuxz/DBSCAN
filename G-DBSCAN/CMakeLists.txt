@@ -3,13 +3,17 @@ project(GDBSCAN)
 
 set(CMAKE_CXX_STANDARD 17)
 
+message("***********************************************")
 if (DEFINED ENV{BENCH})
+  message("*** benchmark mode: -g -Og ********************")
   set(CMAKE_CXX_FLAGS "-Wall -Wextra -g -Og")
 else ()
-  set(CMAKE_CXX_FLAGS "-Wall -Wextra -g -O3 -march=native")
+  message("*** unittest / main mode: -O3 -march=native ***")
+  set(CMAKE_CXX_FLAGS "-Wall -Wextra -O3 -march=native")
 endif ()
+message("***********************************************\n")
 
-message("*********************************************************************")
+message("*****************************************************************************")
 
 if (DEFINED ENV{TILING})
   message("*** apply tiling at nested loop of insert_edges ")
@@ -30,9 +34,15 @@ endif ()
 if (DEFINED ENV{FLAT_ADJ})
   message("*** using 1D flat adjacency matrix (vector<size_t> of size NxN)")
   set(FLAT_ADJ FLAT_ADJ)
+elseif (DEFINED ENV{BOOL_ADJ}) # SMH http://www.gotw.ca/gotw/050.htm
+  message("*** using 2D boolean adjacency matrix of size NxN")
+  set(BOOL_ADJ BOOL_ADJ)
 elseif (DEFINED ENV{BIT_ADJ})
   message("*** using packed uint64_t adjacency matrix (vector<vector<std::uint64_t>> of size NxN/64)")
   set(BIT_ADJ BIT_ADJ)
+elseif (DEFINED ENV{BITSET_ADJ})
+  message("*** using BITSET_ADJ adjacency matrix (vector<vector<bitset<64>>>)")
+  set(BITSET_ADJ BITSET_ADJ)
 else ()
   message("*** using default dynamic adjacency list (std::vector<std::vector<size_t>>)")
   if (DEFINED ENV{OPTM_1}) # consider drop this optimisation since the change is so small
@@ -53,7 +63,15 @@ else ()
   message("*** using std::srqt with std::pow to calculate radius")
 endif ()
 
-message("*********************************************************************")
+if (DEFINED ENV{DFS})
+  message("*** using DFS to cluster the graph")
+  set(DFS DFS)
+elseif (DEFINED ENV{UNROLL_BFS})
+  message("*** unroll BFS to use ILP")
+  set(UNROLL_BFS UNROLL_BFS)
+endif ()
+
+message("*****************************************************************************")
 ##
 # Copied from
 # https://github.com/google/googletest/tree/master/googletest#incorporating-into-an-existing-cmake-project
@@ -109,9 +127,9 @@ add_executable(unittest test/tests.cpp include/Point.h include/Solver.h include/
 add_test(unittest test/test.cpp)
 target_link_libraries(unittest gtest_main gmock_main GDBSCAN)
 target_compile_definitions(unittest PRIVATE TESTING)
-target_compile_definitions(unittest PRIVATE "${TILING}" "${OPTM_1}" "${FLAT_ADJ}" "${TRIA_ENUM}" "${BIT_ADJ}" "${HYPOTF}" "${SQRE_RADIUS}" "${UNROLL_INSE}")
+target_compile_definitions(unittest PRIVATE "${TILING}" "${OPTM_1}" "${FLAT_ADJ}" "${TRIA_ENUM}" "${BIT_ADJ}" "${HYPOTF}" "${SQRE_RADIUS}" "${UNROLL_INSE}" "${BOOL_ADJ}" "${DFS}" "${UNROLL_BFS}" "${BITSET_ADJ}")
 
 # example
 add_executable(main main.cpp include/Point.h include/Solver.h include/Membership.h include/Helper.h)
 target_link_libraries(main GDBSCAN)
-target_compile_definitions(main PRIVATE "${TILING}" "${OPTM_1}" "${FLAT_ADJ}" "${TRIA_ENUM}" "${BIT_ADJ}" "${HYPOTF}" "${SQRE_RADIUS}" "${UNROLL_INSE}")
+target_compile_definitions(main PRIVATE "${TILING}" "${OPTM_1}" "${FLAT_ADJ}" "${TRIA_ENUM}" "${BIT_ADJ}" "${HYPOTF}" "${SQRE_RADIUS}" "${UNROLL_INSE}" "${BOOL_ADJ}" "${DFS}" "${UNROLL_BFS}" "${BITSET_ADJ}")
