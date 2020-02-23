@@ -53,7 +53,7 @@ class Solver {
     logger_->info("reading vertices takes {} seconds", time_spent.count());
   }
 
-#if defined( TESTING)
+#if defined(TESTING)
   const std::vector<PointType> dataset_view() const { return *dataset_; }
 #endif
 
@@ -76,8 +76,52 @@ class Solver {
     }
 
     graph_ = std::make_unique<Graph>(num_nodes_);
-
-#if defined(TILING)
+#if defined(BIT_ADJ_UNROLL)  // must apply with BIT_ADJ
+    logger_->info("insert_edges - BIT_ADJ_UNROLL");
+    size_t N = num_nodes_ / 64u + (num_nodes_ % 64u != 0);
+    for (size_t u = 0; u < num_nodes_; ++u) {
+      const PointType& upoint = (*dataset_)[u];
+      for (size_t outer = 0; outer < N; outer += 4) {
+        for (size_t inner = 0; inner < 64; ++inner) {
+          size_t v1 = outer * 64llu + inner;
+          size_t v2 = v1 + 64;
+          size_t v3 = v2 + 64;
+          size_t v4 = v3 + 64;
+          uint64_t msk = 1llu << inner;
+          if (u != v1 && v1 < num_nodes_ && upoint - (*dataset_)[v1] <= radius_)
+            graph_->temp_adj_list_[u][outer] |= msk;
+          if (u != v2 && v2 < num_nodes_ && upoint - (*dataset_)[v2] <= radius_)
+            graph_->temp_adj_list_[u][outer + 1] |= msk;
+          if (u != v3 && v3 < num_nodes_ && upoint - (*dataset_)[v3] <= radius_)
+            graph_->temp_adj_list_[u][outer + 2] |= msk;
+          if (u != v4 && v4 < num_nodes_ && upoint - (*dataset_)[v4] <= radius_)
+            graph_->temp_adj_list_[u][outer + 3] |= msk;
+        }
+      }
+    }
+#elif defined(BITSET_ADJ_UNROLL)  // must apply with BITSET_ADJ
+    logger_->info("insert_edges - BITSET_ADJ_UNROLL");
+    size_t N = num_nodes_ / 64u + (num_nodes_ % 64u != 0);
+    for (size_t u = 0; u < num_nodes_; ++u) {
+      const PointType& upoint = (*dataset_)[u];
+      for (size_t outer = 0; outer < N; outer += 4) {
+        for (size_t inner = 0; inner < 64; ++inner) {
+          size_t v1 = outer * 64llu + inner;
+          size_t v2 = v1 + 64;
+          size_t v3 = v2 + 64;
+          size_t v4 = v3 + 64;
+          if (u != v1 && v1 < num_nodes_ && upoint - (*dataset_)[v1] <= radius_)
+            graph_->temp_adj_list_[u][outer].set(inner);
+          if (u != v2 && v2 < num_nodes_ && upoint - (*dataset_)[v2] <= radius_)
+            graph_->temp_adj_list_[u][outer + 1].set(inner);
+          if (u != v3 && v3 < num_nodes_ && upoint - (*dataset_)[v3] <= radius_)
+            graph_->temp_adj_list_[u][outer + 2].set(inner);
+          if (u != v4 && v4 < num_nodes_ && upoint - (*dataset_)[v4] <= radius_)
+            graph_->temp_adj_list_[u][outer + 3].set(inner);
+        }
+      }
+    }
+#elif defined(TILING)
     logger_->info("insert_edges - TILING");
     // 8k bytes __should__ fit most of modern CPU's L1 dcache.
     const size_t block_size = 8192u / PointType::size();
@@ -158,29 +202,68 @@ class Solver {
     }
 #endif  // SQRE_ENUM
 
-#else             // no tiling
+#else                   // no tiling
     logger_->info("insert_edges - default");
 #if defined(TRIA_ENUM)  // triangle enumeration
     logger_->info("insert_edges - TRIA_ENUM");
     for (size_t u = 0; u < num_nodes_; ++u) {
       const PointType& upoint = (*dataset_)[u];
+#if defined(UNROLL_INSE)
+      logger_->debug("insert_edges - UNROLL_INSE");
+      for (size_t v = u + 1; v < num_nodes_; v += 4) {
+        if (upoint - (*dataset_)[v] <= radius_) {
+          graph_->insert_edge(u, v);
+        }
+        if (v + 1 < num_nodes_ && upoint - (*dataset_)[v + 1] <= radius_) {
+          graph_->insert_edge(u, v + 1);
+        }
+        if (v + 2 < num_nodes_ && upoint - (*dataset_)[v + 2] <= radius_) {
+          graph_->insert_edge(u, v + 2);
+        }
+        if (v + 3 < num_nodes_ && upoint - (*dataset_)[v + 3] <= radius_) {
+          graph_->insert_edge(u, v + 3);
+        }
+      }
+#else
       for (size_t v = u + 1; v < num_nodes_; ++v) {
         if (upoint - (*dataset_)[v] <= radius_) {
           graph_->insert_edge(u, v);
         }
       }
+#endif
     }
-#else             // square enumeration
+#else  // square enumeration
     logger_->info("insert_edges - square enumeration");
     for (size_t u = 0; u < num_nodes_; ++u) {
       const PointType& upoint = (*dataset_)[u];
+#if defined(UNROLL_INSE)
+      logger_->debug("insert_edges - UNROLL_INSE");
+      for (size_t v = 0; v < num_nodes_; v += 4) {
+        if (u != v && upoint - (*dataset_)[v] <= radius_) {
+          graph_->insert_edge(u, v);
+        }
+        if (u != v + 1 && v + 1 < num_nodes_ &&
+            upoint - (*dataset_)[v + 1] <= radius_) {
+          graph_->insert_edge(u, v + 1);
+        }
+        if (u != v + 2 && v + 2 < num_nodes_ &&
+            upoint - (*dataset_)[v + 2] <= radius_) {
+          graph_->insert_edge(u, v + 2);
+        }
+        if (u != v + 3 && v + 3 < num_nodes_ &&
+            upoint - (*dataset_)[v + 3] <= radius_) {
+          graph_->insert_edge(u, v + 3);
+        }
+      }
+#else
       for (size_t v = 0; v < num_nodes_; ++v) {
         if (u != v && upoint - (*dataset_)[v] <= radius_) {
           graph_->insert_edge(u, v);
         }
       }
+#endif
     }
-#endif            // TRIA_ENUM
+#endif  // TRIA_ENUM
 
 #endif  // TILING
     high_resolution_clock::time_point end = high_resolution_clock::now();

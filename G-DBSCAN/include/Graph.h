@@ -21,6 +21,17 @@ class Graph {
   std::vector<size_t> Ea;
   std::vector<int> cluster_ids;
   std::vector<membership::Membership> membership;
+#if defined(FLAT_ADJ)
+  std::vector<size_t> temp_adj_list_;
+#elif defined(BOOL_ADJ)
+  std::vector<std::vector<bool> > temp_adj_list_;
+#elif defined(BIT_ADJ)
+  std::vector<std::vector<uint64_t> > temp_adj_list_;
+#elif defined(BITSET_ADJ)
+  std::vector<std::vector<std::bitset<64> > > temp_adj_list_;
+#else
+  std::vector<std::vector<size_t> > temp_adj_list_;
+#endif
 
 #if defined(FLAT_ADJ)
   explicit Graph(size_t num_nodes)
@@ -78,8 +89,8 @@ class Graph {
         // -1 as unvisited/un-clustered.
         cluster_ids(num_nodes, -1),
         membership(num_nodes, membership::Noise),
-        num_nodes_(num_nodes),
-        temp_adj_list_(num_nodes, std::vector<size_t>()) {
+        temp_adj_list_(num_nodes, std::vector<size_t>()),
+        num_nodes_(num_nodes) {
     set_logger_();
   }
 #endif
@@ -211,19 +222,44 @@ class Graph {
   void finalize() {
     logger_->info("finalize - BIT_ADJ");
     assert_mutable_();
+
+    using namespace std::chrono;
+    high_resolution_clock::time_point t0 = high_resolution_clock::now();
+
     for (size_t node = 0; node < num_nodes_; ++node) {
       for (const uint64_t& val : temp_adj_list_[node]) {
         Va[node * 2] += GDBSCAN::helper::popcount64(val);
       }
       Va[node * 2 + 1] = node == 0 ? 0 : (Va[node * 2 - 1] + Va[node * 2 - 2]);
     }
-    Ea.reserve(Va[Va.size() - 1] + Va[Va.size() - 2]);
+
+    auto t1 = high_resolution_clock::now();
+    auto d1 = duration_cast<duration<double> >(t1 - t0);
+    logger_->info("finalize - BIT_ADJ, construcing Va takes {} seconds",
+                  d1.count());
+
+    Ea.resize(Va[Va.size() - 1] + Va[Va.size() - 2], 0llu);
+    auto it = std::begin(Ea);
     for (const auto& nbs : temp_adj_list_) {
       for (size_t i = 0; i < nbs.size(); ++i) {
-        const std::vector<size_t> temp{GDBSCAN::helper::bit_pos(nbs[i], i)};
-        Ea.insert(Ea.end(), temp.cbegin(), temp.cend());
+        uint64_t val = nbs[i];
+        //        const std::vector<size_t>
+        //        temp{GDBSCAN::helper::bit_pos(nbs[i], i)};
+        //        Ea.insert(Ea.end(), temp.cbegin(), temp.cend());
+        for (size_t k = 0; k < 64; ++k) {
+          *it = 64 * i + k;
+          it += val & 1;
+          val >>= 1;
+        }
       }
     }
+    assert(it == std::end(Ea) && "Humm it should be at the end of Ea");
+
+    auto t2 = high_resolution_clock::now();
+    auto d2 = duration_cast<duration<double> >(t2 - t1);
+    logger_->info("finalize - BIT_ADJ, construcing Ea takes {} seconds",
+                  d2.count());
+
     immutable_ = true;
     temp_adj_list_.clear();
   }
@@ -259,20 +295,12 @@ class Graph {
       Va[node * 2] = nbs.size();
       // pos in Ea
       Va[node * 2 + 1] = node == 0 ? 0 : (Va[node * 2 - 1] + Va[node * 2 - 2]);
-
-#if !defined(OPTM_1)
-      Ea.insert(Ea.end(), nbs.cbegin(), nbs.cend());
-#endif  // OPTM_1
       ++node;
     }
-#if defined(OPTM_1)
-    logger_->info("OPTM_1: using separate loop to construct Ea");
     Ea.reserve(Va[Va.size() - 1] + Va[Va.size() - 2]);
-
     for (const auto &nbs : temp_adj_list_) {
       Ea.insert(Ea.end(), nbs.cbegin(), nbs.cend());
     }
-#endif  // OPTM_1
     immutable_ = true;
     temp_adj_list_.clear();
   }
@@ -298,17 +326,6 @@ class Graph {
   bool immutable_ = false;
   size_t num_nodes_;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
-#if defined(FLAT_ADJ)
-  std::vector<size_t> temp_adj_list_;
-#elif defined(BOOL_ADJ)
-  std::vector<std::vector<bool> > temp_adj_list_;
-#elif defined(BIT_ADJ)
-  std::vector<std::vector<uint64_t> > temp_adj_list_;
-#elif defined(BITSET_ADJ)
-  std::vector<std::vector<std::bitset<64> > > temp_adj_list_;
-#else
-  std::vector<std::vector<size_t> > temp_adj_list_;
-#endif
 };
 }  // namespace GDBSCAN
 
