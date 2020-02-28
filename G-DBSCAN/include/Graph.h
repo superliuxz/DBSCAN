@@ -50,7 +50,7 @@ class Graph {
     assert_mutable_();
     if (u >= num_nodes_ || idx >= temp_adj_[u].size()) {
       std::ostringstream oss;
-      oss << u << " or " << idx << " is out of bound!";
+      oss << "u=" << u << " or idx=" << idx << " is out of bound!";
       throw std::runtime_error(oss.str());
     }
     temp_adj_[u][idx] |= mask;
@@ -60,7 +60,7 @@ class Graph {
     assert_mutable_();
     if (u >= num_nodes_ || v >= num_nodes_) {
       std::ostringstream oss;
-      oss << u << "-" << v << " is out of bound!";
+      oss << "u=" << u << " or v=" << v << " is out of bound!";
       throw std::runtime_error(oss.str());
     }
     logger_->debug("push {} as a neighbour of {}", v, u);
