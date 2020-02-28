@@ -30,44 +30,61 @@ TEST(Graph, ctor_success) {
 
 TEST(Graph, insert_edge_success) {
   GDBSCAN::Graph g(5);
+#if defined(BIT_ADJ)
+  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
+  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 4u));
+  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 0u));
+  ASSERT_NO_THROW(g.insert_edge(0, 0, 1u << 3u));
+#else
   ASSERT_NO_THROW(g.insert_edge(2, 1));
   ASSERT_NO_THROW(g.insert_edge(2, 4));
   ASSERT_NO_THROW(g.insert_edge(2, 0));
   ASSERT_NO_THROW(g.insert_edge(0, 3));
+#endif
 }
 
 TEST(Graph, insert_edge_failed_oob) {
   GDBSCAN::Graph g(5);
+#if defined(BIT_ADJ)
+  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
+  ASSERT_THROW(g.insert_edge(0, 1, 1u << 5u), std::runtime_error);
+  ASSERT_THROW(g.insert_edge(-1, 0, 1u << 2u), std::runtime_error);
+  ASSERT_THROW(g.insert_edge(-2, 0, 1u << 9u), std::runtime_error);
+#else
   ASSERT_NO_THROW(g.insert_edge(2, 1));
   ASSERT_THROW(g.insert_edge(0, 5), std::runtime_error);
   ASSERT_THROW(g.insert_edge(-1, 2), std::runtime_error);
   ASSERT_THROW(g.insert_edge(-2, 9), std::runtime_error);
+#endif
 }
 
 TEST(Graph, finalize_success) {
   GDBSCAN::Graph g(5);
+#if defined(BIT_ADJ)
+  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
+  ASSERT_NO_THROW(g.insert_edge(1, 0, 1u << 2u));
+  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 4u));
+  ASSERT_NO_THROW(g.insert_edge(4, 0, 1u << 2u));
+  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 0u));
+  ASSERT_NO_THROW(g.insert_edge(0, 0, 1u << 2u));
+  ASSERT_NO_THROW(g.insert_edge(0, 0, 1u << 3u));
+  ASSERT_NO_THROW(g.insert_edge(3, 0, 1u << 0u));
+#else
   ASSERT_NO_THROW(g.insert_edge(2, 1));
-#if !defined(TRIA_ENUM)
   ASSERT_NO_THROW(g.insert_edge(1, 2));
-#endif
   ASSERT_NO_THROW(g.insert_edge(2, 4));
-#if !defined(TRIA_ENUM)
   ASSERT_NO_THROW(g.insert_edge(4, 2));
-#endif
   ASSERT_NO_THROW(g.insert_edge(2, 0));
-#if !defined(TRIA_ENUM)
   ASSERT_NO_THROW(g.insert_edge(0, 2));
-#endif
   ASSERT_NO_THROW(g.insert_edge(0, 3));
-#if !defined(TRIA_ENUM)
   ASSERT_NO_THROW(g.insert_edge(3, 0));
 #endif
   ASSERT_NO_THROW(g.finalize());
 
   ASSERT_THAT(g.Va, testing::ElementsAre(2, 0, 1, 2, 3, 3, 1, 6, 1, 7));
-// if use bitset / bit adjacency list, the neighbours are ascending order, where
+// if use bit adjacency matrix, the neighbours are ascending order, where
 // as other type of adjacency list respect the insertion order.
-#if defined(BIT_ADJ) || defined(BOOL_ADJ) || defined(BITSET_ADJ)
+#if defined(BIT_ADJ)
   ASSERT_THAT(g.Ea, testing::ElementsAre(2, 3, 2, 0, 1, 4, 0, 2));
 #else
   ASSERT_THAT(g.Ea, testing::ElementsAre(2, 3, 2, 1, 4, 0, 0, 2));
@@ -76,10 +93,17 @@ TEST(Graph, finalize_success) {
 
 TEST(Graph, finalize_fail_second_finalize) {
   GDBSCAN::Graph g(5);
+#if defined(BIT_ADJ)
+  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
+  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 4u));
+  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 0u));
+  ASSERT_NO_THROW(g.insert_edge(0, 0, 1u << 3u));
+#else
   ASSERT_NO_THROW(g.insert_edge(2, 1));
   ASSERT_NO_THROW(g.insert_edge(2, 4));
   ASSERT_NO_THROW(g.insert_edge(2, 0));
   ASSERT_NO_THROW(g.insert_edge(0, 3));
+#endif
   ASSERT_NO_THROW(g.finalize());
 
   ASSERT_THROW(g.finalize(), std::runtime_error);
@@ -87,21 +111,24 @@ TEST(Graph, finalize_fail_second_finalize) {
 
 TEST(Graph, finalize_success_disconnected_graph) {
   GDBSCAN::Graph g(5);
+#if defined(BIT_ADJ)
+  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
+  ASSERT_NO_THROW(g.insert_edge(1, 0, 1u << 2u));
+  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 4u));
+  ASSERT_NO_THROW(g.insert_edge(4, 0, 1u << 2u));
+  ASSERT_NO_THROW(g.insert_edge(0, 0, 1u << 2u));
+  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 0u));
+#else
   ASSERT_NO_THROW(g.insert_edge(2, 1));
-#if !defined(TRIA_ENUM)
   ASSERT_NO_THROW(g.insert_edge(1, 2));
-#endif
   ASSERT_NO_THROW(g.insert_edge(2, 4));
-#if !defined(TRIA_ENUM)
   ASSERT_NO_THROW(g.insert_edge(4, 2));
-#endif
   ASSERT_NO_THROW(g.insert_edge(0, 2));
-#if !defined(TRIA_ENUM)
   ASSERT_NO_THROW(g.insert_edge(2, 0));
 #endif
   ASSERT_NO_THROW(g.finalize());
   ASSERT_THAT(g.Va, testing::ElementsAre(1, 0, 1, 1, 3, 2, 0, 5, 1, 5));
-#if defined(BIT_ADJ) || defined(BOOL_ADJ) || defined(BITSET_ADJ)
+#if defined(BIT_ADJ)
   ASSERT_THAT(g.Ea, testing::ElementsAre(2, 2, 0, 1, 4, 2));
 #else
   ASSERT_THAT(g.Ea, testing::ElementsAre(2, 2, 1, 4, 0, 2));
@@ -139,32 +166,15 @@ TEST(Graph, classify_node_fail_oob) {
 TEST(TwoD, distance) {
   using namespace GDBSCAN::point;
   EuclideanTwoD p(1, 2), q(3, 4);
-#ifdef SQRE_RADIUS
   EXPECT_FLOAT_EQ(p - q, std::pow(1 - 3, 2) + std::pow(2 - 4, 2));
-#else
-  EXPECT_FLOAT_EQ(p - q, std::sqrt(std::pow(1 - 3, 2) + std::pow(2 - 4, 2)));
-#endif
   p = EuclideanTwoD(-1, -4);
   q = EuclideanTwoD(4, 1);
-#ifdef SQRE_RADIUS
   EXPECT_FLOAT_EQ(p - q, std::pow(-1 - 4, 2) + std::pow(-4 - 1, 2));
-#else
-  EXPECT_FLOAT_EQ(p - q, std::sqrt(std::pow(-1 - 4, 2) + std::pow(-4 - 1, 2)));
-#endif
   p = EuclideanTwoD(0, 0);
-#ifdef SQRE_RADIUS
   EXPECT_FLOAT_EQ(p - q, std::pow(0 - 4, 2) + std::pow(0 - 1, 2));
-#else
-  EXPECT_FLOAT_EQ(p - q, std::sqrt(std::pow(0 - 4, 2) + std::pow(0 - 1, 2)));
-#endif
   p = EuclideanTwoD(1, 2);
   q = EuclideanTwoD(2.5, 3.4);
-#ifdef SQRE_RADIUS
   EXPECT_FLOAT_EQ(p - q, std::pow(1.0f - 2.5f, 2) + std::pow(2.0f - 3.4f, 2));
-#else
-  EXPECT_FLOAT_EQ(
-      p - q, std::sqrt(std::pow(1.0f - 2.5f, 2) + std::pow(2.0f - 3.4f, 2)));
-#endif
 }
 
 TEST(Solver, prepare_dataset) {
