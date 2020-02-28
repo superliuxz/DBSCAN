@@ -180,7 +180,7 @@ TEST(TwoD, distance) {
 TEST(Solver, prepare_dataset) {
   using namespace GDBSCAN;
   auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
-      GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f);
+      GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
   EXPECT_THAT(solver->dataset_view(),
               testing::ElementsAre(point::EuclideanTwoD(1.0f, 2.0f),
                                    point::EuclideanTwoD(2.0f, 2.0f),
@@ -193,7 +193,7 @@ TEST(Solver, prepare_dataset) {
 TEST(Solver, make_graph_small_graph) {
   using namespace GDBSCAN;
   auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
-      GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f);
+      GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
   ASSERT_NO_THROW(solver->insert_edges());
   ASSERT_NO_THROW(solver->finalize_graph());
   ASSERT_NO_THROW(solver->classify_nodes());
@@ -222,7 +222,7 @@ TEST(Solver, make_graph_small_graph) {
 TEST(Solver, identify_cluster_small_graph) {
   using namespace GDBSCAN;
   auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
-      GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f);
+      GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
   ASSERT_NO_THROW(solver->insert_edges());
   ASSERT_NO_THROW(solver->finalize_graph());
   ASSERT_NO_THROW(solver->classify_nodes());
@@ -236,7 +236,7 @@ TEST(Solver, identify_cluster_small_graph) {
 TEST(Solver, test_input2) {
   using namespace GDBSCAN;
   auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
-      GDBSCAN_TestVariables::abs_loc + "/test_input2.txt", 2, 3.0f);
+      GDBSCAN_TestVariables::abs_loc + "/test_input2.txt", 2, 3.0f, 1u);
   ASSERT_NO_THROW(solver->insert_edges());
   ASSERT_NO_THROW(solver->finalize_graph());
   ASSERT_NO_THROW(solver->classify_nodes());
@@ -272,7 +272,7 @@ TEST(Solver, test_input2) {
 TEST(Solver, test_input3) {
   using namespace GDBSCAN;
   auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
-      GDBSCAN_TestVariables::abs_loc + "/test_input3.txt", 3, 3.0f);
+      GDBSCAN_TestVariables::abs_loc + "/test_input3.txt", 3, 3.0f, 1u);
   ASSERT_NO_THROW(solver->insert_edges());
   ASSERT_NO_THROW(solver->finalize_graph());
   ASSERT_NO_THROW(solver->classify_nodes());
@@ -310,7 +310,7 @@ TEST(Solver, test_input3) {
 TEST(Solver, test_input4) {
   using namespace GDBSCAN;
   auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
-      GDBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f);
+      GDBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f, 4u);
   ASSERT_NO_THROW(solver->insert_edges());
   ASSERT_NO_THROW(solver->finalize_graph());
   ASSERT_NO_THROW(solver->classify_nodes());

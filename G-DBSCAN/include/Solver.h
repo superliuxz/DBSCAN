@@ -7,6 +7,7 @@
 
 #include <fstream>
 #include <memory>
+#include <thread>
 
 #include "Graph.h"
 #include "Point.h"
@@ -19,8 +20,8 @@ template <class PointType>
 class Solver {
  public:
   explicit Solver(std::unique_ptr<std::ifstream> in, size_t num_nodes,
-                  uint min_pts, float radius)
-      : num_nodes_(num_nodes), min_pts_(min_pts) {
+                  uint min_pts, float radius, uint8_t num_threads)
+      : num_nodes_(num_nodes), min_pts_(min_pts), num_threads_(num_threads) {
     squared_radius_ = radius * radius;
 
     ifs_ = std::move(in);
@@ -73,44 +74,64 @@ class Solver {
     }
 
     graph_ = std::make_unique<Graph>(num_nodes_);
+    std::vector<std::thread> threads(num_threads_);
+    Solver const* const ptr = this;  // pointer to pass to each thread.
 #if defined(BIT_ADJ)
     logger_->info("insert_edges - BIT_ADJ");
     size_t N = num_nodes_ / 64u + (num_nodes_ % 64u != 0);
-    for (size_t u = 0; u < num_nodes_; ++u) {
-      const PointType& upoint = (*dataset_)[u];
-      for (size_t outer = 0; outer < N; outer += 4) {
-        for (size_t inner = 0; inner < 64; ++inner) {
-          size_t v1 = outer * 64llu + inner;
-          size_t v2 = v1 + 64;
-          size_t v3 = v2 + 64;
-          size_t v4 = v3 + 64;
-          uint64_t msk = 1llu << inner;
-          if (u != v1 && v1 < num_nodes_ &&
-              upoint - (*dataset_)[v1] <= squared_radius_)
-            graph_->insert_edge(u, outer, msk);
-          if (u != v2 && v2 < num_nodes_ &&
-              upoint - (*dataset_)[v2] <= squared_radius_)
-            graph_->insert_edge(u, outer + 1, msk);
-          if (u != v3 && v3 < num_nodes_ &&
-              upoint - (*dataset_)[v3] <= squared_radius_)
-            graph_->insert_edge(u, outer + 2, msk);
-          if (u != v4 && v4 < num_nodes_ &&
-              upoint - (*dataset_)[v4] <= squared_radius_)
-            graph_->insert_edge(u, outer + 3, msk);
-        }
-      }
+    for (size_t tid = 0; tid < num_threads_; ++tid) {
+      threads[tid] = std::thread(
+          [&ptr, &N](const size_t& tid) {
+            const auto& points = *(ptr->dataset_);
+            for (size_t u = tid; u < ptr->num_nodes_; u += ptr->num_threads_) {
+              const PointType& upoint = points[u];
+              for (size_t outer = 0; outer < N; outer += 4) {
+                for (size_t inner = 0; inner < 64; ++inner) {
+                  size_t v1 = outer * 64llu + inner;
+                  size_t v2 = v1 + 64;
+                  size_t v3 = v2 + 64;
+                  size_t v4 = v3 + 64;
+                  uint64_t msk = 1llu << inner;
+                  if (u != v1 && v1 < ptr->num_nodes_ &&
+                      upoint - points[v1] <= ptr->squared_radius_)
+                    ptr->graph_->insert_edge(u, outer, msk);
+                  if (u != v2 && v2 < ptr->num_nodes_ &&
+                      upoint - points[v2] <= ptr->squared_radius_)
+                    ptr->graph_->insert_edge(u, outer + 1, msk);
+                  if (u != v3 && v3 < ptr->num_nodes_ &&
+                      upoint - points[v3] <= ptr->squared_radius_)
+                    ptr->graph_->insert_edge(u, outer + 2, msk);
+                  if (u != v4 && v4 < ptr->num_nodes_ &&
+                      upoint - points[v4] <= ptr->squared_radius_)
+                    ptr->graph_->insert_edge(u, outer + 3, msk);
+                }
+              }
+            }
+          }, /* lambda */
+          tid /* args to lambda */);
     }
 #else
-    logger_->info("insert_edges - default");
-    for (size_t u = 0; u < num_nodes_; ++u) {
-      const PointType& upoint = (*dataset_)[u];
-      for (size_t v = 0; v < num_nodes_; ++v) {
-        if (u != v && upoint - (*dataset_)[v] <= squared_radius_) {
-          graph_->insert_edge(u, v);
-        }
-      }
+    for (size_t tid = 0; tid < num_threads_; ++tid) {
+      threads[tid] = std::thread(
+          [ptr](const size_t& tid) {
+            const auto& points = *(ptr->dataset_);
+            for (size_t u = tid; u < ptr->num_nodes_; u += ptr->num_threads_) {
+              const PointType& upoint = points[u];
+              for (size_t v = 0; v < ptr->num_nodes_; ++v) {
+                if (u != v && upoint - points[v] <= ptr->squared_radius_) {
+                  ptr->graph_->insert_edge(u, v);
+                }
+              }
+            }
+          }, /* lambda */
+          tid /* args to lambda */);
     }
 #endif
+    for (size_t tid = 0; tid < num_threads_; ++tid) {
+      threads[tid].join();
+    }
+    threads.clear();
+
     high_resolution_clock::time_point end = high_resolution_clock::now();
     duration<double> time_spent = duration_cast<duration<double>>(end - start);
     logger_->info("insert_edges (Algorithm 1) takes {} seconds",
@@ -191,6 +212,7 @@ class Solver {
   size_t num_nodes_;
   size_t min_pts_;
   float squared_radius_;
+  uint8_t num_threads_;
   std::unique_ptr<std::vector<PointType>> dataset_ = nullptr;
   std::unique_ptr<Graph> graph_ = nullptr;
   std::unique_ptr<std::ifstream> ifs_ = nullptr;
@@ -235,12 +257,13 @@ class Solver {
 template <class PointType>
 static std::unique_ptr<Solver<PointType>> make_solver(std::string input,
                                                       uint min_pts,
-                                                      float radius) {
+                                                      float radius,
+                                                      uint8_t num_threads) {
   size_t num_nodes;
   auto ifs = std::make_unique<std::ifstream>(input);
   *ifs >> num_nodes;
   return std::make_unique<Solver<PointType>>(std::move(ifs), num_nodes, min_pts,
-                                             radius);
+                                             radius, num_threads);
 }
 }  // namespace GDBSCAN
 
