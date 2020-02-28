@@ -48,6 +48,10 @@ labels = db.labels_
 # Number of clusters in labels, ignoring noise if present.
 n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
 n_noise_ = list(labels).count(-1)
+unique, cnt = np.unique(core_samples_mask, return_counts=True)
+cnt = dict(zip(unique, cnt))
+n_core_ = cnt[True]
+n_boundary_ = cnt[False]
 
 # ############################################################################
 # Plot result
@@ -72,5 +76,9 @@ for k, col in zip(unique_labels, colors):
   plt.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col),
            markeredgecolor='k', markersize=6)
 
-plt.title('Estimated number of clusters: %d' % n_clusters_)
+title = f'Num of clusters: {n_clusters_}; ' \
+        f'core / boundary / noise ratio: ' \
+        f'{n_noise_ / N:.3f} / {n_core_ / N:.3f} / {n_boundary_ / N:.3f}'
+print(title)
+plt.title(title)
 plt.show()
