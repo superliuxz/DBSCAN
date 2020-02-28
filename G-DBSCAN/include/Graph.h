@@ -228,7 +228,8 @@ class Graph {
 
     for (size_t node = 0; node < num_nodes_; ++node) {
       for (const uint64_t& val : temp_adj_list_[node]) {
-        Va[node * 2] += GDBSCAN::helper::popcount64(val);
+        //        Va[node * 2] += GDBSCAN::helper::popcount64(val);
+        Va[node * 2] += __builtin_popcountll(val);
       }
       Va[node * 2 + 1] = node == 0 ? 0 : (Va[node * 2 - 1] + Va[node * 2 - 2]);
     }
@@ -239,17 +240,35 @@ class Graph {
                   d1.count());
 
     Ea.resize(Va[Va.size() - 1] + Va[Va.size() - 2], 0llu);
+    // return if the graph has no edges.
+    if (Ea.size() == 0u) {
+      immutable_ = true;
+      temp_adj_list_.clear();
+      return;
+    }
+
     auto it = std::begin(Ea);
     for (const auto& nbs : temp_adj_list_) {
       for (size_t i = 0; i < nbs.size(); ++i) {
         uint64_t val = nbs[i];
+        logger_->debug("val is {}", val);
         //        const std::vector<size_t>
         //        temp{GDBSCAN::helper::bit_pos(nbs[i], i)};
         //        Ea.insert(Ea.end(), temp.cbegin(), temp.cend());
-        for (size_t k = 0; k < 64; ++k) {
+        //        for (size_t k = 0; k < 64; ++k) {
+        //          *it = 64 * i + k;
+        //          logger_->debug("k={}, *it={}", k, *it);
+        //          it += val & 1;
+        //          val >>= 1;
+        //        }
+        // as fast as the branchless loop at worse case (complete graph), but
+        // faster on average (skip all the 0 bits).
+        while (val) {
+          uint8_t k = __builtin_ffsll(val) - 1;
           *it = 64 * i + k;
-          it += val & 1;
-          val >>= 1;
+          logger_->debug("k={}, *it={}", k, *it);
+          ++it;
+          val &= (val - 1);
         }
       }
     }
@@ -284,7 +303,7 @@ class Graph {
     immutable_ = true;
     temp_adj_list_.clear();
   }
-#else  // FLAT_ADJ
+#else   // FLAT_ADJ
   void finalize() {
     logger_->info("finalize - DEFAULT");
     assert_mutable_();
