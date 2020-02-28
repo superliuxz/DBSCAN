@@ -230,39 +230,6 @@ class Solver {
       next_level.clear();
     }
   }
-
-  /*
-   * DFS version.
-   */
-  void dfs(size_t node, int cluster) const {
-    std::vector<size_t> stack{node};
-    while (!stack.empty()) {
-      size_t curr = stack.back();
-      stack.pop_back();
-
-      logger_->debug("visiting node {}", curr);
-      // Relabel a reachable Noise node, but do not keep exploring.
-      if (graph_->membership[curr] == membership::Noise) {
-        logger_->debug("\tnode {} is relabeled from Noise to Border", curr);
-        graph_->membership[curr] = membership::Border;
-        continue;
-      }
-
-      size_t num_neighbours = graph_->Va[2 * curr];
-      size_t start_pos = graph_->Va[2 * curr + 1];
-
-      for (size_t i = 0; i < num_neighbours; ++i) {
-        size_t nb = graph_->Ea[start_pos + i];
-        if (graph_->cluster_ids[nb] == -1) {
-          // cluster the node
-          logger_->debug("\tnode {} is clustered tp {}", nb, cluster);
-          graph_->cluster_ids[nb] = cluster;
-          logger_->debug("\tneighbour {} of node {} is stacked", nb, curr);
-          stack.emplace_back(nb);
-        }
-      }
-    }
-  }
 };
 
 template <class PointType>
