@@ -75,16 +75,14 @@ class Solver {
 
     graph_ = std::make_unique<Graph>(num_nodes_);
     std::vector<std::thread> threads(num_threads_);
-    Solver const* const ptr = this;  // pointer to pass to each thread.
 #if defined(BIT_ADJ)
     logger_->info("insert_edges - BIT_ADJ");
     size_t N = num_nodes_ / 64u + (num_nodes_ % 64u != 0);
     for (size_t tid = 0; tid < num_threads_; ++tid) {
       threads[tid] = std::thread(
-          [&ptr, &N](const size_t& tid) {
-            const auto& points = *(ptr->dataset_);
-            for (size_t u = tid; u < ptr->num_nodes_; u += ptr->num_threads_) {
-              const PointType& upoint = points[u];
+          [this, &N](const size_t& tid) {
+            for (size_t u = tid; u < num_nodes_; u += num_threads_) {
+              const PointType& upoint = (*dataset_)[u];
               for (size_t outer = 0; outer < N; outer += 4) {
                 for (size_t inner = 0; inner < 64; ++inner) {
                   size_t v1 = outer * 64llu + inner;
@@ -92,18 +90,18 @@ class Solver {
                   size_t v3 = v2 + 64;
                   size_t v4 = v3 + 64;
                   uint64_t msk = 1llu << inner;
-                  if (u != v1 && v1 < ptr->num_nodes_ &&
-                      upoint - points[v1] <= ptr->squared_radius_)
-                    ptr->graph_->insert_edge(u, outer, msk);
-                  if (u != v2 && v2 < ptr->num_nodes_ &&
-                      upoint - points[v2] <= ptr->squared_radius_)
-                    ptr->graph_->insert_edge(u, outer + 1, msk);
-                  if (u != v3 && v3 < ptr->num_nodes_ &&
-                      upoint - points[v3] <= ptr->squared_radius_)
-                    ptr->graph_->insert_edge(u, outer + 2, msk);
-                  if (u != v4 && v4 < ptr->num_nodes_ &&
-                      upoint - points[v4] <= ptr->squared_radius_)
-                    ptr->graph_->insert_edge(u, outer + 3, msk);
+                  if (u != v1 && v1 < num_nodes_ &&
+                      upoint - (*dataset_)[v1] <= squared_radius_)
+                    graph_->insert_edge(u, outer, msk);
+                  if (u != v2 && v2 < num_nodes_ &&
+                      upoint - (*dataset_)[v2] <= squared_radius_)
+                    graph_->insert_edge(u, outer + 1, msk);
+                  if (u != v3 && v3 < num_nodes_ &&
+                      upoint - (*dataset_)[v3] <= squared_radius_)
+                    graph_->insert_edge(u, outer + 2, msk);
+                  if (u != v4 && v4 < num_nodes_ &&
+                      upoint - (*dataset_)[v4] <= squared_radius_)
+                    graph_->insert_edge(u, outer + 3, msk);
                 }
               }
             }
@@ -113,13 +111,13 @@ class Solver {
 #else
     for (size_t tid = 0; tid < num_threads_; ++tid) {
       threads[tid] = std::thread(
-          [ptr](const size_t& tid) {
-            const auto& points = *(ptr->dataset_);
-            for (size_t u = tid; u < ptr->num_nodes_; u += ptr->num_threads_) {
+          [this](const size_t& tid) {
+            const auto& points = *(dataset_);
+            for (size_t u = tid; u < num_nodes_; u += num_threads_) {
               const PointType& upoint = points[u];
-              for (size_t v = 0; v < ptr->num_nodes_; ++v) {
-                if (u != v && upoint - points[v] <= ptr->squared_radius_) {
-                  ptr->graph_->insert_edge(u, v);
+              for (size_t v = 0; v < num_nodes_; ++v) {
+                if (u != v && upoint - points[v] <= squared_radius_) {
+                  graph_->insert_edge(u, v);
                 }
               }
             }

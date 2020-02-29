@@ -95,7 +95,7 @@ class Graph {
 
     auto t1 = high_resolution_clock::now();
     auto d1 = duration_cast<duration<double> >(t1 - t0);
-    logger_->info("constructing Va takes {} seconds", d1.count());
+    logger_->info("\tconstructing Va takes {} seconds", d1.count());
 
     Ea.resize(Va[Va.size() - 1] + Va[Va.size() - 2], 0llu);
     // return if the graph has no edges.
@@ -125,7 +125,7 @@ class Graph {
 
     auto t2 = high_resolution_clock::now();
     auto d2 = duration_cast<duration<double> >(t2 - t1);
-    logger_->info("constructing Ea takes {} seconds", d2.count());
+    logger_->info("\tconstructing Ea takes {} seconds", d2.count());
 
     immutable_ = true;
     temp_adj_.clear();
