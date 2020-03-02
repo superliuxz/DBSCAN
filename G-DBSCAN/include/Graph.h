@@ -87,10 +87,12 @@ class Graph {
     high_resolution_clock::time_point t0 = high_resolution_clock::now();
 
     for (size_t node = 0; node < num_nodes_; ++node) {
+      // position in Ea
+      Va[node * 2] = node == 0 ? 0 : (Va[node * 2 - 1] + Va[node * 2 - 2]);
       for (const uint64_t& val : temp_adj_[node]) {
-        Va[node * 2] += __builtin_popcountll(val);
+        // number of neighbours
+        Va[node * 2 + 1] += __builtin_popcountll(val);
       }
-      Va[node * 2 + 1] = node == 0 ? 0 : (Va[node * 2 - 1] + Va[node * 2 - 2]);
     }
 
     auto t1 = high_resolution_clock::now();
@@ -140,10 +142,10 @@ class Graph {
 
     size_t node = 0;
     for (const auto &nbs : temp_adj_) {
-      // number of neighbours
-      Va[node * 2] = nbs.size();
       // pos in Ea
-      Va[node * 2 + 1] = node == 0 ? 0 : (Va[node * 2 - 1] + Va[node * 2 - 2]);
+      Va[node * 2] = node == 0 ? 0 : (Va[node * 2 - 1] + Va[node * 2 - 2]);
+      // number of neighbours
+      Va[node * 2 + 1] = nbs.size();
       ++node;
     }
 

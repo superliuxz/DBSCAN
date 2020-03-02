@@ -165,10 +165,10 @@ class Solver {
 
     for (size_t node = 0; node < num_nodes_; ++node) {
       logger_->debug("{} has {} neighbours within {}", node,
-                     graph_->Va[node * 2], squared_radius_);
+                     graph_->Va[node * 2 + 1], squared_radius_);
       logger_->debug("{} >= {}: {}", graph_->Va[node * 2], min_pts_,
-                     graph_->Va[node * 2] >= min_pts_ ? "true" : "false");
-      if (graph_->Va[node * 2] >= min_pts_) {
+                     graph_->Va[node * 2 + 1] >= min_pts_ ? "true" : "false");
+      if (graph_->Va[node * 2 + 1] >= min_pts_) {
         logger_->debug("{} to Core", node);
         graph_->membership[node] = membership::Core;
       } else {
@@ -233,8 +233,8 @@ class Solver {
           continue;
         }
 
-        size_t num_neighbours = graph_->Va[2 * curr];
-        size_t start_pos = graph_->Va[2 * curr + 1];
+        size_t start_pos = graph_->Va[2 * curr];
+        size_t num_neighbours = graph_->Va[2 * curr + 1];
         for (size_t i = 0; i < num_neighbours; ++i) {
           size_t nb = graph_->Ea[start_pos + i];
           if (graph_->cluster_ids[nb] == -1) {

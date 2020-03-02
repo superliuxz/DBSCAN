@@ -81,7 +81,7 @@ TEST(Graph, finalize_success) {
 #endif
   ASSERT_NO_THROW(g.finalize());
 
-  ASSERT_THAT(g.Va, testing::ElementsAre(2, 0, 1, 2, 3, 3, 1, 6, 1, 7));
+  ASSERT_THAT(g.Va, testing::ElementsAre(0, 2, 2, 1, 3, 3, 6, 1, 7, 1));
 // if use bit adjacency matrix, the neighbours are ascending order, where
 // as other type of adjacency list respect the insertion order.
 #if defined(BIT_ADJ)
@@ -127,7 +127,7 @@ TEST(Graph, finalize_success_disconnected_graph) {
   ASSERT_NO_THROW(g.insert_edge(2, 0));
 #endif
   ASSERT_NO_THROW(g.finalize());
-  ASSERT_THAT(g.Va, testing::ElementsAre(1, 0, 1, 1, 3, 2, 0, 5, 1, 5));
+  ASSERT_THAT(g.Va, testing::ElementsAre(0, 1, 1, 1, 2, 3, 5, 0, 5, 1));
 #if defined(BIT_ADJ)
   ASSERT_THAT(g.Ea, testing::ElementsAre(2, 2, 0, 1, 4, 2));
 #else
@@ -200,8 +200,8 @@ TEST(Solver, make_graph_small_graph) {
   auto graph = solver->graph_view();
   /*
    * Va:
-   * 2 2 2 1 1 0 <- number of neighbours
    * 0 2 4 6 7 8 <- start pos in Ea
+   * 2 2 2 1 1 0 <- number of neighbours
    * 0 1 2 3 4 5 <- index
    *
    * Ea:
@@ -212,7 +212,7 @@ TEST(Solver, make_graph_small_graph) {
    * node 5 has not neighbours, so Ea does not actually have index 8.
    */
   EXPECT_THAT(graph.Va,
-              testing::ElementsAre(2, 0, 2, 2, 2, 4, 1, 6, 1, 7, 0, 8));
+              testing::ElementsAre(0, 2, 2, 2, 4, 2, 6, 1, 7, 1, 8, 0));
   EXPECT_THAT(graph.Ea, testing::ElementsAre(1, 2, 0, 2, 0, 1, 4, 3));
   using namespace GDBSCAN::membership;
   EXPECT_THAT(graph.membership,
