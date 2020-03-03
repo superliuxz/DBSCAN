@@ -22,14 +22,14 @@ class GDBSCAN_TestEnvironment : public testing::Environment {
 };
 
 TEST(Graph, ctor_success) {
-  GDBSCAN::Graph g(5);
+  GDBSCAN::Graph g(5, 1);
   EXPECT_EQ(g.Va.size(), 10);
   EXPECT_EQ(g.cluster_ids.size(), 5);
   EXPECT_TRUE(g.Ea.empty());
 }
 
 TEST(Graph, insert_edge_success) {
-  GDBSCAN::Graph g(5);
+  GDBSCAN::Graph g(5, 1);
 #if defined(BIT_ADJ)
   ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
   ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 4u));
@@ -44,7 +44,7 @@ TEST(Graph, insert_edge_success) {
 }
 
 TEST(Graph, insert_edge_failed_oob) {
-  GDBSCAN::Graph g(5);
+  GDBSCAN::Graph g(5, 1);
 #if defined(BIT_ADJ)
   ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
   ASSERT_THROW(g.insert_edge(0, 1, 1u << 5u), std::runtime_error);
@@ -59,7 +59,7 @@ TEST(Graph, insert_edge_failed_oob) {
 }
 
 TEST(Graph, finalize_success) {
-  GDBSCAN::Graph g(5);
+  GDBSCAN::Graph g(5, 1);
 #if defined(BIT_ADJ)
   ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
   ASSERT_NO_THROW(g.insert_edge(1, 0, 1u << 2u));
@@ -92,7 +92,7 @@ TEST(Graph, finalize_success) {
 }
 
 TEST(Graph, finalize_fail_second_finalize) {
-  GDBSCAN::Graph g(5);
+  GDBSCAN::Graph g(5, 1);
 #if defined(BIT_ADJ)
   ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
   ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 4u));
@@ -110,7 +110,7 @@ TEST(Graph, finalize_fail_second_finalize) {
 }
 
 TEST(Graph, finalize_success_disconnected_graph) {
-  GDBSCAN::Graph g(5);
+  GDBSCAN::Graph g(5, 1);
 #if defined(BIT_ADJ)
   ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
   ASSERT_NO_THROW(g.insert_edge(1, 0, 1u << 2u));
@@ -136,14 +136,14 @@ TEST(Graph, finalize_success_disconnected_graph) {
 }
 
 TEST(Graph, finalize_success_no_edges) {
-  GDBSCAN::Graph g(5);
+  GDBSCAN::Graph g(5, 1);
   ASSERT_NO_THROW(g.finalize());
   ASSERT_THAT(g.Va, testing::ElementsAre(0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
   ASSERT_TRUE(g.Ea.empty());
 }
 
 TEST(Graph, classify_node_success) {
-  GDBSCAN::Graph g(5);
+  GDBSCAN::Graph g(5, 1);
   ASSERT_NO_THROW(g.finalize());
   ASSERT_NO_THROW(g.cluster_node(0, 2));
   ASSERT_NO_THROW(g.cluster_node(1, 2));
@@ -151,12 +151,12 @@ TEST(Graph, classify_node_success) {
 }
 
 TEST(Graph, classify_node_fail_no_finalize) {
-  GDBSCAN::Graph g(5);
+  GDBSCAN::Graph g(5, 1);
   ASSERT_THROW(g.cluster_node(0, 2), std::runtime_error);
 }
 
 TEST(Graph, classify_node_fail_oob) {
-  GDBSCAN::Graph g(5);
+  GDBSCAN::Graph g(5, 1);
   ASSERT_NO_THROW(g.finalize());
   ASSERT_NO_THROW(g.cluster_node(0, 2));
   ASSERT_THROW(g.cluster_node(-1, 2), std::runtime_error);
@@ -308,6 +308,22 @@ TEST(Solver, test_input3) {
 }
 
 TEST(Solver, test_input4) {
+  using namespace GDBSCAN;
+  auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
+      GDBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f, 1u);
+  ASSERT_NO_THROW(solver->insert_edges());
+  ASSERT_NO_THROW(solver->finalize_graph());
+  ASSERT_NO_THROW(solver->classify_nodes());
+  ASSERT_NO_THROW(solver->identify_cluster());
+  std::vector<int> expected_labels;
+  std::ifstream ifs(GDBSCAN_TestVariables::abs_loc + "/test_input4_labels.txt");
+  int label;
+  while (ifs >> label) expected_labels.push_back(label);
+  auto graph = solver->graph_view();
+  EXPECT_THAT(graph.cluster_ids, testing::ElementsAreArray(expected_labels));
+}
+
+TEST(Solver, test_input4_four_threads) {
   using namespace GDBSCAN;
   auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
       GDBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f, 4u);

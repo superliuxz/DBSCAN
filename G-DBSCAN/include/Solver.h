@@ -73,7 +73,8 @@ class Solver {
       throw std::runtime_error("Call prepare_dataset to generate the dataset!");
     }
 
-    graph_ = std::make_unique<Graph>(num_nodes_);
+    graph_ = std::make_unique<Graph>(num_nodes_, num_threads_);
+
     std::vector<std::thread> threads(num_threads_);
 #if defined(BIT_ADJ)
     logger_->info("insert_edges - BIT_ADJ");
@@ -125,9 +126,7 @@ class Solver {
           tid /* args to lambda */);
     }
 #endif
-    for (size_t tid = 0; tid < num_threads_; ++tid) {
-      threads[tid].join();
-    }
+    for (auto& tr : threads) tr.join();
     threads.clear();
 
     high_resolution_clock::time_point end = high_resolution_clock::now();
@@ -220,33 +219,33 @@ class Solver {
    * BFS. Start from |node| and visit all the reachable neighbours. If a
    * neighbour is Noise, relabel it to Border.
    */
-  void bfs(size_t node, int cluster) const {
-    std::vector<size_t> q{node};
+  void bfs(size_t start_node, int cluster) const {
+    std::vector<size_t> curr_level{start_node};
     std::vector<size_t> next_level;
-    while (!q.empty()) {
-      for (const size_t& curr : q) {
-        logger_->debug("visiting node {}", curr);
+    while (!curr_level.empty()) {
+      for (const size_t& node : curr_level) {
+        logger_->debug("visiting node {}", node);
         // Relabel a reachable Noise node, but do not keep exploring.
-        if (graph_->membership[curr] == membership::Noise) {
-          logger_->debug("\tnode {} is relabeled from Noise to Border", curr);
-          graph_->membership[curr] = membership::Border;
+        if (graph_->membership[node] == membership::Noise) {
+          logger_->debug("\tnode {} is relabeled from Noise to Border", node);
+          graph_->membership[node] = membership::Border;
           continue;
         }
 
-        size_t start_pos = graph_->Va[2 * curr];
-        size_t num_neighbours = graph_->Va[2 * curr + 1];
+        size_t start_pos = graph_->Va[2 * node];
+        size_t num_neighbours = graph_->Va[2 * node + 1];
         for (size_t i = 0; i < num_neighbours; ++i) {
           size_t nb = graph_->Ea[start_pos + i];
           if (graph_->cluster_ids[nb] == -1) {
             // cluster the node
             logger_->debug("\tnode {} is clustered tp {}", nb, cluster);
             graph_->cluster_ids[nb] = cluster;
-            logger_->debug("\tneighbour {} of node {} is queued", nb, curr);
+            logger_->debug("\tneighbour {} of node {} is queued", nb, node);
             next_level.emplace_back(nb);
           }
         }
       }
-      q = std::move(next_level);
+      curr_level = std::move(next_level);
       next_level.clear();
     }
   }

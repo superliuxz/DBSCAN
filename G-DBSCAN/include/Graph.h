@@ -27,20 +27,22 @@ class Graph {
         // -1 as unvisited/un-clustered.
         cluster_ids(num_nodes, -1),
         membership(num_nodes, membership::Noise),
-        num_nodes_(num_nodes) {
+        num_nodes_(num_nodes),
+        num_threads_(num_threads) {
     set_logger_();
     // uint64_t is 64 bits; ceiling division.
     size_t num_uint64 = num_nodes_ / 64u + (num_nodes_ % 64u != 0);
     temp_adj_.resize(num_nodes_, std::vector<uint64_t>(num_uint64, 0u));
   }
 #else
-  explicit Graph(size_t num_nodes)
+  explicit Graph(size_t num_nodes, size_t num_threads)
       : Va(num_nodes * 2, 0),
         // -1 as unvisited/un-clustered.
         cluster_ids(num_nodes, -1),
         membership(num_nodes, membership::Noise),
-        temp_adj_(num_nodes, std::vector<size_t>()),
-        num_nodes_(num_nodes) {
+        num_nodes_(num_nodes),
+        num_threads_(num_threads),
+        temp_adj_(num_nodes, std::vector<size_t>()) {
     set_logger_();
   }
 #endif
@@ -141,7 +143,8 @@ class Graph {
     high_resolution_clock::time_point t0 = high_resolution_clock::now();
 
     size_t node = 0;
-    for (const auto &nbs : temp_adj_) {
+    // TODO: paralleled exclusive scan
+    for (const auto& nbs : temp_adj_) {
       // pos in Ea
       Va[node * 2] = node == 0 ? 0 : (Va[node * 2 - 1] + Va[node * 2 - 2]);
       // number of neighbours
@@ -151,28 +154,64 @@ class Graph {
 
     auto t1 = high_resolution_clock::now();
     auto d1 = duration_cast<duration<double> >(t1 - t0);
-    logger_->info("\tconstructing Va takes {} seconds", d1.count());
+    logger_->info("\tCalc Va takes {} seconds", d1.count());
 
-    Ea.reserve(Va[Va.size() - 1] + Va[Va.size() - 2]);
-    for (const auto &nbs : temp_adj_) {
-      Ea.insert(Ea.end(), nbs.cbegin(), nbs.cend());
-    }
+    //    Ea.reserve(Va[Va.size() - 1] + Va[Va.size() - 2]);
+    //    for (const auto& nbs : temp_adj_) {
+    //      Ea.insert(Ea.end(), nbs.cbegin(), nbs.cend());
+    //    }
+
+    const size_t sz = Va[Va.size() - 1] + Va[Va.size() - 2];
+    //    size_t* Ea_temp = new size_t[sz];
+    //    Ea.reserve(sz);
+    Ea.resize(sz, 0llu);
 
     auto t2 = high_resolution_clock::now();
     auto d2 = duration_cast<duration<double> >(t2 - t1);
-    logger_->info("\tconstructing Ea takes {} seconds", d2.count());
+    logger_->info("\tInit Ea takes {} seconds", d2.count());
 
-    immutable_ = true;
+    std::vector<std::thread> threads(num_threads_);
+    for (size_t tid = 0; tid < num_threads_; ++tid) {
+      logger_->debug("\tspawning thread {}", tid);
+      threads[tid] = std::thread(
+          [this](const size_t& tid) {
+            for (size_t u = tid; u < num_nodes_; u += num_threads_) {
+              const auto& nbs = temp_adj_[u];
+              logger_->debug("\t\twriting vtx {} with # nbs {}", u, nbs.size());
+              assert(nbs.size() == Va[2 * u + 1] && "nbs.size!=Va[2*u+1] !!");
+              std::copy(nbs.cbegin(), nbs.cend(), Ea.begin() + Va[2 * u]);
+            }
+          }, /* lambda */
+          tid /* args to lambda */);
+    }
+    for (auto& tr : threads) tr.join();
+
+    logger_->debug("\tjoined all threads");
+
+    //    Ea.assign(Ea_temp, Ea_temp + sz);
+    //    delete[] Ea_temp;
+
+    auto t3 = high_resolution_clock::now();
+    auto d3 = duration_cast<duration<double> >(t3 - t2);
+    logger_->info("\tCalc Ea takes {} seconds", d3.count());
+
     temp_adj_.clear();
+    temp_adj_.shrink_to_fit();
+    immutable_ = true;
   }
 #endif  // BIT_ADJ
 
  private:
+  bool immutable_ = false;
+  size_t num_nodes_;
+  size_t num_threads_;
+  std::shared_ptr<spdlog::logger> logger_ = nullptr;
 #if defined(BIT_ADJ)
   std::vector<std::vector<uint64_t> > temp_adj_;
 #else
   std::vector<std::vector<size_t> > temp_adj_;
 #endif
+
   void constexpr assert_mutable_() const {
     if (immutable_) {
       throw std::runtime_error("Graph is immutable!");
@@ -189,9 +228,6 @@ class Graph {
       throw std::runtime_error("logger not created!");
     }
   }
-  bool immutable_ = false;
-  size_t num_nodes_;
-  std::shared_ptr<spdlog::logger> logger_ = nullptr;
 };
 }  // namespace GDBSCAN
 
