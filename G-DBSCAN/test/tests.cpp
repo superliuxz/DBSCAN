@@ -323,6 +323,10 @@ TEST(Solver, test_input4) {
   EXPECT_THAT(graph.cluster_ids, testing::ElementsAreArray(expected_labels));
 }
 
+// TODO: this test _could_ fail because DBSCAN result depends on the order of
+// visiting. In multihreaded context, the order is nondeterministic. For now,
+// run multiple times until pass. I believe some carefully picked clustering
+// parameters could be ruboust to the nondeterministic behavior.
 TEST(Solver, test_input4_four_threads) {
   using namespace GDBSCAN;
   auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
@@ -341,7 +345,7 @@ TEST(Solver, test_input4_four_threads) {
 
 int main(int argc, char *argv[]) {
   auto logger = spdlog::stdout_color_mt("console");
-  logger->set_level(spdlog::level::critical);
+  logger->set_level(spdlog::level::off);
   testing::InitGoogleTest(&argc, argv);
   testing::AddGlobalTestEnvironment(new GDBSCAN_TestEnvironment(argv[1]));
   return RUN_ALL_TESTS();

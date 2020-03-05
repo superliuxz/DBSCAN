@@ -22,7 +22,7 @@ class Graph {
   std::vector<int> cluster_ids;
   std::vector<membership::Membership> membership;
 #if defined(BIT_ADJ)
-  explicit Graph(size_t num_nodes)
+  explicit Graph(size_t num_nodes, size_t num_threads)
       : Va(num_nodes * 2, 0),
         // -1 as unvisited/un-clustered.
         cluster_ids(num_nodes, -1),
@@ -65,7 +65,7 @@ class Graph {
       oss << "u=" << u << " or v=" << v << " is out of bound!";
       throw std::runtime_error(oss.str());
     }
-    logger_->debug("push {} as a neighbour of {}", v, u);
+    logger_->trace("push {} as a neighbour of {}", v, u);
     temp_adj_[u].push_back(v);
   }
 #endif
@@ -82,12 +82,13 @@ class Graph {
 
 #if defined(BIT_ADJ)
   void finalize() {
-    logger_->info("finalize - BIT_ADJ");
+    logger_->debug("finalize - BIT_ADJ");
     assert_mutable_();
 
     using namespace std::chrono;
     high_resolution_clock::time_point t0 = high_resolution_clock::now();
 
+    // TODO: exclusive scan
     for (size_t node = 0; node < num_nodes_; ++node) {
       // position in Ea
       Va[node * 2] = node == 0 ? 0 : (Va[node * 2 - 1] + Va[node * 2 - 2]);
@@ -101,7 +102,13 @@ class Graph {
     auto d1 = duration_cast<duration<double> >(t1 - t0);
     logger_->info("\tconstructing Va takes {} seconds", d1.count());
 
+    // TODO: the resizing is slow
     Ea.resize(Va[Va.size() - 1] + Va[Va.size() - 2], 0llu);
+
+    auto t2 = high_resolution_clock::now();
+    auto d2 = duration_cast<duration<double> >(t2 - t1);
+    logger_->info("\tInit Ea takes {} seconds", d2.count());
+
     // return if the graph has no edges.
     if (Ea.size() == 0u) {
       immutable_ = true;
@@ -109,34 +116,44 @@ class Graph {
       return;
     }
 
-    auto it = std::begin(Ea);
-    for (const auto& nbs : temp_adj_) {
-      for (size_t i = 0; i < nbs.size(); ++i) {
-        uint64_t val = nbs[i];
-        logger_->debug("val is {}", val);
-        // as fast as the branchless loop at worse case (complete graph), but
-        // faster on average (skip all the 0 bits).
-        while (val) {
-          uint8_t k = __builtin_ffsll(val) - 1;
-          *it = 64 * i + k;
-          logger_->debug("k={}, *it={}", k, *it);
-          ++it;
-          val &= (val - 1);
-        }
-      }
+    std::vector<std::thread> threads(num_threads_);
+    for (size_t tid = 0; tid < num_threads_; ++tid) {
+      logger_->debug("\tspawning thread {}", tid);
+      threads[tid] = std::thread(
+          [this](const size_t& tid) {
+            for (size_t u = tid; u < num_nodes_; u += num_threads_) {
+              const std::vector<uint64_t>& nbs = temp_adj_[u];
+              auto it = std::next(Ea.begin(), Va[2 * u]);
+              for (size_t i = 0; i < nbs.size(); ++i) {
+                uint64_t val = nbs[i];
+                while (val) {
+                  uint8_t k = __builtin_ffsll(val) - 1;
+                  *it = 64 * i + k;
+                  logger_->trace("k={}, *it={}", k, *it);
+                  ++it;
+                  val &= (val - 1);
+                }
+              }
+              assert(std::distance(Ea.begin(), it) ==
+                         Va[2 * u] + Va[2 * u + 1] &&
+                     "iterator steps != Va[2*u+1]");
+            }
+          } /* lambda */,
+          tid);
     }
-    assert(it == std::end(Ea) && "Humm it should be at the end of Ea");
+    for (auto& tr : threads) tr.join();
 
-    auto t2 = high_resolution_clock::now();
-    auto d2 = duration_cast<duration<double> >(t2 - t1);
-    logger_->info("\tconstructing Ea takes {} seconds", d2.count());
+    auto t3 = high_resolution_clock::now();
+    auto d3 = duration_cast<duration<double> >(t3 - t2);
+    logger_->info("\tCalc Ea takes {} seconds", d3.count());
 
-    immutable_ = true;
     temp_adj_.clear();
+    temp_adj_.shrink_to_fit();
+    immutable_ = true;
   }
 #else   // BIT_ADJ
   void finalize() {
-    logger_->info("finalize - DEFAULT");
+    logger_->debug("finalize - DEFAULT");
     assert_mutable_();
 
     using namespace std::chrono;
@@ -164,6 +181,7 @@ class Graph {
     const size_t sz = Va[Va.size() - 1] + Va[Va.size() - 2];
     //    size_t* Ea_temp = new size_t[sz];
     //    Ea.reserve(sz);
+    // TODO: the resizing is slow
     Ea.resize(sz, 0llu);
 
     auto t2 = high_resolution_clock::now();
@@ -177,8 +195,8 @@ class Graph {
           [this](const size_t& tid) {
             for (size_t u = tid; u < num_nodes_; u += num_threads_) {
               const auto& nbs = temp_adj_[u];
-              logger_->debug("\t\twriting vtx {} with # nbs {}", u, nbs.size());
-              assert(nbs.size() == Va[2 * u + 1] && "nbs.size!=Va[2*u+1] !!");
+              logger_->trace("\twriting vtx {} with # nbs {}", u, nbs.size());
+              assert(nbs.size() == Va[2 * u + 1] && "nbs.size!=Va[2*u+1]");
               std::copy(nbs.cbegin(), nbs.cend(), Ea.begin() + Va[2 * u]);
             }
           }, /* lambda */

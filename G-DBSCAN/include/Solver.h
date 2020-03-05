@@ -77,7 +77,7 @@ class Solver {
 
     std::vector<std::thread> threads(num_threads_);
 #if defined(BIT_ADJ)
-    logger_->info("insert_edges - BIT_ADJ");
+    logger_->debug("insert_edges - BIT_ADJ");
     size_t N = num_nodes_ / 64u + (num_nodes_ % 64u != 0);
     for (size_t tid = 0; tid < num_threads_; ++tid) {
       threads[tid] = std::thread(
@@ -110,6 +110,7 @@ class Solver {
           tid /* args to lambda */);
     }
 #else
+    logger_->debug("insert_edges - default");
     for (size_t tid = 0; tid < num_threads_; ++tid) {
       threads[tid] = std::thread(
           [this](const size_t& tid) {
@@ -163,9 +164,9 @@ class Solver {
     }
 
     for (size_t node = 0; node < num_nodes_; ++node) {
-      logger_->debug("{} has {} neighbours within {}", node,
+      logger_->trace("{} has {} neighbours within {}", node,
                      graph_->Va[node * 2 + 1], squared_radius_);
-      logger_->debug("{} >= {}: {}", graph_->Va[node * 2], min_pts_,
+      logger_->trace("{} >= {}: {}", graph_->Va[node * 2], min_pts_,
                      graph_->Va[node * 2 + 1] >= min_pts_ ? "true" : "false");
       if (graph_->Va[node * 2 + 1] >= min_pts_) {
         logger_->debug("{} to Core", node);
@@ -221,32 +222,51 @@ class Solver {
    */
   void bfs(size_t start_node, int cluster) const {
     std::vector<size_t> curr_level{start_node};
-    std::vector<size_t> next_level;
-    while (!curr_level.empty()) {
-      for (const size_t& node : curr_level) {
-        logger_->debug("visiting node {}", node);
-        // Relabel a reachable Noise node, but do not keep exploring.
-        if (graph_->membership[node] == membership::Noise) {
-          logger_->debug("\tnode {} is relabeled from Noise to Border", node);
-          graph_->membership[node] = membership::Border;
-          continue;
-        }
+    // each thread has its own partial frontier.
+    std::vector<std::vector<size_t>> next_level(num_threads_,
+                                                std::vector<size_t>());
 
-        size_t start_pos = graph_->Va[2 * node];
-        size_t num_neighbours = graph_->Va[2 * node + 1];
-        for (size_t i = 0; i < num_neighbours; ++i) {
-          size_t nb = graph_->Ea[start_pos + i];
-          if (graph_->cluster_ids[nb] == -1) {
-            // cluster the node
-            logger_->debug("\tnode {} is clustered tp {}", nb, cluster);
-            graph_->cluster_ids[nb] = cluster;
-            logger_->debug("\tneighbour {} of node {} is queued", nb, node);
-            next_level.emplace_back(nb);
-          }
-        }
+    std::vector<std::thread> threads(num_threads_);
+    while (!curr_level.empty()) {
+      for (size_t tid = 0u; tid < num_threads_; ++tid) {
+        threads[tid] = std::thread(
+            [this, &curr_level, &next_level, &cluster](const size_t& tid) {
+              for (size_t curr_node_idx = tid;
+                   curr_node_idx < curr_level.size();
+                   curr_node_idx += num_threads_) {
+                size_t node = curr_level[curr_node_idx];
+                logger_->trace("visiting node {}", node);
+                // Relabel a reachable Noise node, but do not keep exploring.
+                if (graph_->membership[node] == membership::Noise) {
+                  logger_->trace("\tnode {} is relabeled from Noise to Border",
+                                 node);
+                  graph_->membership[node] = membership::Border;
+                  continue;
+                }
+                size_t start_pos = graph_->Va[2 * node];
+                size_t num_neighbours = graph_->Va[2 * node + 1];
+                for (size_t i = 0; i < num_neighbours; ++i) {
+                  size_t nb = graph_->Ea[start_pos + i];
+                  if (graph_->cluster_ids[nb] == -1) {
+                    // cluster the node
+                    logger_->trace("\tnode {} is clustered tp {}", nb, cluster);
+                    graph_->cluster_ids[nb] = cluster;
+                    logger_->trace("\tneighbour {} of node {} is queued", nb,
+                                   node);
+                    next_level[tid].emplace_back(nb);
+                  }
+                }
+              }
+            } /* lambda */,
+            tid);
       }
-      curr_level = std::move(next_level);
-      next_level.clear();
+      for (auto& tr : threads) tr.join();
+      curr_level.clear();
+      // flatten next_level and save to curr_level
+      for (const auto& lvl : next_level)
+        curr_level.insert(curr_level.end(), lvl.cbegin(), lvl.cend());
+      // clear next_level
+      for (auto& lvl : next_level) lvl.clear();
     }
   }
 };
