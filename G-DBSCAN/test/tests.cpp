@@ -16,7 +16,7 @@ std::string abs_loc;
 
 class GDBSCAN_TestEnvironment : public testing::Environment {
  public:
-  explicit GDBSCAN_TestEnvironment(const std::string &command_line_arg) {
+  explicit GDBSCAN_TestEnvironment(const std::string& command_line_arg) {
     GDBSCAN_TestVariables::abs_loc = command_line_arg;
   }
 };
@@ -197,7 +197,7 @@ TEST(Solver, make_graph_small_graph) {
   ASSERT_NO_THROW(solver->insert_edges());
   ASSERT_NO_THROW(solver->finalize_graph());
   ASSERT_NO_THROW(solver->classify_nodes());
-  auto graph = solver->graph_view();
+  auto& graph = solver->graph_view();
   /*
    * Va:
    * 0 2 4 6 7 8 <- start pos in Ea
@@ -227,7 +227,7 @@ TEST(Solver, identify_cluster_small_graph) {
   ASSERT_NO_THROW(solver->finalize_graph());
   ASSERT_NO_THROW(solver->classify_nodes());
   ASSERT_NO_THROW(solver->identify_cluster());
-  auto graph = solver->graph_view();
+  auto& graph = solver->graph_view();
   // nodes 0 1 and 2 are core nodes with cluster id = 1; nodes 3 4 and 5 are
   // noise nodes hence cluster id = -1.
   EXPECT_THAT(graph.cluster_ids, testing::ElementsAre(0, 0, 0, -1, -1, -1));
@@ -241,7 +241,7 @@ TEST(Solver, test_input2) {
   ASSERT_NO_THROW(solver->finalize_graph());
   ASSERT_NO_THROW(solver->classify_nodes());
   ASSERT_NO_THROW(solver->identify_cluster());
-  auto graph = solver->graph_view();
+  auto& graph = solver->graph_view();
   using namespace GDBSCAN::membership;
   EXPECT_THAT(graph.membership,
               testing::ElementsAre(Core,    // 0
@@ -277,7 +277,7 @@ TEST(Solver, test_input3) {
   ASSERT_NO_THROW(solver->finalize_graph());
   ASSERT_NO_THROW(solver->classify_nodes());
   ASSERT_NO_THROW(solver->identify_cluster());
-  auto graph = solver->graph_view();
+  auto& graph = solver->graph_view();
   using namespace GDBSCAN::membership;
   EXPECT_THAT(graph.membership,
               testing::ElementsAre(Core,    // 0
@@ -319,14 +319,14 @@ TEST(Solver, test_input4) {
   std::ifstream ifs(GDBSCAN_TestVariables::abs_loc + "/test_input4_labels.txt");
   int label;
   while (ifs >> label) expected_labels.push_back(label);
-  auto graph = solver->graph_view();
+  auto& graph = solver->graph_view();
   EXPECT_THAT(graph.cluster_ids, testing::ElementsAreArray(expected_labels));
 }
 
 // TODO: this test _could_ fail because DBSCAN result depends on the order of
-// visiting. In multihreaded context, the order is nondeterministic. For now,
-// run multiple times until pass. I believe some carefully picked clustering
-// parameters could be ruboust to the nondeterministic behavior.
+// visiting. In the multi-threaded context, the order is nondeterministic. For
+// now, run multiple times until pass. I believe some carefully picked
+// clustering parameters could be robust to the nondeterministic behavior.
 TEST(Solver, test_input4_four_threads) {
   using namespace GDBSCAN;
   auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
@@ -339,11 +339,11 @@ TEST(Solver, test_input4_four_threads) {
   std::ifstream ifs(GDBSCAN_TestVariables::abs_loc + "/test_input4_labels.txt");
   int label;
   while (ifs >> label) expected_labels.push_back(label);
-  auto graph = solver->graph_view();
+  auto& graph = solver->graph_view();
   EXPECT_THAT(graph.cluster_ids, testing::ElementsAreArray(expected_labels));
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   auto logger = spdlog::stdout_color_mt("console");
   logger->set_level(spdlog::level::off);
   testing::InitGoogleTest(&argc, argv);

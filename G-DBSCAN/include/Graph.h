@@ -18,7 +18,7 @@ namespace GDBSCAN {
 class Graph {
  public:
   std::vector<size_t> Va;
-  std::vector<size_t> Ea;
+  std::vector<size_t, GDBSCAN::helper::NonConstructAllocator<size_t>> Ea;
   std::vector<int> cluster_ids;
   std::vector<membership::Membership> membership;
 #if defined(BIT_ADJ)
@@ -82,11 +82,11 @@ class Graph {
 
 #if defined(BIT_ADJ)
   void finalize() {
-    logger_->debug("finalize - BIT_ADJ");
+    logger_->info("finalize - BIT_ADJ");
     assert_mutable_();
 
     using namespace std::chrono;
-    high_resolution_clock::time_point t0 = high_resolution_clock::now();
+    auto t0 = high_resolution_clock::now();
 
     // TODO: exclusive scan
     for (size_t node = 0; node < num_nodes_; ++node) {
@@ -99,28 +99,30 @@ class Graph {
     }
 
     auto t1 = high_resolution_clock::now();
-    auto d1 = duration_cast<duration<double> >(t1 - t0);
+    auto d1 = duration_cast<duration<double>>(t1 - t0);
     logger_->info("\tconstructing Va takes {} seconds", d1.count());
 
-    // TODO: the resizing is slow
-    Ea.resize(Va[Va.size() - 1] + Va[Va.size() - 2], 0llu);
-
-    auto t2 = high_resolution_clock::now();
-    auto d2 = duration_cast<duration<double> >(t2 - t1);
-    logger_->info("\tInit Ea takes {} seconds", d2.count());
-
+    const size_t sz = Va[Va.size() - 1] + Va[Va.size() - 2];
     // return if the graph has no edges.
-    if (Ea.size() == 0u) {
-      immutable_ = true;
+    if (sz == 0u) {
       temp_adj_.clear();
+      temp_adj_.shrink_to_fit();
+      immutable_ = true;
       return;
     }
+
+    Ea.resize(sz);
+
+    auto t2 = high_resolution_clock::now();
+    auto d2 = duration_cast<duration<double>>(t2 - t1);
+    logger_->info("\tInit Ea takes {} seconds", d2.count());
 
     std::vector<std::thread> threads(num_threads_);
     for (size_t tid = 0; tid < num_threads_; ++tid) {
       logger_->debug("\tspawning thread {}", tid);
       threads[tid] = std::thread(
           [this](const size_t& tid) {
+            auto start = high_resolution_clock::now();
             for (size_t u = tid; u < num_nodes_; u += num_threads_) {
               const std::vector<uint64_t>& nbs = temp_adj_[u];
               auto it = std::next(Ea.begin(), Va[2 * u]);
@@ -138,13 +140,18 @@ class Graph {
                          Va[2 * u] + Va[2 * u + 1] &&
                      "iterator steps != Va[2*u+1]");
             }
+            auto finish = high_resolution_clock::now();
+            logger_->info(
+                "\t\tThread {} takes {} seconds", tid,
+                duration_cast<duration<double>>(finish - start).count());
           } /* lambda */,
           tid);
     }
     for (auto& tr : threads) tr.join();
+    logger_->debug("\tjoined all threads");
 
     auto t3 = high_resolution_clock::now();
-    auto d3 = duration_cast<duration<double> >(t3 - t2);
+    auto d3 = duration_cast<duration<double>>(t3 - t2);
     logger_->info("\tCalc Ea takes {} seconds", d3.count());
 
     temp_adj_.clear();
@@ -153,11 +160,11 @@ class Graph {
   }
 #else   // BIT_ADJ
   void finalize() {
-    logger_->debug("finalize - DEFAULT");
+    logger_->info("finalize - DEFAULT");
     assert_mutable_();
 
     using namespace std::chrono;
-    high_resolution_clock::time_point t0 = high_resolution_clock::now();
+    auto t0 = high_resolution_clock::now();
 
     size_t node = 0;
     // TODO: paralleled exclusive scan
@@ -170,22 +177,22 @@ class Graph {
     }
 
     auto t1 = high_resolution_clock::now();
-    auto d1 = duration_cast<duration<double> >(t1 - t0);
+    auto d1 = duration_cast<duration<double>>(t1 - t0);
     logger_->info("\tCalc Va takes {} seconds", d1.count());
 
-    //    Ea.reserve(Va[Va.size() - 1] + Va[Va.size() - 2]);
-    //    for (const auto& nbs : temp_adj_) {
-    //      Ea.insert(Ea.end(), nbs.cbegin(), nbs.cend());
-    //    }
-
     const size_t sz = Va[Va.size() - 1] + Va[Va.size() - 2];
-    //    size_t* Ea_temp = new size_t[sz];
-    //    Ea.reserve(sz);
-    // TODO: the resizing is slow
-    Ea.resize(sz, 0llu);
+    // return if the graph has no edges.
+    if (sz == 0u) {
+      temp_adj_.clear();
+      temp_adj_.shrink_to_fit();
+      immutable_ = true;
+      return;
+    }
+
+    Ea.resize(sz);
 
     auto t2 = high_resolution_clock::now();
-    auto d2 = duration_cast<duration<double> >(t2 - t1);
+    auto d2 = duration_cast<duration<double>>(t2 - t1);
     logger_->info("\tInit Ea takes {} seconds", d2.count());
 
     std::vector<std::thread> threads(num_threads_);
@@ -193,24 +200,25 @@ class Graph {
       logger_->debug("\tspawning thread {}", tid);
       threads[tid] = std::thread(
           [this](const size_t& tid) {
+            auto start = high_resolution_clock::now();
             for (size_t u = tid; u < num_nodes_; u += num_threads_) {
               const auto& nbs = temp_adj_[u];
               logger_->trace("\twriting vtx {} with # nbs {}", u, nbs.size());
               assert(nbs.size() == Va[2 * u + 1] && "nbs.size!=Va[2*u+1]");
               std::copy(nbs.cbegin(), nbs.cend(), Ea.begin() + Va[2 * u]);
             }
+            auto finish = high_resolution_clock::now();
+            logger_->info(
+                "\t\tThread {} takes {} seconds", tid,
+                duration_cast<duration<double>>(finish - start).count());
           }, /* lambda */
           tid /* args to lambda */);
     }
     for (auto& tr : threads) tr.join();
-
     logger_->debug("\tjoined all threads");
 
-    //    Ea.assign(Ea_temp, Ea_temp + sz);
-    //    delete[] Ea_temp;
-
     auto t3 = high_resolution_clock::now();
-    auto d3 = duration_cast<duration<double> >(t3 - t2);
+    auto d3 = duration_cast<duration<double>>(t3 - t2);
     logger_->info("\tCalc Ea takes {} seconds", d3.count());
 
     temp_adj_.clear();
@@ -225,9 +233,9 @@ class Graph {
   size_t num_threads_;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
 #if defined(BIT_ADJ)
-  std::vector<std::vector<uint64_t> > temp_adj_;
+  std::vector<std::vector<uint64_t>> temp_adj_;
 #else
-  std::vector<std::vector<size_t> > temp_adj_;
+  std::vector<std::vector<size_t>> temp_adj_;
 #endif
 
   void constexpr assert_mutable_() const {

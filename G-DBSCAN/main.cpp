@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
   runner->identify_cluster();
 
   if (output_labels) {
-    auto g = runner->graph_view();
+    auto& g = runner->graph_view();
     for (const auto& l : g.cluster_ids) {
       std::cout << l << std::endl;
     }

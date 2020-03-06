@@ -77,11 +77,12 @@ class Solver {
 
     std::vector<std::thread> threads(num_threads_);
 #if defined(BIT_ADJ)
-    logger_->debug("insert_edges - BIT_ADJ");
+    logger_->info("insert_edges - BIT_ADJ");
     size_t N = num_nodes_ / 64u + (num_nodes_ % 64u != 0);
     for (size_t tid = 0; tid < num_threads_; ++tid) {
       threads[tid] = std::thread(
           [this, &N](const size_t& tid) {
+            auto start = high_resolution_clock::now();
             for (size_t u = tid; u < num_nodes_; u += num_threads_) {
               const PointType& upoint = (*dataset_)[u];
               for (size_t outer = 0; outer < N; outer += 4) {
@@ -106,14 +107,19 @@ class Solver {
                 }
               }
             }
+            auto finish = high_resolution_clock::now();
+            logger_->info(
+                "\tThread {} takes {} seconds", tid,
+                duration_cast<duration<double>>(finish - start).count());
           }, /* lambda */
           tid /* args to lambda */);
     }
 #else
-    logger_->debug("insert_edges - default");
+    logger_->info("insert_edges - default");
     for (size_t tid = 0; tid < num_threads_; ++tid) {
       threads[tid] = std::thread(
           [this](const size_t& tid) {
+            auto start = high_resolution_clock::now();
             const auto& points = *(dataset_);
             for (size_t u = tid; u < num_nodes_; u += num_threads_) {
               const PointType& upoint = points[u];
@@ -123,6 +129,10 @@ class Solver {
                 }
               }
             }
+            auto finish = high_resolution_clock::now();
+            logger_->info(
+                "\tThread {} takes {} seconds", tid,
+                duration_cast<duration<double>>(finish - start).count());
           }, /* lambda */
           tid /* args to lambda */);
     }
@@ -227,10 +237,14 @@ class Solver {
                                                 std::vector<size_t>());
 
     std::vector<std::thread> threads(num_threads_);
+    size_t lvl_cnt = 0;
     while (!curr_level.empty()) {
+      logger_->info("\tBFS level {}", lvl_cnt);
       for (size_t tid = 0u; tid < num_threads_; ++tid) {
         threads[tid] = std::thread(
             [this, &curr_level, &next_level, &cluster](const size_t& tid) {
+              using namespace std::chrono;
+              auto start = high_resolution_clock::now();
               for (size_t curr_node_idx = tid;
                    curr_node_idx < curr_level.size();
                    curr_node_idx += num_threads_) {
@@ -257,8 +271,12 @@ class Solver {
                   }
                 }
               }
+              auto end = high_resolution_clock::now();
+              logger_->info(
+                  "\t\tThread {} takes {} seconds", tid,
+                  duration_cast<duration<double>>(end - start).count());
             } /* lambda */,
-            tid);
+            tid /* args to lambda */);
       }
       for (auto& tr : threads) tr.join();
       curr_level.clear();
@@ -267,6 +285,7 @@ class Solver {
         curr_level.insert(curr_level.end(), lvl.cbegin(), lvl.cend());
       // clear next_level
       for (auto& lvl : next_level) lvl.clear();
+      ++lvl_cnt;
     }
   }
 };
