@@ -9,8 +9,7 @@
 
 namespace GDBSCAN::point {
 
-class EuclideanTwoD {
- public:
+struct EuclideanTwoD {
   EuclideanTwoD() {}
   EuclideanTwoD(float x, float y) : x_(x), y_(y) {}
   inline float operator-(const EuclideanTwoD &o) const {

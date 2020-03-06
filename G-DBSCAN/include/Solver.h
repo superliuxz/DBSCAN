@@ -55,7 +55,7 @@ class Solver {
   const std::vector<PointType> dataset_view() const { return *dataset_; }
 #endif
 
-  const Graph& graph_view() const { return *graph_; }
+  [[nodiscard]] const Graph& graph_view() const { return *graph_; }
 
   /*
    * For each two nodes, if the distance is <= |squared_radius_|, insert them
@@ -296,6 +296,7 @@ static std::unique_ptr<Solver<PointType>> make_solver(std::string input,
                                                       float radius,
                                                       uint8_t num_threads) {
   size_t num_nodes;
+  // TODO: the size can totally be read in Solver class.
   auto ifs = std::make_unique<std::ifstream>(input);
   *ifs >> num_nodes;
   return std::make_unique<Solver<PointType>>(std::move(ifs), num_nodes, min_pts,

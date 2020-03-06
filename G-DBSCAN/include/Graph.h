@@ -5,6 +5,8 @@
 #ifndef GDBSCAN_INCLUDE_GRAPH_H_
 #define GDBSCAN_INCLUDE_GRAPH_H_
 
+#include <immintrin.h>
+#include <nmmintrin.h>
 #include <spdlog/spdlog.h>
 
 #include <bitset>
