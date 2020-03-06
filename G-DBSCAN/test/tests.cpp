@@ -176,21 +176,21 @@ TEST(TwoDimPoints, distance_squared) {
 
 TEST(Solver, prepare_dataset) {
   using namespace GDBSCAN;
-  auto solver = GDBSCAN::make_solver<input_type::TwoDimPoints>(
+  Solver<input_type::TwoDimPoints> solver(
       GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
-  auto& dataset = solver->dataset_view();
+  auto& dataset = solver.dataset_view();
   EXPECT_THAT(dataset.d1, testing::ElementsAre(1.0, 2.0, 2.0, 8.0, 8.0, 25.0));
   EXPECT_THAT(dataset.d2, testing::ElementsAre(2.0, 2.0, 3.0, 7.0, 8.0, 80.0));
 }
 
 TEST(Solver, make_graph_small_graph) {
   using namespace GDBSCAN;
-  auto solver = GDBSCAN::make_solver<input_type::TwoDimPoints>(
+  Solver<input_type::TwoDimPoints> solver(
       GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
-  ASSERT_NO_THROW(solver->insert_edges());
-  ASSERT_NO_THROW(solver->finalize_graph());
-  ASSERT_NO_THROW(solver->classify_nodes());
-  auto& graph = solver->graph_view();
+  ASSERT_NO_THROW(solver.insert_edges());
+  ASSERT_NO_THROW(solver.finalize_graph());
+  ASSERT_NO_THROW(solver.classify_nodes());
+  auto& graph = solver.graph_view();
   /*
    * Va:
    * 0 2 4 6 7 8 <- start pos in Ea
@@ -213,13 +213,13 @@ TEST(Solver, make_graph_small_graph) {
 
 TEST(Solver, identify_cluster_small_graph) {
   using namespace GDBSCAN;
-  auto solver = GDBSCAN::make_solver<input_type::TwoDimPoints>(
+  Solver<input_type::TwoDimPoints> solver(
       GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
-  ASSERT_NO_THROW(solver->insert_edges());
-  ASSERT_NO_THROW(solver->finalize_graph());
-  ASSERT_NO_THROW(solver->classify_nodes());
-  ASSERT_NO_THROW(solver->identify_cluster());
-  auto& graph = solver->graph_view();
+  ASSERT_NO_THROW(solver.insert_edges());
+  ASSERT_NO_THROW(solver.finalize_graph());
+  ASSERT_NO_THROW(solver.classify_nodes());
+  ASSERT_NO_THROW(solver.identify_cluster());
+  auto& graph = solver.graph_view();
   // nodes 0 1 and 2 are core nodes with cluster id = 1; nodes 3 4 and 5 are
   // noise nodes hence cluster id = -1.
   EXPECT_THAT(graph.cluster_ids, testing::ElementsAre(0, 0, 0, -1, -1, -1));
@@ -227,13 +227,13 @@ TEST(Solver, identify_cluster_small_graph) {
 
 TEST(Solver, test_input2) {
   using namespace GDBSCAN;
-  auto solver = GDBSCAN::make_solver<input_type::TwoDimPoints>(
+  Solver<input_type::TwoDimPoints> solver(
       GDBSCAN_TestVariables::abs_loc + "/test_input2.txt", 2, 3.0f, 1u);
-  ASSERT_NO_THROW(solver->insert_edges());
-  ASSERT_NO_THROW(solver->finalize_graph());
-  ASSERT_NO_THROW(solver->classify_nodes());
-  ASSERT_NO_THROW(solver->identify_cluster());
-  auto& graph = solver->graph_view();
+  ASSERT_NO_THROW(solver.insert_edges());
+  ASSERT_NO_THROW(solver.finalize_graph());
+  ASSERT_NO_THROW(solver.classify_nodes());
+  ASSERT_NO_THROW(solver.identify_cluster());
+  auto& graph = solver.graph_view();
   EXPECT_THAT(graph.membership,
               testing::ElementsAre(Core,    // 0
                                    Core,    // 1
@@ -262,13 +262,13 @@ TEST(Solver, test_input2) {
 
 TEST(Solver, test_input3) {
   using namespace GDBSCAN;
-  auto solver = GDBSCAN::make_solver<input_type::TwoDimPoints>(
+  Solver<input_type::TwoDimPoints> solver(
       GDBSCAN_TestVariables::abs_loc + "/test_input3.txt", 3, 3.0f, 1u);
-  ASSERT_NO_THROW(solver->insert_edges());
-  ASSERT_NO_THROW(solver->finalize_graph());
-  ASSERT_NO_THROW(solver->classify_nodes());
-  ASSERT_NO_THROW(solver->identify_cluster());
-  auto& graph = solver->graph_view();
+  ASSERT_NO_THROW(solver.insert_edges());
+  ASSERT_NO_THROW(solver.finalize_graph());
+  ASSERT_NO_THROW(solver.classify_nodes());
+  ASSERT_NO_THROW(solver.identify_cluster());
+  auto& graph = solver.graph_view();
   EXPECT_THAT(graph.membership,
               testing::ElementsAre(Core,    // 0
                                    Core,    // 1
@@ -299,17 +299,17 @@ TEST(Solver, test_input3) {
 
 TEST(Solver, test_input4) {
   using namespace GDBSCAN;
-  auto solver = GDBSCAN::make_solver<input_type::TwoDimPoints>(
+  Solver<input_type::TwoDimPoints> solver(
       GDBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f, 1u);
-  ASSERT_NO_THROW(solver->insert_edges());
-  ASSERT_NO_THROW(solver->finalize_graph());
-  ASSERT_NO_THROW(solver->classify_nodes());
-  ASSERT_NO_THROW(solver->identify_cluster());
+  ASSERT_NO_THROW(solver.insert_edges());
+  ASSERT_NO_THROW(solver.finalize_graph());
+  ASSERT_NO_THROW(solver.classify_nodes());
+  ASSERT_NO_THROW(solver.identify_cluster());
   std::vector<int> expected_labels;
   std::ifstream ifs(GDBSCAN_TestVariables::abs_loc + "/test_input4_labels.txt");
   int label;
   while (ifs >> label) expected_labels.push_back(label);
-  auto& graph = solver->graph_view();
+  auto& graph = solver.graph_view();
   EXPECT_THAT(graph.cluster_ids, testing::ElementsAreArray(expected_labels));
 }
 
@@ -319,17 +319,17 @@ TEST(Solver, test_input4) {
 // clustering parameters could be robust to the nondeterministic behavior.
 TEST(Solver, test_input4_four_threads) {
   using namespace GDBSCAN;
-  auto solver = GDBSCAN::make_solver<input_type::TwoDimPoints>(
+  Solver<input_type::TwoDimPoints> solver(
       GDBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f, 4u);
-  ASSERT_NO_THROW(solver->insert_edges());
-  ASSERT_NO_THROW(solver->finalize_graph());
-  ASSERT_NO_THROW(solver->classify_nodes());
-  ASSERT_NO_THROW(solver->identify_cluster());
+  ASSERT_NO_THROW(solver.insert_edges());
+  ASSERT_NO_THROW(solver.finalize_graph());
+  ASSERT_NO_THROW(solver.classify_nodes());
+  ASSERT_NO_THROW(solver.identify_cluster());
   std::vector<int> expected_labels;
   std::ifstream ifs(GDBSCAN_TestVariables::abs_loc + "/test_input4_labels.txt");
   int label;
   while (ifs >> label) expected_labels.push_back(label);
-  auto& graph = solver->graph_view();
+  auto& graph = solver.graph_view();
   EXPECT_THAT(graph.cluster_ids, testing::ElementsAreArray(expected_labels));
 }
 

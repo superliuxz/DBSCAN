@@ -27,15 +27,15 @@ int main(int argc, char* argv[]) {
 
   logger->debug("radius {} min_pts {}", radius, min_pts);
 
-  auto runner = GDBSCAN::make_solver<GDBSCAN::input_type::TwoDimPoints>(
-      std::string(input), min_pts, radius, num_threads);
-  runner->insert_edges();
-  runner->finalize_graph();
-  runner->classify_nodes();
-  runner->identify_cluster();
+  GDBSCAN::Solver<GDBSCAN::input_type::TwoDimPoints> solver(
+      input, min_pts, radius, num_threads);
+  solver.insert_edges();
+  solver.finalize_graph();
+  solver.classify_nodes();
+  solver.identify_cluster();
 
   if (output_labels) {
-    auto& g = runner->graph_view();
+    auto& g = solver.graph_view();
     for (const auto& l : g.cluster_ids) {
       std::cout << l << std::endl;
     }

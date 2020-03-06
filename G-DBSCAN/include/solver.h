@@ -19,13 +19,11 @@ namespace GDBSCAN {
 template <class DataType>
 class Solver {
  public:
-  explicit Solver(std::unique_ptr<std::ifstream> in, size_t num_nodes,
-                  uint min_pts, float radius, uint8_t num_threads)
-      : num_nodes_(num_nodes),
-        min_pts_(min_pts),
+  explicit Solver(const std::string& input, const uint& min_pts,
+                  const float& radius, const uint8_t& num_threads)
+      : min_pts_(min_pts),
         squared_radius_(radius * radius),
         num_threads_(num_threads) {
-    ifs_ = std::move(in);
     logger_ = spdlog::get("console");
     if (logger_ == nullptr) {
       throw std::runtime_error("logger not created!");
@@ -34,18 +32,19 @@ class Solver {
     using namespace std::chrono;
     high_resolution_clock::time_point start = high_resolution_clock::now();
 
+    auto ifs = std::ifstream(input);
+    ifs >> num_nodes_;
     dataset_ = std::make_unique<DataType>(num_nodes_);
     size_t n;
     float x, y;
     if (std::is_same_v<DataType, input_type::TwoDimPoints>) {
-      while (*ifs_ >> n >> x >> y) {
+      while (ifs >> n >> x >> y) {
         dataset_->d1[n] = x;
         dataset_->d2[n] = y;
       }
     } else {
-      throw std::runtime_error("PointType not supported!");
+      throw std::runtime_error("Implement your own input_type!");
     }
-    ifs_->close();
 
     duration<double> time_spent =
         duration_cast<duration<double>>(high_resolution_clock::now() - start);
@@ -66,10 +65,6 @@ class Solver {
     using namespace std::chrono;
     high_resolution_clock::time_point start = high_resolution_clock::now();
 
-    if (ifs_->is_open()) {
-      throw std::runtime_error(
-          "Input file stream still open (should not happen)!");
-    }
     if (dataset_ == nullptr) {
       throw std::runtime_error("Call prepare_dataset to generate the dataset!");
     }
@@ -225,13 +220,12 @@ class Solver {
   }
 
  private:
-  size_t num_nodes_;
-  size_t min_pts_;
-  float squared_radius_;
-  uint8_t num_threads_;
+  size_t num_nodes_{};
+  size_t min_pts_{};
+  float squared_radius_{};
+  uint8_t num_threads_{};
   std::unique_ptr<DataType> dataset_ = nullptr;
   std::unique_ptr<Graph> graph_ = nullptr;
-  std::unique_ptr<std::ifstream> ifs_ = nullptr;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
 
   /*
@@ -297,19 +291,6 @@ class Solver {
     }
   }
 };
-
-template <class PointType>
-static std::unique_ptr<Solver<PointType>> make_solver(std::string input,
-                                                      uint min_pts,
-                                                      float radius,
-                                                      uint8_t num_threads) {
-  size_t num_nodes;
-  // TODO: the size can totally be read in Solver class.
-  auto ifs = std::make_unique<std::ifstream>(input);
-  *ifs >> num_nodes;
-  return std::make_unique<Solver<PointType>>(std::move(ifs), num_nodes, min_pts,
-                                             radius, num_threads);
-}
 }  // namespace GDBSCAN
 
 #endif  // GDBSCAN_INCLUDE_SOLVER_H_
