@@ -9,21 +9,22 @@
 #include <memory>
 #include <thread>
 
-#include "Graph.h"
-#include "Point.h"
+#include "dataset.h"
+#include "graph.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/spdlog.h"
 
 namespace GDBSCAN {
 
-template <class PointType>
+template <class DataType>
 class Solver {
  public:
   explicit Solver(std::unique_ptr<std::ifstream> in, size_t num_nodes,
                   uint min_pts, float radius, uint8_t num_threads)
-      : num_nodes_(num_nodes), min_pts_(min_pts), num_threads_(num_threads) {
-    squared_radius_ = radius * radius;
-
+      : num_nodes_(num_nodes),
+        min_pts_(min_pts),
+        squared_radius_(radius * radius),
+        num_threads_(num_threads) {
     ifs_ = std::move(in);
     logger_ = spdlog::get("console");
     if (logger_ == nullptr) {
@@ -33,13 +34,13 @@ class Solver {
     using namespace std::chrono;
     high_resolution_clock::time_point start = high_resolution_clock::now();
 
-    dataset_ =
-        std::make_unique<std::vector<PointType>>(num_nodes_, PointType());
+    dataset_ = std::make_unique<DataType>(num_nodes_);
     size_t n;
     float x, y;
-    if (std::is_same_v<PointType, point::EuclideanTwoD>) {
+    if (std::is_same_v<DataType, input_type::TwoDimPoints>) {
       while (*ifs_ >> n >> x >> y) {
-        (*dataset_)[n] = PointType(x, y);
+        dataset_->d1[n] = x;
+        dataset_->d2[n] = y;
       }
     } else {
       throw std::runtime_error("PointType not supported!");
@@ -52,7 +53,7 @@ class Solver {
   }
 
 #if defined(TESTING)
-  const std::vector<PointType> dataset_view() const { return *dataset_; }
+  const DataType& dataset_view() const { return *dataset_; }
 #endif
 
   [[nodiscard]] const Graph& graph_view() const { return *graph_; }
@@ -76,15 +77,16 @@ class Solver {
     graph_ = std::make_unique<Graph>(num_nodes_, num_threads_);
 
     std::vector<std::thread> threads(num_threads_);
+    const auto dist = input_type::TwoDimPoints::euclidean_distance_square;
 #if defined(BIT_ADJ)
     logger_->info("insert_edges - BIT_ADJ");
     size_t N = num_nodes_ / 64u + (num_nodes_ % 64u != 0);
     for (size_t tid = 0; tid < num_threads_; ++tid) {
       threads[tid] = std::thread(
-          [this, &N](const size_t& tid) {
+          [this, &N, &dist](const size_t& tid) {
             auto start = high_resolution_clock::now();
             for (size_t u = tid; u < num_nodes_; u += num_threads_) {
-              const PointType& upoint = (*dataset_)[u];
+              float &ux = dataset_->d1[u], uy = dataset_->d2[u];
               for (size_t outer = 0; outer < N; outer += 4) {
                 for (size_t inner = 0; inner < 64; ++inner) {
                   size_t v1 = outer * 64llu + inner;
@@ -93,16 +95,20 @@ class Solver {
                   size_t v4 = v3 + 64;
                   uint64_t msk = 1llu << inner;
                   if (u != v1 && v1 < num_nodes_ &&
-                      upoint - (*dataset_)[v1] <= squared_radius_)
+                      dist(ux, uy, dataset_->d1[v1], dataset_->d2[v1]) <=
+                          squared_radius_)
                     graph_->insert_edge(u, outer, msk);
                   if (u != v2 && v2 < num_nodes_ &&
-                      upoint - (*dataset_)[v2] <= squared_radius_)
+                      dist(ux, uy, dataset_->d1[v2], dataset_->d2[v2]) <=
+                          squared_radius_)
                     graph_->insert_edge(u, outer + 1, msk);
                   if (u != v3 && v3 < num_nodes_ &&
-                      upoint - (*dataset_)[v3] <= squared_radius_)
+                      dist(ux, uy, dataset_->d1[v3], dataset_->d2[v3]) <=
+                          squared_radius_)
                     graph_->insert_edge(u, outer + 2, msk);
                   if (u != v4 && v4 < num_nodes_ &&
-                      upoint - (*dataset_)[v4] <= squared_radius_)
+                      dist(ux, uy, dataset_->d1[v4], dataset_->d2[v4]) <=
+                          squared_radius_)
                     graph_->insert_edge(u, outer + 3, msk);
                 }
               }
@@ -118,13 +124,13 @@ class Solver {
     logger_->info("insert_edges - default");
     for (size_t tid = 0; tid < num_threads_; ++tid) {
       threads[tid] = std::thread(
-          [this](const size_t& tid) {
+          [this, &dist](const size_t& tid) {
             auto start = high_resolution_clock::now();
-            const auto& points = *(dataset_);
             for (size_t u = tid; u < num_nodes_; u += num_threads_) {
-              const PointType& upoint = points[u];
+              const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
               for (size_t v = 0; v < num_nodes_; ++v) {
-                if (u != v && upoint - points[v] <= squared_radius_) {
+                if (u != v && dist(ux, uy, dataset_->d1[v], dataset_->d2[v]) <=
+                                  squared_radius_) {
                   graph_->insert_edge(u, v);
                 }
               }
@@ -180,10 +186,10 @@ class Solver {
                      graph_->Va[node * 2 + 1] >= min_pts_ ? "true" : "false");
       if (graph_->Va[node * 2 + 1] >= min_pts_) {
         logger_->debug("{} to Core", node);
-        graph_->membership[node] = membership::Core;
+        graph_->membership[node] = Core;
       } else {
         logger_->debug("{} to Noise", node);
-        graph_->membership[node] = membership::Noise;
+        graph_->membership[node] = Noise;
       }
     }
 
@@ -201,8 +207,7 @@ class Solver {
 
     int cluster = 0;
     for (size_t node = 0; node < num_nodes_; ++node) {
-      if (graph_->cluster_ids[node] == -1 &&
-          graph_->membership[node] == membership::Core) {
+      if (graph_->cluster_ids[node] == -1 && graph_->membership[node] == Core) {
         graph_->cluster_ids[node] = cluster;
         logger_->debug("start bfs on node {} with cluster {}", node, cluster);
         bfs(node, cluster);
@@ -221,7 +226,7 @@ class Solver {
   size_t min_pts_;
   float squared_radius_;
   uint8_t num_threads_;
-  std::unique_ptr<std::vector<PointType>> dataset_ = nullptr;
+  std::unique_ptr<DataType> dataset_ = nullptr;
   std::unique_ptr<Graph> graph_ = nullptr;
   std::unique_ptr<std::ifstream> ifs_ = nullptr;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
@@ -251,10 +256,10 @@ class Solver {
                 size_t node = curr_level[curr_node_idx];
                 logger_->trace("visiting node {}", node);
                 // Relabel a reachable Noise node, but do not keep exploring.
-                if (graph_->membership[node] == membership::Noise) {
+                if (graph_->membership[node] == Noise) {
                   logger_->trace("\tnode {} is relabeled from Noise to Border",
                                  node);
-                  graph_->membership[node] = membership::Border;
+                  graph_->membership[node] = Border;
                   continue;
                 }
                 size_t start_pos = graph_->Va[2 * node];

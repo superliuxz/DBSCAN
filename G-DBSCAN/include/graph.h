@@ -12,17 +12,17 @@
 #include <bitset>
 #include <vector>
 
-#include "Helper.h"
-#include "Membership.h"
+#include "membership.h"
+#include "utils.h"
 
 namespace GDBSCAN {
 
 class Graph {
  public:
   std::vector<size_t> Va;
-  std::vector<size_t, GDBSCAN::helper::NonConstructAllocator<size_t>> Ea;
+  std::vector<size_t, GDBSCAN::utils::NonConstructAllocator<size_t>> Ea;
   std::vector<int> cluster_ids;
-  std::vector<membership::Membership> membership;
+  std::vector<membership> membership;
 #if defined(BIT_ADJ)
   explicit Graph(size_t num_nodes, size_t num_threads)
       : Va(num_nodes * 2, 0),
@@ -138,7 +138,7 @@ class Graph {
                   val &= (val - 1);
                 }
               }
-              assert(std::distance(Ea.begin(), it) ==
+              assert(static_cast<size_t>(std::distance(Ea.begin(), it)) ==
                          Va[2 * u] + Va[2 * u + 1] &&
                      "iterator steps != Va[2*u+1]");
             }

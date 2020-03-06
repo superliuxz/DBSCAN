@@ -5,9 +5,8 @@
 #include <gmock/gmock.h>  // ASSERT_THAT, testing::ElementsAre
 #include <gtest/gtest.h>
 
-#include "../include/Graph.h"
-#include "../include/Point.h"
-#include "../include/Solver.h"
+#include "../include/graph.h"
+#include "../include/solver.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 
 namespace GDBSCAN_TestVariables {
@@ -163,36 +162,30 @@ TEST(Graph, classify_node_fail_oob) {
   ASSERT_THROW(g.cluster_node(6, 2), std::runtime_error);
 }
 
-TEST(TwoD, distance) {
-  using namespace GDBSCAN::point;
-  EuclideanTwoD p(1, 2), q(3, 4);
-  EXPECT_FLOAT_EQ(p - q, std::pow(1 - 3, 2) + std::pow(2 - 4, 2));
-  p = EuclideanTwoD(-1, -4);
-  q = EuclideanTwoD(4, 1);
-  EXPECT_FLOAT_EQ(p - q, std::pow(-1 - 4, 2) + std::pow(-4 - 1, 2));
-  p = EuclideanTwoD(0, 0);
-  EXPECT_FLOAT_EQ(p - q, std::pow(0 - 4, 2) + std::pow(0 - 1, 2));
-  p = EuclideanTwoD(1, 2);
-  q = EuclideanTwoD(2.5, 3.4);
-  EXPECT_FLOAT_EQ(p - q, std::pow(1.0f - 2.5f, 2) + std::pow(2.0f - 3.4f, 2));
+TEST(TwoDimPoints, distance_squared) {
+  using namespace GDBSCAN::input_type;
+  EXPECT_FLOAT_EQ(TwoDimPoints::euclidean_distance_square(1, 2, 3, 4),
+                  std::pow(1 - 3, 2) + std::pow(2 - 4, 2));
+  EXPECT_FLOAT_EQ(TwoDimPoints::euclidean_distance_square(-1, -4, 4, 1),
+                  std::pow(-1 - 4, 2) + std::pow(-4 - 1, 2));
+  EXPECT_FLOAT_EQ(TwoDimPoints::euclidean_distance_square(0, 0, 4, 1),
+                  std::pow(0 - 4, 2) + std::pow(0 - 1, 2));
+  EXPECT_FLOAT_EQ(TwoDimPoints::euclidean_distance_square(1.0, 2.0, 2.5, 3.4),
+                  std::pow(1.0f - 2.5f, 2) + std::pow(2.0f - 3.4f, 2));
 }
 
 TEST(Solver, prepare_dataset) {
   using namespace GDBSCAN;
-  auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
+  auto solver = GDBSCAN::make_solver<input_type::TwoDimPoints>(
       GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
-  EXPECT_THAT(solver->dataset_view(),
-              testing::ElementsAre(point::EuclideanTwoD(1.0f, 2.0f),
-                                   point::EuclideanTwoD(2.0f, 2.0f),
-                                   point::EuclideanTwoD(2.0f, 3.0f),
-                                   point::EuclideanTwoD(8.0f, 7.0f),
-                                   point::EuclideanTwoD(8.0f, 8.0f),
-                                   point::EuclideanTwoD(25.0f, 80.0f)));
+  auto& dataset = solver->dataset_view();
+  EXPECT_THAT(dataset.d1, testing::ElementsAre(1.0, 2.0, 2.0, 8.0, 8.0, 25.0));
+  EXPECT_THAT(dataset.d2, testing::ElementsAre(2.0, 2.0, 3.0, 7.0, 8.0, 80.0));
 }
 
 TEST(Solver, make_graph_small_graph) {
   using namespace GDBSCAN;
-  auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
+  auto solver = GDBSCAN::make_solver<input_type::TwoDimPoints>(
       GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
   ASSERT_NO_THROW(solver->insert_edges());
   ASSERT_NO_THROW(solver->finalize_graph());
@@ -214,14 +207,13 @@ TEST(Solver, make_graph_small_graph) {
   EXPECT_THAT(graph.Va,
               testing::ElementsAre(0, 2, 2, 2, 4, 2, 6, 1, 7, 1, 8, 0));
   EXPECT_THAT(graph.Ea, testing::ElementsAre(1, 2, 0, 2, 0, 1, 4, 3));
-  using namespace GDBSCAN::membership;
   EXPECT_THAT(graph.membership,
               testing::ElementsAre(Core, Core, Core, Noise, Noise, Noise));
 }
 
 TEST(Solver, identify_cluster_small_graph) {
   using namespace GDBSCAN;
-  auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
+  auto solver = GDBSCAN::make_solver<input_type::TwoDimPoints>(
       GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
   ASSERT_NO_THROW(solver->insert_edges());
   ASSERT_NO_THROW(solver->finalize_graph());
@@ -235,14 +227,13 @@ TEST(Solver, identify_cluster_small_graph) {
 
 TEST(Solver, test_input2) {
   using namespace GDBSCAN;
-  auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
+  auto solver = GDBSCAN::make_solver<input_type::TwoDimPoints>(
       GDBSCAN_TestVariables::abs_loc + "/test_input2.txt", 2, 3.0f, 1u);
   ASSERT_NO_THROW(solver->insert_edges());
   ASSERT_NO_THROW(solver->finalize_graph());
   ASSERT_NO_THROW(solver->classify_nodes());
   ASSERT_NO_THROW(solver->identify_cluster());
   auto& graph = solver->graph_view();
-  using namespace GDBSCAN::membership;
   EXPECT_THAT(graph.membership,
               testing::ElementsAre(Core,    // 0
                                    Core,    // 1
@@ -271,14 +262,13 @@ TEST(Solver, test_input2) {
 
 TEST(Solver, test_input3) {
   using namespace GDBSCAN;
-  auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
+  auto solver = GDBSCAN::make_solver<input_type::TwoDimPoints>(
       GDBSCAN_TestVariables::abs_loc + "/test_input3.txt", 3, 3.0f, 1u);
   ASSERT_NO_THROW(solver->insert_edges());
   ASSERT_NO_THROW(solver->finalize_graph());
   ASSERT_NO_THROW(solver->classify_nodes());
   ASSERT_NO_THROW(solver->identify_cluster());
   auto& graph = solver->graph_view();
-  using namespace GDBSCAN::membership;
   EXPECT_THAT(graph.membership,
               testing::ElementsAre(Core,    // 0
                                    Core,    // 1
@@ -309,7 +299,7 @@ TEST(Solver, test_input3) {
 
 TEST(Solver, test_input4) {
   using namespace GDBSCAN;
-  auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
+  auto solver = GDBSCAN::make_solver<input_type::TwoDimPoints>(
       GDBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f, 1u);
   ASSERT_NO_THROW(solver->insert_edges());
   ASSERT_NO_THROW(solver->finalize_graph());
@@ -329,7 +319,7 @@ TEST(Solver, test_input4) {
 // clustering parameters could be robust to the nondeterministic behavior.
 TEST(Solver, test_input4_four_threads) {
   using namespace GDBSCAN;
-  auto solver = GDBSCAN::make_solver<point::EuclideanTwoD>(
+  auto solver = GDBSCAN::make_solver<input_type::TwoDimPoints>(
       GDBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f, 4u);
   ASSERT_NO_THROW(solver->insert_edges());
   ASSERT_NO_THROW(solver->finalize_graph());

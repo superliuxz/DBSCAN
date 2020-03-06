@@ -57,18 +57,18 @@ include_directories(third_party/spdlog/include)
 include_directories(third_party/cxxopts/include)
 
 # GDBSCAN lib
-add_library(GDBSCAN SHARED include/Graph.h include/Point.h include/Solver.h include/Membership.h include/Helper.h)
+add_library(GDBSCAN SHARED include/graph.h include/solver.h include/membership.h include/utils.h include/dataset.h)
 set_target_properties(GDBSCAN PROPERTIES LINKER_LANGUAGE CXX)
 
 # test
 enable_testing()
-add_executable(unittest test/tests.cpp include/Point.h include/Solver.h include/Membership.h)
+add_executable(unittest test/tests.cpp include/solver.h include/membership.h include/dataset.h)
 add_test(unittest test/test.cpp)
 target_link_libraries(unittest gtest_main gmock_main GDBSCAN)
 target_compile_definitions(unittest PRIVATE TESTING)
 target_compile_definitions(unittest PRIVATE "${BIT_ADJ}")
 
 # example
-add_executable(main main.cpp include/Point.h include/Solver.h include/Membership.h include/Helper.h)
+add_executable(main main.cpp include/solver.h include/membership.h include/utils.h include/dataset.h)
 target_link_libraries(main GDBSCAN)
 target_compile_definitions(main PRIVATE "${BIT_ADJ}")

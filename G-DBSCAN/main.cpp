@@ -1,8 +1,7 @@
 #include <cxxopts.hpp>
 #include <iostream>
 
-#include "include/Point.h"
-#include "include/Solver.h"
+#include "include/solver.h"
 
 int main(int argc, char* argv[]) {
   auto logger = spdlog::stdout_color_mt("console");
@@ -28,7 +27,7 @@ int main(int argc, char* argv[]) {
 
   logger->debug("radius {} min_pts {}", radius, min_pts);
 
-  auto runner = GDBSCAN::make_solver<GDBSCAN::point::EuclideanTwoD>(
+  auto runner = GDBSCAN::make_solver<GDBSCAN::input_type::TwoDimPoints>(
       std::string(input), min_pts, radius, num_threads);
   runner->insert_edges();
   runner->finalize_graph();

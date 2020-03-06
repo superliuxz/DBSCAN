@@ -2,8 +2,8 @@
 // Created by William Liu on 2020-01-31.
 //
 
-#ifndef GDBSCAN_INCLUDE_HELPER_H_
-#define GDBSCAN_INCLUDE_HELPER_H_
+#ifndef GDBSCAN_INCLUDE_UTILS_H_
+#define GDBSCAN_INCLUDE_UTILS_H_
 
 #include <cstdlib>
 #include <limits>
@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-namespace GDBSCAN::helper {
+namespace GDBSCAN::utils {
 template <class T>
 std::string print_vector(const std::string& vector_name,
                          std::vector<T> vector) {
@@ -42,6 +42,6 @@ class NonConstructAllocator {
   // see https://stackoverflow.com/a/58985712 and its comments
   static void construct(T*, ...) {}
 };
-}  // namespace GDBSCAN::helper
+}  // namespace GDBSCAN::utils
 
-#endif  // GDBSCAN_INCLUDE_HELPER_H_
+#endif  // GDBSCAN_INCLUDE_UTILS_H_
