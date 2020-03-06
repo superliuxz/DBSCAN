@@ -20,10 +20,7 @@ std::string print_vector(const std::string& vector_name,
   std::ostringstream oss;
   oss << vector_name << ": ";
   auto it = vector.cbegin();
-  while (it != vector.cend() - 1) {
-    oss << *it << ", ";
-    std::advance(it);
-  }
+  while (it != vector.cend() - 1) oss << *(it++) << ", ";
   oss << *it << std::endl;
   return oss.str();
 }
@@ -32,7 +29,8 @@ std::string print_vector(const std::string& vector_name,
 // used to speed up Ea vector (which is huge).
 // Copied from https://en.cppreference.com/w/cpp/named_req/Allocator
 template <class T>
-struct NonConstructAllocator {
+class NonConstructAllocator {
+ public:
   typedef T value_type;
   T* allocate(std::size_t n) {
     if (n > std::numeric_limits<std::size_t>::max() / sizeof(T))
