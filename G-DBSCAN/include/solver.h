@@ -78,22 +78,25 @@ class Solver {
 
     std::vector<std::thread> threads(num_threads_);
     const auto dist = input_type::TwoDimPoints::euclidean_distance_square;
+    const size_t chunk = num_nodes_ / num_threads_ + 1;
 #if defined(BIT_ADJ)
     logger_->info("insert_edges - BIT_ADJ");
-    size_t N = num_nodes_ / 64u + (num_nodes_ % 64u != 0);
+    const size_t N = num_nodes_ / 64u + (num_nodes_ % 64u != 0);
     for (size_t tid = 0; tid < num_threads_; ++tid) {
       threads[tid] = std::thread(
-          [this, &N, &dist](const size_t& tid) {
-            auto start = high_resolution_clock::now();
-            for (size_t u = tid; u < num_nodes_; u += num_threads_) {
-              float &ux = dataset_->d1[u], uy = dataset_->d2[u];
+          [this, &N, &dist, &chunk](const size_t& tid) {
+            auto t0 = high_resolution_clock::now();
+            const size_t start = tid * chunk;
+            const size_t end = std::min(start + chunk, num_nodes_);
+            for (size_t u = start; u < end; ++u) {
+              const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
               for (size_t outer = 0; outer < N; outer += 4) {
                 for (size_t inner = 0; inner < 64; ++inner) {
-                  size_t v1 = outer * 64llu + inner;
-                  size_t v2 = v1 + 64;
-                  size_t v3 = v2 + 64;
-                  size_t v4 = v3 + 64;
-                  uint64_t msk = 1llu << inner;
+                  const size_t v1 = outer * 64llu + inner;
+                  const size_t v2 = v1 + 64;
+                  const size_t v3 = v2 + 64;
+                  const size_t v4 = v3 + 64;
+                  const uint64_t msk = 1llu << inner;
                   if (u != v1 && v1 < num_nodes_ &&
                       dist(ux, uy, dataset_->d1[v1], dataset_->d2[v1]) <=
                           squared_radius_)
@@ -113,10 +116,9 @@ class Solver {
                 }
               }
             }
-            auto finish = high_resolution_clock::now();
-            logger_->info(
-                "\tThread {} takes {} seconds", tid,
-                duration_cast<duration<double>>(finish - start).count());
+            auto t1 = high_resolution_clock::now();
+            logger_->info("\tThread {} takes {} seconds", tid,
+                          duration_cast<duration<double>>(t1 - t0).count());
           }, /* lambda */
           tid /* args to lambda */);
     }
@@ -124,9 +126,11 @@ class Solver {
     logger_->info("insert_edges - default");
     for (size_t tid = 0; tid < num_threads_; ++tid) {
       threads[tid] = std::thread(
-          [this, &dist](const size_t& tid) {
-            auto start = high_resolution_clock::now();
-            for (size_t u = tid; u < num_nodes_; u += num_threads_) {
+          [this, &dist, &chunk](const size_t& tid) {
+            auto t0 = high_resolution_clock::now();
+            const size_t start = tid * chunk;
+            const size_t end = std::min(start + chunk, num_nodes_);
+            for (size_t u = start; u < end; ++u) {
               const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
               for (size_t v = 0; v < num_nodes_; ++v) {
                 if (u != v && dist(ux, uy, dataset_->d1[v], dataset_->d2[v]) <=
@@ -135,10 +139,9 @@ class Solver {
                 }
               }
             }
-            auto finish = high_resolution_clock::now();
-            logger_->info(
-                "\tThread {} takes {} seconds", tid,
-                duration_cast<duration<double>>(finish - start).count());
+            auto t1 = high_resolution_clock::now();
+            logger_->info("\tThread {} takes {} seconds", tid,
+                          duration_cast<duration<double>>(t1 - t0).count());
           }, /* lambda */
           tid /* args to lambda */);
     }
