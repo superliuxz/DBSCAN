@@ -5,8 +5,6 @@
 #ifndef GDBSCAN_INCLUDE_GRAPH_H_
 #define GDBSCAN_INCLUDE_GRAPH_H_
 
-#include <immintrin.h>
-#include <nmmintrin.h>
 #include <spdlog/spdlog.h>
 
 #include <bitset>
@@ -22,7 +20,7 @@ class Graph {
   std::vector<size_t> Va;
   std::vector<size_t, GDBSCAN::utils::NonConstructAllocator<size_t>> Ea;
   std::vector<int> cluster_ids;
-  std::vector<membership> membership;
+  std::vector<membership> memberships;
 #if defined(BIT_ADJ)
   explicit Graph(size_t num_nodes, size_t num_threads)
       : Va(num_nodes * 2, 0),
@@ -41,7 +39,7 @@ class Graph {
       : Va(num_nodes * 2, 0),
         // -1 as unvisited/un-clustered.
         cluster_ids(num_nodes, -1),
-        membership(num_nodes, membership::Noise),
+        memberships(num_nodes, membership::Noise),
         num_nodes_(num_nodes),
         num_threads_(num_threads),
         temp_adj_(num_nodes, std::vector<size_t>()) {

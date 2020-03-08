@@ -5,6 +5,9 @@
 #ifndef GDBSCAN_INCLUDE_SOLVER_H_
 #define GDBSCAN_INCLUDE_SOLVER_H_
 
+#include <immintrin.h>
+#include <nmmintrin.h>
+
 #include <fstream>
 #include <memory>
 #include <thread>
@@ -19,7 +22,7 @@ namespace GDBSCAN {
 template <class DataType>
 class Solver {
  public:
-  explicit Solver(const std::string& input, const uint& min_pts,
+  explicit Solver(const std::string& input, const size_t& min_pts,
                   const float& radius, const uint8_t& num_threads)
       : min_pts_(min_pts),
         squared_radius_(radius * radius),
@@ -92,22 +95,12 @@ class Solver {
                   const size_t v3 = v2 + 64;
                   const size_t v4 = v3 + 64;
                   const uint64_t msk = 1llu << inner;
-                  if (u != v1 && v1 < num_nodes_ &&
-                      dist(ux, uy, dataset_->d1[v1], dataset_->d2[v1]) <=
-                          squared_radius_)
-                    graph_->insert_edge(u, outer, msk);
-                  if (u != v2 && v2 < num_nodes_ &&
-                      dist(ux, uy, dataset_->d1[v2], dataset_->d2[v2]) <=
-                          squared_radius_)
-                    graph_->insert_edge(u, outer + 1, msk);
-                  if (u != v3 && v3 < num_nodes_ &&
-                      dist(ux, uy, dataset_->d1[v3], dataset_->d2[v3]) <=
-                          squared_radius_)
-                    graph_->insert_edge(u, outer + 2, msk);
-                  if (u != v4 && v4 < num_nodes_ &&
-                      dist(ux, uy, dataset_->d1[v4], dataset_->d2[v4]) <=
-                          squared_radius_)
-                    graph_->insert_edge(u, outer + 3, msk);
+                  // clang-format off
+                  if (u != v1 && v1 < num_nodes_ && dist(ux, uy, dataset_->d1[v1], dataset_->d2[v1]) <= squared_radius_) graph_->insert_edge(u, outer, msk);
+                  if (u != v2 && v2 < num_nodes_ && dist(ux, uy, dataset_->d1[v2], dataset_->d2[v2]) <= squared_radius_) graph_->insert_edge(u, outer + 1, msk);
+                  if (u != v3 && v3 < num_nodes_ && dist(ux, uy, dataset_->d1[v3], dataset_->d2[v3]) <= squared_radius_) graph_->insert_edge(u, outer + 2, msk);
+                  if (u != v4 && v4 < num_nodes_ && dist(ux, uy, dataset_->d1[v4], dataset_->d2[v4]) <= squared_radius_) graph_->insert_edge(u, outer + 3, msk);
+                  // clang-format on
                 }
               }
             }
@@ -125,6 +118,41 @@ class Solver {
             auto t0 = high_resolution_clock::now();
             const size_t start = tid * chunk;
             const size_t end = std::min(start + chunk, num_nodes_);
+#if defined(AVX)
+            // each float is 4 bytes; a 256bit register is 32 bytes. Hence 8
+            // float at-a-time.
+            for (size_t u = start; u < end; ++u) {
+              const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
+              __m256 const u_x8 = _mm256_set_ps(ux, ux, ux, ux, ux, ux, ux, ux);
+              __m256 const u_y8 = _mm256_set_ps(uy, uy, uy, uy, uy, uy, uy, uy);
+              // TODO: if num_nodes_ is not a multiple of 8
+              for (size_t v = 0; v < num_nodes_; v += 8) {
+                float const* const v_x_ptr = &(dataset_->d1.front());
+                __m256 const v_x_8 = _mm256_load_ps(v_x_ptr + v);
+                float const* const v_y_ptr = &(dataset_->d2.front());
+                __m256 const v_y_8 = _mm256_load_ps(v_y_ptr + v);
+
+                __m256 const x_diff_8 = _mm256_sub_ps(u_x8, v_x_8);
+                __m256 const x_diff_sq_8 = _mm256_mul_ps(x_diff_8, x_diff_8);
+                __m256 const y_diff_8 = _mm256_sub_ps(u_y8, v_y_8);
+                __m256 const y_diff_sq_8 = _mm256_mul_ps(y_diff_8, y_diff_8);
+
+                __m256 const sum = _mm256_add_ps(x_diff_sq_8, y_diff_sq_8);
+
+                auto const diff8 = reinterpret_cast<float const*>(&sum);
+                // clang-format off
+                if (u != v && diff8[0] <= squared_radius_) graph_->insert_edge(u, v);
+                if (v + 1 < num_nodes_ && u != v + 1 && diff8[1] <= squared_radius_) graph_->insert_edge(u, v + 1);
+                if (v + 2 < num_nodes_ && u != v + 2 && diff8[2] <= squared_radius_) graph_->insert_edge(u, v + 2);
+                if (v + 3 < num_nodes_ && u != v + 3 && diff8[3] <= squared_radius_) graph_->insert_edge(u, v + 3);
+                if (v + 4 < num_nodes_ && u != v + 4 && diff8[4] <= squared_radius_) graph_->insert_edge(u, v + 4);
+                if (v + 5 < num_nodes_ && u != v + 5 && diff8[5] <= squared_radius_) graph_->insert_edge(u, v + 5);
+                if (v + 6 < num_nodes_ && u != v + 6 && diff8[6] <= squared_radius_) graph_->insert_edge(u, v + 6);
+                if (v + 7 < num_nodes_ && u != v + 7 && diff8[7] <= squared_radius_) graph_->insert_edge(u, v + 7);
+                // clang-format on
+              }
+            }
+#else
             for (size_t u = start; u < end; ++u) {
               const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
               for (size_t v = 0; v < num_nodes_; ++v) {
@@ -134,6 +162,7 @@ class Solver {
                 }
               }
             }
+#endif
             auto t1 = high_resolution_clock::now();
             logger_->info("\tThread {} takes {} seconds", tid,
                           duration_cast<duration<double>>(t1 - t0).count());
@@ -184,10 +213,10 @@ class Solver {
                      graph_->Va[node * 2 + 1] >= min_pts_ ? "true" : "false");
       if (graph_->Va[node * 2 + 1] >= min_pts_) {
         logger_->debug("{} to Core", node);
-        graph_->membership[node] = Core;
+        graph_->memberships[node] = Core;
       } else {
         logger_->debug("{} to Noise", node);
-        graph_->membership[node] = Noise;
+        graph_->memberships[node] = Noise;
       }
     }
 
@@ -205,7 +234,8 @@ class Solver {
 
     int cluster = 0;
     for (size_t node = 0; node < num_nodes_; ++node) {
-      if (graph_->cluster_ids[node] == -1 && graph_->membership[node] == Core) {
+      if (graph_->cluster_ids[node] == -1 &&
+          graph_->memberships[node] == Core) {
         graph_->cluster_ids[node] = cluster;
         logger_->debug("start bfs on node {} with cluster {}", node, cluster);
         bfs(node, cluster);
@@ -221,9 +251,9 @@ class Solver {
 
  private:
   size_t num_nodes_{};
-  size_t min_pts_{};
-  float squared_radius_{};
-  uint8_t num_threads_{};
+  size_t min_pts_;
+  float squared_radius_;
+  uint8_t num_threads_;
   std::unique_ptr<DataType> dataset_ = nullptr;
   std::unique_ptr<Graph> graph_ = nullptr;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
@@ -253,10 +283,10 @@ class Solver {
                 size_t node = curr_level[curr_node_idx];
                 logger_->trace("visiting node {}", node);
                 // Relabel a reachable Noise node, but do not keep exploring.
-                if (graph_->membership[node] == Noise) {
+                if (graph_->memberships[node] == Noise) {
                   logger_->trace("\tnode {} is relabeled from Noise to Border",
                                  node);
-                  graph_->membership[node] = Border;
+                  graph_->memberships[node] = Border;
                   continue;
                 }
                 size_t start_pos = graph_->Va[2 * node];

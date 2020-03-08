@@ -207,7 +207,7 @@ TEST(Solver, make_graph_small_graph) {
   EXPECT_THAT(graph.Va,
               testing::ElementsAre(0, 2, 2, 2, 4, 2, 6, 1, 7, 1, 8, 0));
   EXPECT_THAT(graph.Ea, testing::ElementsAre(1, 2, 0, 2, 0, 1, 4, 3));
-  EXPECT_THAT(graph.membership,
+  EXPECT_THAT(graph.memberships,
               testing::ElementsAre(Core, Core, Core, Noise, Noise, Noise));
 }
 
@@ -234,7 +234,7 @@ TEST(Solver, test_input2) {
   ASSERT_NO_THROW(solver.classify_nodes());
   ASSERT_NO_THROW(solver.identify_cluster());
   auto& graph = solver.graph_view();
-  EXPECT_THAT(graph.membership,
+  EXPECT_THAT(graph.memberships,
               testing::ElementsAre(Core,    // 0
                                    Core,    // 1
                                    Core,    // 2
@@ -269,7 +269,7 @@ TEST(Solver, test_input3) {
   ASSERT_NO_THROW(solver.classify_nodes());
   ASSERT_NO_THROW(solver.identify_cluster());
   auto& graph = solver.graph_view();
-  EXPECT_THAT(graph.membership,
+  EXPECT_THAT(graph.memberships,
               testing::ElementsAre(Core,    // 0
                                    Core,    // 1
                                    Core,    // 2

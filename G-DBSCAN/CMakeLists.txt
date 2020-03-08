@@ -11,6 +11,11 @@ else ()
   message("*** using default dynamic adjacency list (std::vector<std::vector<size_t>>)")
 endif ()
 
+if (DEFINED ENV{AVX})
+  message("*** enabling AVX")
+  set(AVX AVX)
+endif ()
+
 ##
 # Copied from
 # https://github.com/google/googletest/tree/master/googletest#incorporating-into-an-existing-cmake-project
@@ -66,9 +71,9 @@ add_executable(unittest test/tests.cpp include/solver.h include/membership.h inc
 add_test(unittest test/test.cpp)
 target_link_libraries(unittest gtest_main gmock_main GDBSCAN)
 target_compile_definitions(unittest PRIVATE TESTING)
-target_compile_definitions(unittest PRIVATE "${BIT_ADJ}")
+target_compile_definitions(unittest PRIVATE "${BIT_ADJ}" "${AVX}")
 
 # example
 add_executable(main main.cpp include/solver.h include/membership.h include/utils.h include/dataset.h)
 target_link_libraries(main GDBSCAN)
-target_compile_definitions(main PRIVATE "${BIT_ADJ}")
+target_compile_definitions(main PRIVATE "${BIT_ADJ}" "${AVX}")
