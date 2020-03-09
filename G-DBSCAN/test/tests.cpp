@@ -211,7 +211,7 @@ TEST(Solver, make_graph_small_graph) {
               testing::ElementsAre(Core, Core, Core, Noise, Noise, Noise));
 }
 
-TEST(Solver, identify_cluster_small_graph) {
+TEST(Solver, test_input1) {
   using namespace GDBSCAN;
   Solver<input_type::TwoDimPoints> solver(
       GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);

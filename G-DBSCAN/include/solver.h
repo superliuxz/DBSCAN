@@ -75,19 +75,66 @@ class Solver {
     graph_ = std::make_unique<Graph>(num_nodes_, num_threads_);
 
     std::vector<std::thread> threads(num_threads_);
-    const auto dist = input_type::TwoDimPoints::euclidean_distance_square;
     const size_t chunk = num_nodes_ / num_threads_ + 1;
 #if defined(BIT_ADJ)
     logger_->info("insert_edges - BIT_ADJ");
     const size_t N = num_nodes_ / 64u + (num_nodes_ % 64u != 0);
     for (size_t tid = 0; tid < num_threads_; ++tid) {
       threads[tid] = std::thread(
-          [this, &N, &dist, &chunk](const size_t& tid) {
+          [this, &chunk, &N](const size_t& tid) {
             auto t0 = high_resolution_clock::now();
             const size_t start = tid * chunk;
             const size_t end = std::min(start + chunk, num_nodes_);
             for (size_t u = start; u < end; ++u) {
               const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
+#if defined(AVX)
+              __m256 const u_x8 = _mm256_set_ps(ux, ux, ux, ux, ux, ux, ux, ux);
+              __m256 const u_y8 = _mm256_set_ps(uy, uy, uy, uy, uy, uy, uy, uy);
+              for (size_t outer = 0; outer < N; ++outer) {
+                for (size_t inner = 0; inner < 64; inner += 8) {
+                  // clang-format off
+                  const size_t v0_0 = outer * 64llu + inner;
+                  const size_t v0_1 = v0_0 + 1;
+                  const size_t v0_2 = v0_0 + 2;
+                  const size_t v0_3 = v0_0 + 3;
+                  const size_t v0_4 = v0_0 + 4;
+                  const size_t v0_5 = v0_0 + 5;
+                  const size_t v0_6 = v0_0 + 6;
+                  const size_t v0_7 = v0_0 + 7;
+                  // TODO: if num_nodes_ is not a multiple of 8
+                  float const* const v0_x_ptr = &(dataset_->d1.front());
+                  __m256 const v0_x_8 = _mm256_load_ps(v0_x_ptr + v0_0);
+                  float const* const v0_y_ptr = &(dataset_->d2.front());
+                  __m256 const v0_y_8 = _mm256_load_ps(v0_y_ptr + v0_0);
+                  __m256 const x0_diff_8 = _mm256_sub_ps(u_x8, v0_x_8);
+                  __m256 const x0_diff_sq_8 = _mm256_mul_ps(x0_diff_8, x0_diff_8);
+                  __m256 const y0_diff_8 = _mm256_sub_ps(u_y8, v0_y_8);
+                  __m256 const y0_diff_sq_8 = _mm256_mul_ps(y0_diff_8, y0_diff_8);
+                  __m256 const sum0 = _mm256_add_ps(x0_diff_sq_8, y0_diff_sq_8);
+                  auto const diff0_8 = reinterpret_cast<float const*>(&sum0);
+
+                  if (u != v0_0 && v0_0 < num_nodes_ && diff0_8[0] <= squared_radius_)
+                    graph_->insert_edge(u, outer, 1llu << inner);
+                  if (u != v0_1 && v0_1 < num_nodes_ && diff0_8[1] <= squared_radius_)
+                    graph_->insert_edge(u, outer, 1llu << (inner + 1));
+                  if (u != v0_2 && v0_2 < num_nodes_ && diff0_8[2] <= squared_radius_)
+                    graph_->insert_edge(u, outer, 1llu << (inner + 2));
+                  if (u != v0_3 && v0_3 < num_nodes_ && diff0_8[3] <= squared_radius_)
+                    graph_->insert_edge(u, outer, 1llu << (inner + 3));
+                  if (u != v0_4 && v0_4 < num_nodes_ && diff0_8[4] <= squared_radius_)
+                    graph_->insert_edge(u, outer, 1llu << (inner + 4));
+                  if (u != v0_5 && v0_5 < num_nodes_ && diff0_8[5] <= squared_radius_)
+                    graph_->insert_edge(u, outer, 1llu << (inner + 5));
+                  if (u != v0_6 && v0_6 < num_nodes_ && diff0_8[6] <= squared_radius_)
+                    graph_->insert_edge(u, outer, 1llu << (inner + 6));
+                  if (u != v0_7 && v0_7 < num_nodes_ && diff0_8[7] <= squared_radius_)
+                    graph_->insert_edge(u, outer, 1llu << (inner + 7));
+                  // clang-format on
+                }
+              }
+#else
+              const auto dist =
+                  input_type::TwoDimPoints::euclidean_distance_square;
               for (size_t outer = 0; outer < N; outer += 4) {
                 for (size_t inner = 0; inner < 64; ++inner) {
                   const size_t v1 = outer * 64llu + inner;
@@ -96,13 +143,18 @@ class Solver {
                   const size_t v4 = v3 + 64;
                   const uint64_t msk = 1llu << inner;
                   // clang-format off
-                  if (u != v1 && v1 < num_nodes_ && dist(ux, uy, dataset_->d1[v1], dataset_->d2[v1]) <= squared_radius_) graph_->insert_edge(u, outer, msk);
-                  if (u != v2 && v2 < num_nodes_ && dist(ux, uy, dataset_->d1[v2], dataset_->d2[v2]) <= squared_radius_) graph_->insert_edge(u, outer + 1, msk);
-                  if (u != v3 && v3 < num_nodes_ && dist(ux, uy, dataset_->d1[v3], dataset_->d2[v3]) <= squared_radius_) graph_->insert_edge(u, outer + 2, msk);
-                  if (u != v4 && v4 < num_nodes_ && dist(ux, uy, dataset_->d1[v4], dataset_->d2[v4]) <= squared_radius_) graph_->insert_edge(u, outer + 3, msk);
+                  if (u != v1 && v1 < num_nodes_ && dist(ux, uy, dataset_->d1[v1], dataset_->d2[v1]) <= squared_radius_)
+                    graph_->insert_edge(u, outer, msk);
+                  if (u != v2 && v2 < num_nodes_ && dist(ux, uy, dataset_->d1[v2], dataset_->d2[v2]) <= squared_radius_)
+                    graph_->insert_edge(u, outer + 1, msk);
+                  if (u != v3 && v3 < num_nodes_ && dist(ux, uy, dataset_->d1[v3], dataset_->d2[v3]) <= squared_radius_)
+                    graph_->insert_edge(u, outer + 2, msk);
+                  if (u != v4 && v4 < num_nodes_ && dist(ux, uy, dataset_->d1[v4], dataset_->d2[v4]) <= squared_radius_)
+                    graph_->insert_edge(u, outer + 3, msk);
                   // clang-format on
                 }
               }
+#endif
             }
             auto t1 = high_resolution_clock::now();
             logger_->info("\tThread {} takes {} seconds", tid,
@@ -112,6 +164,7 @@ class Solver {
     }
 #else
     logger_->info("insert_edges - default");
+    const auto dist = input_type::TwoDimPoints::euclidean_distance_square;
     for (size_t tid = 0; tid < num_threads_; ++tid) {
       threads[tid] = std::thread(
           [this, &dist, &chunk](const size_t& tid) {
@@ -142,13 +195,20 @@ class Solver {
                 auto const diff8 = reinterpret_cast<float const*>(&sum);
                 // clang-format off
                 if (u != v && diff8[0] <= squared_radius_) graph_->insert_edge(u, v);
-                if (v + 1 < num_nodes_ && u != v + 1 && diff8[1] <= squared_radius_) graph_->insert_edge(u, v + 1);
-                if (v + 2 < num_nodes_ && u != v + 2 && diff8[2] <= squared_radius_) graph_->insert_edge(u, v + 2);
-                if (v + 3 < num_nodes_ && u != v + 3 && diff8[3] <= squared_radius_) graph_->insert_edge(u, v + 3);
-                if (v + 4 < num_nodes_ && u != v + 4 && diff8[4] <= squared_radius_) graph_->insert_edge(u, v + 4);
-                if (v + 5 < num_nodes_ && u != v + 5 && diff8[5] <= squared_radius_) graph_->insert_edge(u, v + 5);
-                if (v + 6 < num_nodes_ && u != v + 6 && diff8[6] <= squared_radius_) graph_->insert_edge(u, v + 6);
-                if (v + 7 < num_nodes_ && u != v + 7 && diff8[7] <= squared_radius_) graph_->insert_edge(u, v + 7);
+                if (v + 1 < num_nodes_ && u != v + 1 && diff8[1] <= squared_radius_)
+                  graph_->insert_edge(u, v + 1);
+                if (v + 2 < num_nodes_ && u != v + 2 && diff8[2] <= squared_radius_)
+                  graph_->insert_edge(u, v + 2);
+                if (v + 3 < num_nodes_ && u != v + 3 && diff8[3] <= squared_radius_)
+                  graph_->insert_edge(u, v + 3);
+                if (v + 4 < num_nodes_ && u != v + 4 && diff8[4] <= squared_radius_)
+                  graph_->insert_edge(u, v + 4);
+                if (v + 5 < num_nodes_ && u != v + 5 && diff8[5] <= squared_radius_)
+                  graph_->insert_edge(u, v + 5);
+                if (v + 6 < num_nodes_ && u != v + 6 && diff8[6] <= squared_radius_)
+                  graph_->insert_edge(u, v + 6);
+                if (v + 7 < num_nodes_ && u != v + 7 && diff8[7] <= squared_radius_)
+                  graph_->insert_edge(u, v + 7);
                 // clang-format on
               }
             }
@@ -312,6 +372,7 @@ class Solver {
       }
       for (auto& tr : threads) tr.join();
       curr_level.clear();
+      // sync barrier
       // flatten next_level and save to curr_level
       for (const auto& lvl : next_level)
         curr_level.insert(curr_level.end(), lvl.cbegin(), lvl.cend());

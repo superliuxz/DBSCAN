@@ -26,7 +26,7 @@ class Graph {
       : Va(num_nodes * 2, 0),
         // -1 as unvisited/un-clustered.
         cluster_ids(num_nodes, -1),
-        membership(num_nodes, membership::Noise),
+        memberships(num_nodes, membership::Noise),
         num_nodes_(num_nodes),
         num_threads_(num_threads) {
     set_logger_();
