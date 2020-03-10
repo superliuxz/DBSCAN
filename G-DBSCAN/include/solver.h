@@ -105,10 +105,8 @@ class Solver {
                   const size_t v6 = v0 + 6;
                   const size_t v7 = v0 + 7;
                   // TODO: if num_nodes_ is not a multiple of 8
-                  //                  logger_->trace("node {} (num_nodes_ {});
-                  //                  outer{}; inner {} ",
-                  //                                 u, num_nodes_, outer,
-                  //                                 inner);
+                  // logger_->trace("node {} (num_nodes_ {}); outer{}; inner
+                  // {}", u, num_nodes_, outer, inner);
 
                   float const* const v_x_ptr = &(dataset_->d1.front());
                   __m256 const v_x_8 = _mm256_load_ps(v_x_ptr + v0);
@@ -120,17 +118,16 @@ class Solver {
                   __m256 const y_diff_sq_8 = _mm256_mul_ps(y_diff_8, y_diff_8);
                   __m256 const sum = _mm256_add_ps(x_diff_sq_8, y_diff_sq_8);
 
-                  //                  auto const temp = reinterpret_cast<float
-                  //                  const*>(&sum); logger_->trace("summation
-                  //                  of X^2 and Y^2 (sum):"); for (size_t i =
-                  //                  0; i < 8; ++i)
-                  //                    logger_->trace("\t{}", temp[i]);
+                  // auto const temp = reinterpret_cast<float const*>(&sum);
+                  // logger_->trace("summation of X^2 and Y^2 (sum):");
+                  // for (size_t i = 0; i < 8; ++i)
+                  //   logger_->trace("\t{}", temp[i]);
 
                   int const cmp = _mm256_movemask_ps(
                       _mm256_cmp_ps(sum, sq_rad8_, _CMP_LE_OS));
-                  //                  logger_->trace(
-                  //                      "comparison of X^2+Y^2 against
-                  //                      radius^2 (cmp): {}", cmp);
+                  // logger_->trace(
+                  //     "comparison of X^2+Y^2 against radius^2 (cmp): {}",
+                  //     cmp);
 
                   if (u != v0 && v0 < num_nodes_ && (cmp & 1 << 0))
                     graph_->insert_edge(u, outer, 1llu << inner);
@@ -291,16 +288,16 @@ class Solver {
     }
 
     for (size_t node = 0; node < num_nodes_; ++node) {
-      //      logger_->trace("{} has {} neighbours within {}", node,
-      //                     graph_->Va[node * 2 + 1], squared_radius_);
-      //      logger_->trace("{} >= {}: {}", graph_->Va[node * 2], min_pts_,
-      //                     graph_->Va[node * 2 + 1] >= min_pts_ ? "true" :
-      //                     "false");
+      // logger_->trace("{} has {} neighbours within {}", node,
+      //                graph_->Va[node * 2 + 1], squared_radius_);
+      // logger_->trace("{} >= {}: {}", graph_->Va[node * 2], min_pts_,
+      //                graph_->Va[node * 2 + 1] >= min_pts_ ? "true" :
+      //                "false");
       if (graph_->Va[node * 2 + 1] >= min_pts_) {
-        //        logger_->trace("{} to Core", node);
+        // logger_->trace("{} to Core", node);
         graph_->memberships[node] = Core;
       } else {
-        //        logger_->trace("{} to Noise", node);
+        // logger_->trace("{} to Noise", node);
         graph_->memberships[node] = Noise;
       }
     }
@@ -322,8 +319,8 @@ class Solver {
       if (graph_->cluster_ids[node] == -1 &&
           graph_->memberships[node] == Core) {
         graph_->cluster_ids[node] = cluster;
-        //        logger_->debug("start bfs on node {} with cluster {}", node,
-        //        cluster);
+        // logger_->debug("start bfs on node {} with cluster {}", node,
+        // cluster);
         bfs(node, cluster);
         ++cluster;
       }
@@ -370,12 +367,11 @@ class Solver {
                    curr_node_idx < curr_level.size();
                    curr_node_idx += num_threads_) {
                 size_t node = curr_level[curr_node_idx];
-                //                logger_->trace("visiting node {}", node);
+                // logger_->trace("visiting node {}", node);
                 // Relabel a reachable Noise node, but do not keep exploring.
                 if (graph_->memberships[node] == Noise) {
-                  //                  logger_->trace("\tnode {} is relabeled
-                  //                  from Noise to Border",
-                  //                                 node);
+                  // logger_->trace("\tnode {} is relabeled from Noise to
+                  // Border", node);
                   graph_->memberships[node] = Border;
                   continue;
                 }
@@ -385,12 +381,11 @@ class Solver {
                   size_t nb = graph_->Ea[start_pos + i];
                   if (graph_->cluster_ids[nb] == -1) {
                     // cluster the node
-                    //                    logger_->trace("\tnode {} is clustered
-                    //                    tp {}", nb, cluster);
+                    // logger_->trace("\tnode {} is clustered to {}", nb,
+                    // cluster);
                     graph_->cluster_ids[nb] = cluster;
-                    //                    logger_->trace("\tneighbour {} of node
-                    //                    {} is queued", nb,
-                    //                                   node);
+                    // logger_->trace("\tneighbour {} of node {} is queued", nb,
+                    // node);
                     next_level[tid].emplace_back(nb);
                   }
                 }

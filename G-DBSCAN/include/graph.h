@@ -55,8 +55,8 @@ class Graph {
       oss << "u=" << u << " or idx=" << idx << " is out of bound!";
       throw std::runtime_error(oss.str());
     }
-    //    logger_->trace("push {} as a neighbour of {}",
-    //                   idx * 64 + 63 - __builtin_clzll(mask), u);
+    // logger_->trace("push {} as a neighbour of {}", idx * 64 + 63 -
+    // __builtin_clzll(mask), u);
     temp_adj_[u][idx] |= mask;
   }
 #else
@@ -121,7 +121,7 @@ class Graph {
 
     std::vector<std::thread> threads(num_threads_);
     for (size_t tid = 0; tid < num_threads_; ++tid) {
-      //      logger_->debug("\tspawning thread {}", tid);
+      // logger_->debug("\tspawning thread {}", tid);
       threads[tid] = std::thread(
           [this](const size_t& tid) {
             auto start = high_resolution_clock::now();
@@ -133,7 +133,7 @@ class Graph {
                 while (val) {
                   uint8_t k = __builtin_ffsll(val) - 1;
                   *it = 64 * i + k;
-                  //                  logger_->trace("k={}, *it={}", k, *it);
+                  // logger_->trace("k={}, *it={}", k, *it);
                   ++it;
                   val &= (val - 1);
                 }
@@ -150,7 +150,7 @@ class Graph {
           tid);
     }
     for (auto& tr : threads) tr.join();
-    //    logger_->debug("\tjoined all threads");
+    // logger_->debug("\tjoined all threads");
 
     auto t3 = high_resolution_clock::now();
     auto d3 = duration_cast<duration<double>>(t3 - t2);
@@ -199,14 +199,14 @@ class Graph {
 
     std::vector<std::thread> threads(num_threads_);
     for (size_t tid = 0; tid < num_threads_; ++tid) {
-      //      logger_->debug("\tspawning thread {}", tid);
+      // logger_->debug("\tspawning thread {}", tid);
       threads[tid] = std::thread(
           [this](const size_t& tid) {
             auto start = high_resolution_clock::now();
             for (size_t u = tid; u < num_nodes_; u += num_threads_) {
               const auto& nbs = temp_adj_[u];
-              //              logger_->trace("\twriting vtx {} with # nbs {}",
-              //              u, nbs.size());
+              // logger_->trace("\twriting vtx {} with # nbs {}", u,
+              // nbs.size());
               assert(nbs.size() == Va[2 * u + 1] && "nbs.size!=Va[2*u+1]");
               std::copy(nbs.cbegin(), nbs.cend(), Ea.begin() + Va[2 * u]);
             }
@@ -218,7 +218,7 @@ class Graph {
           tid /* args to lambda */);
     }
     for (auto& tr : threads) tr.join();
-    //    logger_->debug("\tjoined all threads");
+    // logger_->debug("\tjoined all threads");
 
     auto t3 = high_resolution_clock::now();
     auto d3 = duration_cast<duration<double>>(t3 - t2);
