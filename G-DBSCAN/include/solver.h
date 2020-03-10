@@ -31,7 +31,11 @@ class Solver {
     if (logger_ == nullptr) {
       throw std::runtime_error("logger not created!");
     }
-
+#if defined(AVX)
+    sq_rad8_ = _mm256_set_ps(squared_radius_, squared_radius_, squared_radius_,
+                             squared_radius_, squared_radius_, squared_radius_,
+                             squared_radius_, squared_radius_);
+#endif
     using namespace std::chrono;
     high_resolution_clock::time_point start = high_resolution_clock::now();
 
@@ -92,44 +96,58 @@ class Solver {
               __m256 const u_y8 = _mm256_set_ps(uy, uy, uy, uy, uy, uy, uy, uy);
               for (size_t outer = 0; outer < N; ++outer) {
                 for (size_t inner = 0; inner < 64; inner += 8) {
-                  // clang-format off
-                  const size_t v0_0 = outer * 64llu + inner;
-                  const size_t v0_1 = v0_0 + 1;
-                  const size_t v0_2 = v0_0 + 2;
-                  const size_t v0_3 = v0_0 + 3;
-                  const size_t v0_4 = v0_0 + 4;
-                  const size_t v0_5 = v0_0 + 5;
-                  const size_t v0_6 = v0_0 + 6;
-                  const size_t v0_7 = v0_0 + 7;
+                  const size_t v0 = outer * 64llu + inner;
+                  const size_t v1 = v0 + 1;
+                  const size_t v2 = v0 + 2;
+                  const size_t v3 = v0 + 3;
+                  const size_t v4 = v0 + 4;
+                  const size_t v5 = v0 + 5;
+                  const size_t v6 = v0 + 6;
+                  const size_t v7 = v0 + 7;
                   // TODO: if num_nodes_ is not a multiple of 8
-                  float const* const v0_x_ptr = &(dataset_->d1.front());
-                  __m256 const v0_x_8 = _mm256_load_ps(v0_x_ptr + v0_0);
-                  float const* const v0_y_ptr = &(dataset_->d2.front());
-                  __m256 const v0_y_8 = _mm256_load_ps(v0_y_ptr + v0_0);
-                  __m256 const x0_diff_8 = _mm256_sub_ps(u_x8, v0_x_8);
-                  __m256 const x0_diff_sq_8 = _mm256_mul_ps(x0_diff_8, x0_diff_8);
-                  __m256 const y0_diff_8 = _mm256_sub_ps(u_y8, v0_y_8);
-                  __m256 const y0_diff_sq_8 = _mm256_mul_ps(y0_diff_8, y0_diff_8);
-                  __m256 const sum0 = _mm256_add_ps(x0_diff_sq_8, y0_diff_sq_8);
-                  auto const diff0_8 = reinterpret_cast<float const*>(&sum0);
+                  //                  logger_->trace("node {} (num_nodes_ {});
+                  //                  outer{}; inner {} ",
+                  //                                 u, num_nodes_, outer,
+                  //                                 inner);
 
-                  if (u != v0_0 && v0_0 < num_nodes_ && diff0_8[0] <= squared_radius_)
+                  float const* const v_x_ptr = &(dataset_->d1.front());
+                  __m256 const v_x_8 = _mm256_load_ps(v_x_ptr + v0);
+                  float const* const v_y_ptr = &(dataset_->d2.front());
+                  __m256 const v_y_8 = _mm256_load_ps(v_y_ptr + v0);
+                  __m256 const x_diff_8 = _mm256_sub_ps(u_x8, v_x_8);
+                  __m256 const x_diff_sq_8 = _mm256_mul_ps(x_diff_8, x_diff_8);
+                  __m256 const y_diff_8 = _mm256_sub_ps(u_y8, v_y_8);
+                  __m256 const y_diff_sq_8 = _mm256_mul_ps(y_diff_8, y_diff_8);
+                  __m256 const sum = _mm256_add_ps(x_diff_sq_8, y_diff_sq_8);
+
+                  //                  auto const temp = reinterpret_cast<float
+                  //                  const*>(&sum); logger_->trace("summation
+                  //                  of X^2 and Y^2 (sum):"); for (size_t i =
+                  //                  0; i < 8; ++i)
+                  //                    logger_->trace("\t{}", temp[i]);
+
+                  int const cmp = _mm256_movemask_ps(
+                      _mm256_cmp_ps(sum, sq_rad8_, _CMP_LE_OS));
+                  //                  logger_->trace(
+                  //                      "comparison of X^2+Y^2 against
+                  //                      radius^2 (cmp): {}", cmp);
+
+                  if (u != v0 && v0 < num_nodes_ && (cmp & 1 << 0))
                     graph_->insert_edge(u, outer, 1llu << inner);
-                  if (u != v0_1 && v0_1 < num_nodes_ && diff0_8[1] <= squared_radius_)
+                  if (u != v1 && v1 < num_nodes_ && (cmp & 1 << 1))
                     graph_->insert_edge(u, outer, 1llu << (inner + 1));
-                  if (u != v0_2 && v0_2 < num_nodes_ && diff0_8[2] <= squared_radius_)
+                  if (u != v2 && v2 < num_nodes_ && (cmp & 1 << 2))
                     graph_->insert_edge(u, outer, 1llu << (inner + 2));
-                  if (u != v0_3 && v0_3 < num_nodes_ && diff0_8[3] <= squared_radius_)
+                  if (u != v3 && v3 < num_nodes_ && (cmp & 1 << 3))
                     graph_->insert_edge(u, outer, 1llu << (inner + 3));
-                  if (u != v0_4 && v0_4 < num_nodes_ && diff0_8[4] <= squared_radius_)
+                  if (u != v4 && v4 < num_nodes_ && (cmp & 1 << 4))
                     graph_->insert_edge(u, outer, 1llu << (inner + 4));
-                  if (u != v0_5 && v0_5 < num_nodes_ && diff0_8[5] <= squared_radius_)
+                  if (u != v5 && v5 < num_nodes_ && (cmp & 1 << 5))
                     graph_->insert_edge(u, outer, 1llu << (inner + 5));
-                  if (u != v0_6 && v0_6 < num_nodes_ && diff0_8[6] <= squared_radius_)
+                  if (u != v6 && v6 < num_nodes_ && (cmp & 1 << 6))
                     graph_->insert_edge(u, outer, 1llu << (inner + 6));
-                  if (u != v0_7 && v0_7 < num_nodes_ && diff0_8[7] <= squared_radius_)
+                  if (u != v7 && v7 < num_nodes_ && (cmp & 1 << 7))
                     graph_->insert_edge(u, outer, 1llu << (inner + 7));
-                  // clang-format on
                 }
               }
 #else
@@ -142,16 +160,22 @@ class Solver {
                   const size_t v3 = v2 + 64;
                   const size_t v4 = v3 + 64;
                   const uint64_t msk = 1llu << inner;
-                  // clang-format off
-                  if (u != v1 && v1 < num_nodes_ && dist(ux, uy, dataset_->d1[v1], dataset_->d2[v1]) <= squared_radius_)
+                  if (u != v1 && v1 < num_nodes_ &&
+                      dist(ux, uy, dataset_->d1[v1], dataset_->d2[v1]) <=
+                          squared_radius_)
                     graph_->insert_edge(u, outer, msk);
-                  if (u != v2 && v2 < num_nodes_ && dist(ux, uy, dataset_->d1[v2], dataset_->d2[v2]) <= squared_radius_)
+                  if (u != v2 && v2 < num_nodes_ &&
+                      dist(ux, uy, dataset_->d1[v2], dataset_->d2[v2]) <=
+                          squared_radius_)
                     graph_->insert_edge(u, outer + 1, msk);
-                  if (u != v3 && v3 < num_nodes_ && dist(ux, uy, dataset_->d1[v3], dataset_->d2[v3]) <= squared_radius_)
+                  if (u != v3 && v3 < num_nodes_ &&
+                      dist(ux, uy, dataset_->d1[v3], dataset_->d2[v3]) <=
+                          squared_radius_)
                     graph_->insert_edge(u, outer + 2, msk);
-                  if (u != v4 && v4 < num_nodes_ && dist(ux, uy, dataset_->d1[v4], dataset_->d2[v4]) <= squared_radius_)
+                  if (u != v4 && v4 < num_nodes_ &&
+                      dist(ux, uy, dataset_->d1[v4], dataset_->d2[v4]) <=
+                          squared_radius_)
                     graph_->insert_edge(u, outer + 3, msk);
-                  // clang-format on
                 }
               }
 #endif
@@ -192,24 +216,24 @@ class Solver {
 
                 __m256 const sum = _mm256_add_ps(x_diff_sq_8, y_diff_sq_8);
 
-                auto const diff8 = reinterpret_cast<float const*>(&sum);
-                // clang-format off
-                if (u != v && diff8[0] <= squared_radius_) graph_->insert_edge(u, v);
-                if (v + 1 < num_nodes_ && u != v + 1 && diff8[1] <= squared_radius_)
+                int const cmp = _mm256_movemask_ps(
+                    _mm256_cmp_ps(sum, sq_rad8_, _CMP_LE_OS));
+
+                if (u != v && (cmp & 1 << 0)) graph_->insert_edge(u, v);
+                if (v + 1 < num_nodes_ && u != v + 1 && (cmp & 1 << 1))
                   graph_->insert_edge(u, v + 1);
-                if (v + 2 < num_nodes_ && u != v + 2 && diff8[2] <= squared_radius_)
+                if (v + 2 < num_nodes_ && u != v + 2 && (cmp & 1 << 2))
                   graph_->insert_edge(u, v + 2);
-                if (v + 3 < num_nodes_ && u != v + 3 && diff8[3] <= squared_radius_)
+                if (v + 3 < num_nodes_ && u != v + 3 && (cmp & 1 << 3))
                   graph_->insert_edge(u, v + 3);
-                if (v + 4 < num_nodes_ && u != v + 4 && diff8[4] <= squared_radius_)
+                if (v + 4 < num_nodes_ && u != v + 4 && (cmp & 1 << 4))
                   graph_->insert_edge(u, v + 4);
-                if (v + 5 < num_nodes_ && u != v + 5 && diff8[5] <= squared_radius_)
+                if (v + 5 < num_nodes_ && u != v + 5 && (cmp & 1 << 5))
                   graph_->insert_edge(u, v + 5);
-                if (v + 6 < num_nodes_ && u != v + 6 && diff8[6] <= squared_radius_)
+                if (v + 6 < num_nodes_ && u != v + 6 && (cmp & 1 << 6))
                   graph_->insert_edge(u, v + 6);
-                if (v + 7 < num_nodes_ && u != v + 7 && diff8[7] <= squared_radius_)
+                if (v + 7 < num_nodes_ && u != v + 7 && (cmp & 1 << 7))
                   graph_->insert_edge(u, v + 7);
-                // clang-format on
               }
             }
 #else
@@ -267,15 +291,16 @@ class Solver {
     }
 
     for (size_t node = 0; node < num_nodes_; ++node) {
-      logger_->trace("{} has {} neighbours within {}", node,
-                     graph_->Va[node * 2 + 1], squared_radius_);
-      logger_->trace("{} >= {}: {}", graph_->Va[node * 2], min_pts_,
-                     graph_->Va[node * 2 + 1] >= min_pts_ ? "true" : "false");
+      //      logger_->trace("{} has {} neighbours within {}", node,
+      //                     graph_->Va[node * 2 + 1], squared_radius_);
+      //      logger_->trace("{} >= {}: {}", graph_->Va[node * 2], min_pts_,
+      //                     graph_->Va[node * 2 + 1] >= min_pts_ ? "true" :
+      //                     "false");
       if (graph_->Va[node * 2 + 1] >= min_pts_) {
-        logger_->debug("{} to Core", node);
+        //        logger_->trace("{} to Core", node);
         graph_->memberships[node] = Core;
       } else {
-        logger_->debug("{} to Noise", node);
+        //        logger_->trace("{} to Noise", node);
         graph_->memberships[node] = Noise;
       }
     }
@@ -297,7 +322,8 @@ class Solver {
       if (graph_->cluster_ids[node] == -1 &&
           graph_->memberships[node] == Core) {
         graph_->cluster_ids[node] = cluster;
-        logger_->debug("start bfs on node {} with cluster {}", node, cluster);
+        //        logger_->debug("start bfs on node {} with cluster {}", node,
+        //        cluster);
         bfs(node, cluster);
         ++cluster;
       }
@@ -313,6 +339,9 @@ class Solver {
   size_t num_nodes_{};
   size_t min_pts_;
   float squared_radius_;
+#if defined(AVX)
+  __m256 sq_rad8_;
+#endif
   uint8_t num_threads_;
   std::unique_ptr<DataType> dataset_ = nullptr;
   std::unique_ptr<Graph> graph_ = nullptr;
@@ -341,11 +370,12 @@ class Solver {
                    curr_node_idx < curr_level.size();
                    curr_node_idx += num_threads_) {
                 size_t node = curr_level[curr_node_idx];
-                logger_->trace("visiting node {}", node);
+                //                logger_->trace("visiting node {}", node);
                 // Relabel a reachable Noise node, but do not keep exploring.
                 if (graph_->memberships[node] == Noise) {
-                  logger_->trace("\tnode {} is relabeled from Noise to Border",
-                                 node);
+                  //                  logger_->trace("\tnode {} is relabeled
+                  //                  from Noise to Border",
+                  //                                 node);
                   graph_->memberships[node] = Border;
                   continue;
                 }
@@ -355,10 +385,12 @@ class Solver {
                   size_t nb = graph_->Ea[start_pos + i];
                   if (graph_->cluster_ids[nb] == -1) {
                     // cluster the node
-                    logger_->trace("\tnode {} is clustered tp {}", nb, cluster);
+                    //                    logger_->trace("\tnode {} is clustered
+                    //                    tp {}", nb, cluster);
                     graph_->cluster_ids[nb] = cluster;
-                    logger_->trace("\tneighbour {} of node {} is queued", nb,
-                                   node);
+                    //                    logger_->trace("\tneighbour {} of node
+                    //                    {} is queued", nb,
+                    //                                   node);
                     next_level[tid].emplace_back(nb);
                   }
                 }

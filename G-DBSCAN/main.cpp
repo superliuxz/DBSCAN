@@ -7,11 +7,11 @@ int main(int argc, char* argv[]) {
   auto logger = spdlog::stdout_color_mt("console");
   logger->set_level(spdlog::level::info);
 
-  cxxopts::Options options("GDBSCAN", "GDBSCAN");
+  cxxopts::Options options("GDBSCAN", "ma, look, it's GDBSCAN");
   // clang-format off
   options.add_options()
-      ("p,print", "Output clustering IDs") // boolean
-      ("r,eps", "clustering radius", cxxopts::value<float>())
+      ("p,print", "Print clustering IDs") // boolean
+      ("r,eps", "Clustering radius", cxxopts::value<float>())
       ("n,min-samples", "Number of points within radius", cxxopts::value<size_t>())
       ("i,input", "Input filename", cxxopts::value<std::string>())
       ("t,num-threads", "Number of threads", cxxopts::value<uint8_t>()->default_value("1"))
