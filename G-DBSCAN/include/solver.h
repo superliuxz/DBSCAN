@@ -79,7 +79,8 @@ class Solver {
     graph_ = std::make_unique<Graph>(num_nodes_, num_threads_);
 
     std::vector<std::thread> threads(num_threads_);
-    const size_t chunk = num_nodes_ / num_threads_ + 1;
+    const size_t chunk =
+        num_nodes_ / num_threads_ + (num_nodes_ % num_threads_ != 0);
 #if defined(BIT_ADJ)
     logger_->info("insert_edges - BIT_ADJ");
     const size_t N = num_nodes_ / 64u + (num_nodes_ % 64u != 0);
