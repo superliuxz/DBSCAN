@@ -27,12 +27,17 @@ int main(int argc, char* argv[]) {
 
   logger->debug("radius {} min_pts {}", radius, min_pts);
 
+  auto const start = std::chrono::high_resolution_clock::now();
   GDBSCAN::Solver<GDBSCAN::input_type::TwoDimPoints> solver(
       input, min_pts, radius, num_threads);
   solver.insert_edges();
   solver.finalize_graph();
   solver.classify_nodes();
   solver.identify_cluster();
+  auto const end = std::chrono::high_resolution_clock::now();
+  auto const duration =
+      std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
+  spdlog::info("GDBSCAN takes {} sec", duration.count());
 
   if (output_labels) {
     auto& g = solver.graph_view();

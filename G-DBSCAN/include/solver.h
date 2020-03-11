@@ -196,6 +196,7 @@ class Solver {
             // each float is 4 bytes; a 256bit register is 32 bytes. Hence 8
             // float at-a-time.
             for (size_t u = start; u < end; ++u) {
+              graph_->start_insert(u);
               const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
               __m256 const u_x8 = _mm256_set_ps(ux, ux, ux, ux, ux, ux, ux, ux);
               __m256 const u_y8 = _mm256_set_ps(uy, uy, uy, uy, uy, uy, uy, uy);
@@ -232,16 +233,18 @@ class Solver {
                 if (v + 7 < num_nodes_ && u != v + 7 && (cmp & 1 << 7))
                   graph_->insert_edge(u, v + 7);
               }
+              graph_->finish_insert(u);
             }
 #else
             for (size_t u = start; u < end; ++u) {
+              graph_->start_insert(u);
               const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
               for (size_t v = 0; v < num_nodes_; ++v) {
                 if (u != v && dist(ux, uy, dataset_->d1[v], dataset_->d2[v]) <=
-                                  squared_radius_) {
+                                  squared_radius_)
                   graph_->insert_edge(u, v);
-                }
               }
+              graph_->finish_insert(u);
             }
 #endif
             auto t1 = high_resolution_clock::now();

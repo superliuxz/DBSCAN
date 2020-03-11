@@ -60,6 +60,7 @@ class Graph {
     temp_adj_[u][idx] |= mask;
   }
 #else
+  void start_insert(size_t u) { temp_adj_[u].reserve(num_nodes_); }
   void insert_edge(size_t u, size_t v) {
     assert_mutable_();
     if (u >= num_nodes_ || v >= num_nodes_) {
@@ -70,6 +71,7 @@ class Graph {
     //    logger_->trace("push {} as a neighbour of {}", v, u);
     temp_adj_[u].push_back(v);
   }
+  void finish_insert(size_t u) { temp_adj_[u].shrink_to_fit(); }
 #endif
 
   void cluster_node(size_t node, int cluster_id) {
