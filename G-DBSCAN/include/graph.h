@@ -122,12 +122,16 @@ class Graph {
     logger_->info("\tInit Ea takes {} seconds", d2.count());
 
     std::vector<std::thread> threads(num_threads_);
+    const size_t chunk =
+        num_nodes_ / num_threads_ + (num_nodes_ % num_threads_ != 0);
     for (size_t tid = 0; tid < num_threads_; ++tid) {
       // logger_->debug("\tspawning thread {}", tid);
       threads[tid] = std::thread(
-          [this](const size_t& tid) {
-            auto start = high_resolution_clock::now();
-            for (size_t u = tid; u < num_nodes_; u += num_threads_) {
+          [this, &chunk](const size_t& tid) {
+            auto p_t0 = high_resolution_clock::now();
+            const size_t start = tid * chunk;
+            const size_t end = std::min(start + chunk, num_nodes_);
+            for (size_t u = start; u < end; ++u) {
               const std::vector<uint64_t>& nbs = temp_adj_[u];
               auto it = std::next(Ea.begin(), Va[2 * u]);
               for (size_t i = 0; i < nbs.size(); ++i) {
@@ -144,10 +148,9 @@ class Graph {
                          Va[2 * u] + Va[2 * u + 1] &&
                      "iterator steps != Va[2*u+1]");
             }
-            auto finish = high_resolution_clock::now();
-            logger_->info(
-                "\t\tThread {} takes {} seconds", tid,
-                duration_cast<duration<double>>(finish - start).count());
+            auto p_t1 = high_resolution_clock::now();
+            logger_->info("\t\tThread {} takes {} seconds", tid,
+                          duration_cast<duration<double>>(p_t1 - p_t0).count());
           } /* lambda */,
           tid);
     }
@@ -200,22 +203,25 @@ class Graph {
     logger_->info("\tInit Ea takes {} seconds", d2.count());
 
     std::vector<std::thread> threads(num_threads_);
+    const size_t chunk =
+        num_nodes_ / num_threads_ + (num_nodes_ % num_threads_ != 0);
     for (size_t tid = 0; tid < num_threads_; ++tid) {
       // logger_->debug("\tspawning thread {}", tid);
       threads[tid] = std::thread(
-          [this](const size_t& tid) {
-            auto start = high_resolution_clock::now();
-            for (size_t u = tid; u < num_nodes_; u += num_threads_) {
+          [this, &chunk](const size_t& tid) {
+            auto p_t0 = high_resolution_clock::now();
+            const size_t start = tid * chunk;
+            const size_t end = std::min(start + chunk, num_nodes_);
+            for (size_t u = start; u < end; ++u) {
               const auto& nbs = temp_adj_[u];
               // logger_->trace("\twriting vtx {} with # nbs {}", u,
               // nbs.size());
               assert(nbs.size() == Va[2 * u + 1] && "nbs.size!=Va[2*u+1]");
               std::copy(nbs.cbegin(), nbs.cend(), Ea.begin() + Va[2 * u]);
             }
-            auto finish = high_resolution_clock::now();
-            logger_->info(
-                "\t\tThread {} takes {} seconds", tid,
-                duration_cast<duration<double>>(finish - start).count());
+            auto p_t1 = high_resolution_clock::now();
+            logger_->info("\t\tThread {} takes {} seconds", tid,
+                          duration_cast<duration<double>>(p_t1 - p_t0).count());
           }, /* lambda */
           tid /* args to lambda */);
     }
