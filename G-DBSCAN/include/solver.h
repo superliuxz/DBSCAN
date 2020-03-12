@@ -360,16 +360,21 @@ class Solver {
 
     std::vector<std::thread> threads(num_threads_);
     size_t lvl_cnt = 0;
+    size_t chunk = 0;
     while (!curr_level.empty()) {
+      chunk = curr_level.size() / num_threads_ +
+              (curr_level.size() % num_threads_ != 0);
       logger_->info("\tBFS level {}", lvl_cnt);
       for (size_t tid = 0u; tid < num_threads_; ++tid) {
         threads[tid] = std::thread(
-            [this, &curr_level, &next_level, &cluster](const size_t& tid) {
+            [this, &curr_level, &next_level, &cluster,
+             &chunk](const size_t& tid) {
               using namespace std::chrono;
-              auto start = high_resolution_clock::now();
-              for (size_t curr_node_idx = tid;
-                   curr_node_idx < curr_level.size();
-                   curr_node_idx += num_threads_) {
+              auto p_t0 = high_resolution_clock::now();
+              size_t start = tid * chunk;
+              size_t end = std::min(start + chunk, curr_level.size());
+              for (size_t curr_node_idx = start; curr_node_idx < end;
+                   ++curr_node_idx) {
                 size_t node = curr_level[curr_node_idx];
                 // logger_->trace("visiting node {}", node);
                 // Relabel a reachable Noise node, but do not keep exploring.
@@ -394,10 +399,10 @@ class Solver {
                   }
                 }
               }
-              auto end = high_resolution_clock::now();
+              auto p_t1 = high_resolution_clock::now();
               logger_->info(
                   "\t\tThread {} takes {} seconds", tid,
-                  duration_cast<duration<double>>(end - start).count());
+                  duration_cast<duration<double>>(p_t1 - p_t0).count());
             } /* lambda */,
             tid /* args to lambda */);
       }
