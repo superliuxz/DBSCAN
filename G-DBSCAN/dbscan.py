@@ -18,10 +18,12 @@ parser.add_argument('--eps', type=float, default=0.3,
                     help='clustering radius')
 parser.add_argument('--min-samples', type=int, default=9,
                     help='number of points to be considered as a Core')
-parser.add_argument('--algorithm', type=str, default='brute',
+parser.add_argument('--algorithm', type=str, default=['kd_tree'],
                     help="algorithm used to fixed-radius neighbour query. "
                          "Choose between 'brute' and 'kd_tree'",
                     choices=['brute', 'kd_tree'], nargs=1)
+parser.add_argument('--num-threads', type=int, default=1,
+                    help='number of threads')
 
 args = parser.parse_args()
 
@@ -40,7 +42,7 @@ N = len(points)
 t = time.time()
 assert len(args.algorithm) == 1
 db = DBSCAN(eps=args.eps, min_samples=args.min_samples + 1,
-            algorithm=args.algorithm[0]).fit(points)
+            algorithm=args.algorithm[0], n_jobs=args.num_threads).fit(points)
 print(f"DBSCAN takes {time.time() - t:.4f} seconds")
 
 if args.print_cluster_id:
@@ -57,7 +59,8 @@ n_noise_ = list(labels).count(-1)
 unique, cnt = np.unique(core_samples_mask, return_counts=True)
 cnt = dict(zip(unique, cnt))
 n_core_ = cnt.get(True, 0)
-n_boundary_ = cnt.get(False, 0)
+n_boundary_ = cnt.get(False, 0) - n_noise_
+
 
 # ############################################################################
 # Plot result

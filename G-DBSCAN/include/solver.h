@@ -359,18 +359,18 @@ class Solver {
                                                 std::vector<size_t>());
 
     std::vector<std::thread> threads(num_threads_);
-    size_t lvl_cnt = 0;
+    // size_t lvl_cnt = 0;
     size_t chunk = 0;
     while (!curr_level.empty()) {
       chunk = curr_level.size() / num_threads_ +
               (curr_level.size() % num_threads_ != 0);
-      logger_->info("\tBFS level {}", lvl_cnt);
+      // logger_->info("\tBFS level {}", lvl_cnt);
       for (size_t tid = 0u; tid < num_threads_; ++tid) {
         threads[tid] = std::thread(
             [this, &curr_level, &next_level, &cluster,
              &chunk](const size_t& tid) {
-              using namespace std::chrono;
-              auto p_t0 = high_resolution_clock::now();
+              // using namespace std::chrono;
+              // auto p_t0 = high_resolution_clock::now();
               size_t start = tid * chunk;
               size_t end = std::min(start + chunk, curr_level.size());
               for (size_t curr_node_idx = start; curr_node_idx < end;
@@ -399,10 +399,10 @@ class Solver {
                   }
                 }
               }
-              auto p_t1 = high_resolution_clock::now();
-              logger_->info(
-                  "\t\tThread {} takes {} seconds", tid,
-                  duration_cast<duration<double>>(p_t1 - p_t0).count());
+              // auto p_t1 = high_resolution_clock::now();
+              // logger_->info(
+              //     "\t\tThread {} takes {} seconds", tid,
+              //     duration_cast<duration<double>>(p_t1 - p_t0).count());
             } /* lambda */,
             tid /* args to lambda */);
       }
@@ -414,7 +414,7 @@ class Solver {
         curr_level.insert(curr_level.end(), lvl.cbegin(), lvl.cend());
       // clear next_level
       for (auto& lvl : next_level) lvl.clear();
-      ++lvl_cnt;
+      // ++lvl_cnt;
     }
   }
 };
