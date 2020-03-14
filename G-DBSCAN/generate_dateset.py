@@ -18,7 +18,7 @@ parser.add_argument('--cluster-std', type=float, default=2.0,
 
 args = parser.parse_args()
 
-centers = [[10, 10], [-10, -10], [10, -10], [-10, 10]]
+centers = [[row, col] for col in range(0, 50, 10) for row in range(0, 40, 10)]
 points, _ = make_blobs(n_samples=args.n_samples, centers=centers,
                        cluster_std=args.cluster_std, random_state=RANDOM_STATE)
 

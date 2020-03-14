@@ -18,3 +18,7 @@ Clustering](https://www.sciencedirect.com/science/article/pii/S1877050913003438)
   - 0.1 radius and 12 neighbour points for clustering.
 
 2. `./build/main --input=$(pwd)/test_input.txt --eps=0.1 --min-samples=12`.
+
+## Misc
+test_input_avg_medium.txt is generated using `--cluster-std=2.2 --n-samples=100000`,
+with 20 clusters. Should use `--eps=0.07 --min-samples=100` to query.

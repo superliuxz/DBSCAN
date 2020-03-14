@@ -2,12 +2,12 @@
 <project version="4">
   <component name="WebServers">
     <option name="servers">
-      <webServer id="72f7f20a-24e6-439a-a20a-83a95003ac89" name="laptop" url="http://192.168.1.57">
-        <fileTransfer host="192.168.1.57" port="22" privateKey="$USER_HOME$/.ssh/id_rsa" accessType="SFTP" keyPair="true">
+      <webServer id="72f7f20a-24e6-439a-a20a-83a95003ac89" name="laptop" url="http://xiaozhou.duckdns.org">
+        <fileTransfer host="xiaozhou.duckdns.org" port="14158" privateKey="$USER_HOME$/.ssh/id_rsa" accessType="SFTP" keyPair="true">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>
-          <option name="port" value="22" />
+          <option name="port" value="14158" />
         </fileTransfer>
       </webServer>
     </option>
