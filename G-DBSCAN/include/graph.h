@@ -7,7 +7,6 @@
 
 #include <spdlog/spdlog.h>
 
-#include <bitset>
 #include <vector>
 
 #include "membership.h"
