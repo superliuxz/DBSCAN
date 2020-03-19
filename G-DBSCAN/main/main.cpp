@@ -1,7 +1,7 @@
 #include <cxxopts.hpp>
 #include <iostream>
 
-#include "include/solver.h"
+#include "../src/solver.h"
 
 int main(int argc, char* argv[]) {
   auto logger = spdlog::stdout_color_mt("console");
