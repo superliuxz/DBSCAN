@@ -352,3 +352,6 @@ void GDBSCAN::Solver<DataType>::bfs(size_t start_node, int cluster) const {
     // ++lvl_cnt;
   }
 }
+
+// https://stackoverflow.com/a/495056
+template class GDBSCAN::Solver<GDBSCAN::input_type::TwoDimPoints>;

@@ -1,2 +1,3 @@
-add_library(GDBSCAN SHARED graph.h solver.h membership.h utils.h dataset.h solver.cpp graph.cpp)
+include_directories("${CMAKE_SOURCE_DIR}/src")
+add_library(GDBSCAN SHARED solver.cpp graph.cpp)
 set_target_properties(GDBSCAN PROPERTIES LINKER_LANGUAGE CXX)

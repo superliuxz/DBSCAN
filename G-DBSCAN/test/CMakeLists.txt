@@ -37,6 +37,7 @@ endif ()
 # end of copy
 ##
 
+include_directories("${CMAKE_SOURCE_DIR}/src")
 enable_testing()
 add_executable(unittest tests.cpp)
 add_test(unittest test.cpp)
