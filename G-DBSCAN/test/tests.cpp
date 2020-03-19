@@ -5,8 +5,8 @@
 #include <gmock/gmock.h>  // ASSERT_THAT, testing::ElementsAre
 #include <gtest/gtest.h>
 
-#include "../include/graph.h"
-#include "../include/solver.h"
+#include "graph.h"
+#include "solver.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 
 namespace GDBSCAN_TestVariables {
