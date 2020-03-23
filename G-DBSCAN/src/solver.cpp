@@ -6,9 +6,9 @@
 
 // ctor
 template <class DataType>
-GDBSCAN::Solver<DataType>::Solver(const std::string& input,
-                                  const size_t& min_pts, const float& radius,
-                                  const uint8_t& num_threads)
+DBSCAN::Solver<DataType>::Solver(const std::string& input,
+                                 const size_t& min_pts, const float& radius,
+                                 const uint8_t& num_threads)
     : min_pts_(min_pts),
       squared_radius_(radius * radius),
       num_threads_(num_threads) {
@@ -44,7 +44,7 @@ GDBSCAN::Solver<DataType>::Solver(const std::string& input,
 }
 
 template <class DataType>
-void GDBSCAN::Solver<DataType>::insert_edges() {
+void DBSCAN::Solver<DataType>::insert_edges() {
   using namespace std::chrono;
   high_resolution_clock::time_point start = high_resolution_clock::now();
 
@@ -241,7 +241,7 @@ void GDBSCAN::Solver<DataType>::insert_edges() {
 }
 
 template <class DataType>
-void GDBSCAN::Solver<DataType>::classify_nodes() const {
+void DBSCAN::Solver<DataType>::classify_nodes() const {
   using namespace std::chrono;
   high_resolution_clock::time_point start = high_resolution_clock::now();
   if (graph_ == nullptr) {
@@ -267,7 +267,7 @@ void GDBSCAN::Solver<DataType>::classify_nodes() const {
 }
 
 template <class DataType>
-void GDBSCAN::Solver<DataType>::identify_cluster() const {
+void DBSCAN::Solver<DataType>::identify_cluster() const {
   using namespace std::chrono;
   high_resolution_clock::time_point start = high_resolution_clock::now();
   int cluster = 0;
@@ -287,7 +287,7 @@ void GDBSCAN::Solver<DataType>::identify_cluster() const {
 }
 
 template <class DataType>
-void GDBSCAN::Solver<DataType>::bfs(size_t start_node, int cluster) const {
+void DBSCAN::Solver<DataType>::bfs(size_t start_node, int cluster) const {
   std::vector<size_t> curr_level{start_node};
   // each thread has its own partial frontier.
   std::vector<std::vector<size_t>> next_level(num_threads_,
@@ -354,4 +354,4 @@ void GDBSCAN::Solver<DataType>::bfs(size_t start_node, int cluster) const {
 }
 
 // https://stackoverflow.com/a/495056
-template class GDBSCAN::Solver<GDBSCAN::input_type::TwoDimPoints>;
+template class DBSCAN::Solver<DBSCAN::input_type::TwoDimPoints>;

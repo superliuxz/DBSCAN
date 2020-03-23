@@ -6,7 +6,7 @@
 
 // ctor
 #if defined(BIT_ADJ)
-GDBSCAN::Graph::Graph(const size_t& num_nodes, const size_t& num_threads)
+DBSCAN::Graph::Graph(const size_t& num_nodes, const size_t& num_threads)
     : Va(num_nodes * 2, 0),
       // -1 as unvisited/un-clustered.
       cluster_ids(num_nodes, -1),
@@ -19,7 +19,7 @@ GDBSCAN::Graph::Graph(const size_t& num_nodes, const size_t& num_threads)
   temp_adj_.resize(num_nodes_, std::vector<uint64_t>(num_uint64, 0u));
 }
 #else
-GDBSCAN::Graph::Graph(const size_t& num_nodes, const size_t& num_threads)
+DBSCAN::Graph::Graph(const size_t& num_nodes, const size_t& num_threads)
     : Va(num_nodes * 2, 0),
       // -1 as unvisited/un-clustered.
       cluster_ids(num_nodes, -1),
@@ -33,7 +33,7 @@ GDBSCAN::Graph::Graph(const size_t& num_nodes, const size_t& num_threads)
 
 // insert edge
 #if defined(BIT_ADJ)
-void GDBSCAN::Graph::insert_edge(const size_t& u, const size_t& idx,
+void DBSCAN::Graph::insert_edge(const size_t& u, const size_t& idx,
                                  const uint64_t& mask) {
   assert_mutable_();
   if (u >= num_nodes_ || idx >= temp_adj_[u].size()) {
@@ -46,7 +46,7 @@ void GDBSCAN::Graph::insert_edge(const size_t& u, const size_t& idx,
   temp_adj_[u][idx] |= mask;
 }
 #else
-void GDBSCAN::Graph::insert_edge(const size_t& u, const size_t& v) {
+void DBSCAN::Graph::insert_edge(const size_t& u, const size_t& v) {
   assert_mutable_();
   if (u >= num_nodes_ || v >= num_nodes_) {
     std::ostringstream oss;
@@ -58,7 +58,7 @@ void GDBSCAN::Graph::insert_edge(const size_t& u, const size_t& v) {
 }
 #endif
 
-void GDBSCAN::Graph::cluster_node(const size_t& node, const int& cluster_id) {
+void DBSCAN::Graph::cluster_node(const size_t& node, const int& cluster_id) {
   assert_immutable_();
   if (node >= num_nodes_) {
     std::ostringstream oss;
@@ -69,7 +69,7 @@ void GDBSCAN::Graph::cluster_node(const size_t& node, const int& cluster_id) {
 }
 
 #if defined(BIT_ADJ)
-void GDBSCAN::Graph::finalize() {
+void DBSCAN::Graph::finalize() {
   logger_->info("finalize - BIT_ADJ");
   assert_mutable_();
 
@@ -150,7 +150,7 @@ void GDBSCAN::Graph::finalize() {
   immutable_ = true;
 }
 #else
-void GDBSCAN::Graph::finalize() {
+void DBSCAN::Graph::finalize() {
   logger_->info("finalize - DEFAULT");
   assert_mutable_();
 

@@ -7,7 +7,7 @@ int main(int argc, char* argv[]) {
   auto logger = spdlog::stdout_color_mt("console");
   logger->set_level(spdlog::level::info);
 
-  cxxopts::Options options("GDBSCAN", "ma, look, it's GDBSCAN");
+  cxxopts::Options options("DBSCAN", "ma, look, it's DBSCAN");
   // clang-format off
   options.add_options()
       ("p,print", "Print clustering IDs") // boolean
@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
   logger->debug("radius {} min_pts {}", radius, min_pts);
 
   auto const start = std::chrono::high_resolution_clock::now();
-  GDBSCAN::Solver<GDBSCAN::input_type::TwoDimPoints> solver(
+  DBSCAN::Solver<DBSCAN::input_type::TwoDimPoints> solver(
       input, min_pts, radius, num_threads);
   solver.insert_edges();
   solver.finalize_graph();
@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
   auto const end = std::chrono::high_resolution_clock::now();
   auto const duration =
       std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
-  spdlog::info("GDBSCAN takes {} sec", duration.count());
+  spdlog::info("DBSCAN takes {} sec", duration.count());
 
   if (output_labels) {
     auto& g = solver.graph_view();

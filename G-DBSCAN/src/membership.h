@@ -5,7 +5,7 @@
 #ifndef GDBSCAN_INCLUDE_MEMBERSHIP_H_
 #define GDBSCAN_INCLUDE_MEMBERSHIP_H_
 
-namespace GDBSCAN {
+namespace DBSCAN {
 enum membership { Core, Border, Noise };
 }
 

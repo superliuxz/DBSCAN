@@ -17,7 +17,7 @@
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/spdlog.h"
 
-namespace GDBSCAN {
+namespace DBSCAN {
 
 template <class DataType>
 class Solver {
@@ -72,6 +72,6 @@ class Solver {
    */
   void bfs(size_t start_node, int cluster) const;
 };
-}  // namespace GDBSCAN
+}  // namespace DBSCAN
 
 #endif  // GDBSCAN_INCLUDE_SOLVER_H_

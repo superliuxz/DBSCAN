@@ -9,26 +9,26 @@
 #include "solver.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 
-namespace GDBSCAN_TestVariables {
+namespace DBSCAN_TestVariables {
 std::string abs_loc;
 }
 
 class GDBSCAN_TestEnvironment : public testing::Environment {
  public:
   explicit GDBSCAN_TestEnvironment(const std::string& command_line_arg) {
-    GDBSCAN_TestVariables::abs_loc = command_line_arg;
+      DBSCAN_TestVariables::abs_loc = command_line_arg;
   }
 };
 
 TEST(Graph, ctor_success) {
-  GDBSCAN::Graph g(5, 1);
+  DBSCAN::Graph g(5, 1);
   EXPECT_EQ(g.Va.size(), 10);
   EXPECT_EQ(g.cluster_ids.size(), 5);
   EXPECT_TRUE(g.Ea.empty());
 }
 
 TEST(Graph, insert_edge_success) {
-  GDBSCAN::Graph g(5, 1);
+  DBSCAN::Graph g(5, 1);
 #if defined(BIT_ADJ)
   ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
   ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 4u));
@@ -43,7 +43,7 @@ TEST(Graph, insert_edge_success) {
 }
 
 TEST(Graph, insert_edge_failed_oob) {
-  GDBSCAN::Graph g(5, 1);
+  DBSCAN::Graph g(5, 1);
 #if defined(BIT_ADJ)
   ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
   ASSERT_THROW(g.insert_edge(0, 1, 1u << 5u), std::runtime_error);
@@ -58,7 +58,7 @@ TEST(Graph, insert_edge_failed_oob) {
 }
 
 TEST(Graph, finalize_success) {
-  GDBSCAN::Graph g(5, 1);
+  DBSCAN::Graph g(5, 1);
 #if defined(BIT_ADJ)
   ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
   ASSERT_NO_THROW(g.insert_edge(1, 0, 1u << 2u));
@@ -91,7 +91,7 @@ TEST(Graph, finalize_success) {
 }
 
 TEST(Graph, finalize_fail_second_finalize) {
-  GDBSCAN::Graph g(5, 1);
+  DBSCAN::Graph g(5, 1);
 #if defined(BIT_ADJ)
   ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
   ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 4u));
@@ -109,7 +109,7 @@ TEST(Graph, finalize_fail_second_finalize) {
 }
 
 TEST(Graph, finalize_success_disconnected_graph) {
-  GDBSCAN::Graph g(5, 1);
+  DBSCAN::Graph g(5, 1);
 #if defined(BIT_ADJ)
   ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
   ASSERT_NO_THROW(g.insert_edge(1, 0, 1u << 2u));
@@ -135,14 +135,14 @@ TEST(Graph, finalize_success_disconnected_graph) {
 }
 
 TEST(Graph, finalize_success_no_edges) {
-  GDBSCAN::Graph g(5, 1);
+  DBSCAN::Graph g(5, 1);
   ASSERT_NO_THROW(g.finalize());
   ASSERT_THAT(g.Va, testing::ElementsAre(0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
   ASSERT_TRUE(g.Ea.empty());
 }
 
 TEST(Graph, classify_node_success) {
-  GDBSCAN::Graph g(5, 1);
+  DBSCAN::Graph g(5, 1);
   ASSERT_NO_THROW(g.finalize());
   ASSERT_NO_THROW(g.cluster_node(0, 2));
   ASSERT_NO_THROW(g.cluster_node(1, 2));
@@ -150,12 +150,12 @@ TEST(Graph, classify_node_success) {
 }
 
 TEST(Graph, classify_node_fail_no_finalize) {
-  GDBSCAN::Graph g(5, 1);
+  DBSCAN::Graph g(5, 1);
   ASSERT_THROW(g.cluster_node(0, 2), std::runtime_error);
 }
 
 TEST(Graph, classify_node_fail_oob) {
-  GDBSCAN::Graph g(5, 1);
+  DBSCAN::Graph g(5, 1);
   ASSERT_NO_THROW(g.finalize());
   ASSERT_NO_THROW(g.cluster_node(0, 2));
   ASSERT_THROW(g.cluster_node(-1, 2), std::runtime_error);
@@ -163,7 +163,7 @@ TEST(Graph, classify_node_fail_oob) {
 }
 
 TEST(TwoDimPoints, distance_squared) {
-  using namespace GDBSCAN::input_type;
+  using namespace DBSCAN::input_type;
   EXPECT_FLOAT_EQ(TwoDimPoints::euclidean_distance_square(1, 2, 3, 4),
                   std::pow(1 - 3, 2) + std::pow(2 - 4, 2));
   EXPECT_FLOAT_EQ(TwoDimPoints::euclidean_distance_square(-1, -4, 4, 1),
@@ -175,18 +175,18 @@ TEST(TwoDimPoints, distance_squared) {
 }
 
 TEST(Solver, prepare_dataset) {
-  using namespace GDBSCAN;
+  using namespace DBSCAN;
   Solver<input_type::TwoDimPoints> solver(
-      GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
+          DBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
   auto& dataset = solver.dataset_view();
   EXPECT_THAT(dataset.d1, testing::ElementsAre(1.0, 2.0, 2.0, 8.0, 8.0, 25.0));
   EXPECT_THAT(dataset.d2, testing::ElementsAre(2.0, 2.0, 3.0, 7.0, 8.0, 80.0));
 }
 
 TEST(Solver, make_graph_small_graph) {
-  using namespace GDBSCAN;
+  using namespace DBSCAN;
   Solver<input_type::TwoDimPoints> solver(
-      GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
+          DBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_nodes());
@@ -212,9 +212,9 @@ TEST(Solver, make_graph_small_graph) {
 }
 
 TEST(Solver, test_input1) {
-  using namespace GDBSCAN;
+  using namespace DBSCAN;
   Solver<input_type::TwoDimPoints> solver(
-      GDBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
+          DBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_nodes());
@@ -226,9 +226,9 @@ TEST(Solver, test_input1) {
 }
 
 TEST(Solver, test_input2) {
-  using namespace GDBSCAN;
+  using namespace DBSCAN;
   Solver<input_type::TwoDimPoints> solver(
-      GDBSCAN_TestVariables::abs_loc + "/test_input2.txt", 2, 3.0f, 1u);
+          DBSCAN_TestVariables::abs_loc + "/test_input2.txt", 2, 3.0f, 1u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_nodes());
@@ -261,9 +261,9 @@ TEST(Solver, test_input2) {
 }
 
 TEST(Solver, test_input3) {
-  using namespace GDBSCAN;
+  using namespace DBSCAN;
   Solver<input_type::TwoDimPoints> solver(
-      GDBSCAN_TestVariables::abs_loc + "/test_input3.txt", 3, 3.0f, 1u);
+          DBSCAN_TestVariables::abs_loc + "/test_input3.txt", 3, 3.0f, 1u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_nodes());
@@ -298,15 +298,15 @@ TEST(Solver, test_input3) {
 }
 
 TEST(Solver, test_input4) {
-  using namespace GDBSCAN;
+  using namespace DBSCAN;
   Solver<input_type::TwoDimPoints> solver(
-      GDBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f, 1u);
+          DBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f, 1u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_nodes());
   ASSERT_NO_THROW(solver.identify_cluster());
   std::vector<int> expected_labels;
-  std::ifstream ifs(GDBSCAN_TestVariables::abs_loc + "/test_input4_labels.txt");
+  std::ifstream ifs(DBSCAN_TestVariables::abs_loc + "/test_input4_labels.txt");
   int label;
   while (ifs >> label) expected_labels.push_back(label);
   auto& graph = solver.graph_view();
@@ -318,15 +318,15 @@ TEST(Solver, test_input4) {
 // now, run multiple times until pass. I believe some carefully picked
 // clustering parameters could be robust to the nondeterministic behavior.
 TEST(Solver, test_input4_four_threads) {
-  using namespace GDBSCAN;
+  using namespace DBSCAN;
   Solver<input_type::TwoDimPoints> solver(
-      GDBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f, 4u);
+          DBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f, 4u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_nodes());
   ASSERT_NO_THROW(solver.identify_cluster());
   std::vector<int> expected_labels;
-  std::ifstream ifs(GDBSCAN_TestVariables::abs_loc + "/test_input4_labels.txt");
+  std::ifstream ifs(DBSCAN_TestVariables::abs_loc + "/test_input4_labels.txt");
   int label;
   while (ifs >> label) expected_labels.push_back(label);
   auto& graph = solver.graph_view();

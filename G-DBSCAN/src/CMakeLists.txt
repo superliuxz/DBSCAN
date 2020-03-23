@@ -1,2 +1,2 @@
-add_library(GDBSCAN SHARED solver.cpp graph.cpp)
-set_target_properties(GDBSCAN PROPERTIES LINKER_LANGUAGE CXX)
+add_library(DBSCAN SHARED solver.cpp graph.cpp)
+set_target_properties(DBSCAN PROPERTIES LINKER_LANGUAGE CXX)

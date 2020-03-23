@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-namespace GDBSCAN::utils {
+namespace DBSCAN::utils {
 template <class T>
 std::string print_vector(const std::string& vector_name,
                          std::vector<T> vector) {
@@ -90,6 +90,6 @@ class AlignedAllocator {
     typedef AlignedAllocator<U, ALIGNMENT> other;
   };
 };
-}  // namespace GDBSCAN::utils
+}  // namespace DBSCAN::utils
 
 #endif  // GDBSCAN_INCLUDE_UTILS_H_

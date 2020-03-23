@@ -12,12 +12,12 @@
 #include "membership.h"
 #include "utils.h"
 
-namespace GDBSCAN {
+namespace DBSCAN {
 
 class Graph {
  public:
   std::vector<size_t> Va;
-  std::vector<size_t, GDBSCAN::utils::NonConstructAllocator<size_t>> Ea;
+  std::vector<size_t, DBSCAN::utils::NonConstructAllocator<size_t>> Ea;
   std::vector<int> cluster_ids;
   std::vector<membership> memberships;
   // ctor
@@ -63,6 +63,6 @@ class Graph {
     }
   }
 };
-}  // namespace GDBSCAN
+}  // namespace DBSCAN
 
 #endif  // GDBSCAN_INCLUDE_GRAPH_H_
