@@ -22,6 +22,9 @@ include_directories(third_party/spdlog/include)
 # cxxopts
 include_directories(third_party/cxxopts/include)
 
+# GDBSCAN
+include_directories("${CMAKE_SOURCE_DIR}/src")
+
 add_subdirectory(src)
 add_subdirectory(test)
 add_subdirectory(main)
