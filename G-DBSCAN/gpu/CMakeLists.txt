@@ -4,10 +4,9 @@
 set(CUDA_ARCH -gencode arch=compute_75,code=sm_75)
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} ${CUDA_ARCH} -O3 --std=c++14)
 cuda_add_library(GDBSCAN STATIC gdbscan.cuh)
-set_target_properties(GDBSCAN PROPERTIES POSITION_INDEPENDENT_CODE ON)
-set_target_properties(GDBSCAN PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-# force nvcc to compile *.cu, *.cuh files
-set_source_files_properties(main.cu PROPERTIES CUDA_SOURCE_PROPERTY_FORMAT OBJ)
+#set_target_properties(GDBSCAN PROPERTIES POSITION_INDEPENDENT_CODE ON)
+#set_target_properties(GDBSCAN PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
 add_executable(gpu-main main.cu)
-set_target_properties(gpu-main PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+#set_target_properties(gpu-main PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 target_link_libraries(gpu-main PRIVATE GDBSCAN)
