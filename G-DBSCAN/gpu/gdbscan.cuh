@@ -18,7 +18,7 @@ namespace GDBSCAN {
     // Kernel to calculate Va
     __global__ void
     calc_va(float *x, float *y, uint64_t *Va, const float &rad_sq, const uint64_t &num_nodes) {
-        int const u = threadIdx.x + blockIdx.x * blockDim.x;
+        uint64_t const u = threadIdx.x + blockIdx.x * blockDim.x;
         Va[u] = 0;
         for (auto v = 0u; v < num_nodes; ++v) {
             if (u != v && square_dist(x[u], y[u], x[v], y[v]) <= rad_sq)
@@ -36,7 +36,7 @@ namespace GDBSCAN {
         cudaMemcpy(dev_x, x, sizeof(x), cudaMemcpyHostToDevice);
         cudaMemcpy(dev_y, y, sizeof(y), cudaMemcpyHostToDevice);
 
-        calc_va << < num_blocks, blocksize >> > (dev_x, dev_y, dev_Va, rad_sq, num_nodes);
+        calc_va <<< num_blocks, blocksize >>>(dev_x, dev_y, dev_Va, rad_sq, num_nodes);
 
         cudaMemcpy(Va, dev_Va, sizeof(Va), cudaMemcpyDeviceToHost);
         cudaFree(dev_x);
