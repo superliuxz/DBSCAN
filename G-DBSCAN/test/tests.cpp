@@ -16,7 +16,7 @@ std::string abs_loc;
 class GDBSCAN_TestEnvironment : public testing::Environment {
  public:
   explicit GDBSCAN_TestEnvironment(const std::string& command_line_arg) {
-      DBSCAN_TestVariables::abs_loc = command_line_arg;
+    DBSCAN_TestVariables::abs_loc = command_line_arg;
   }
 };
 
@@ -177,7 +177,7 @@ TEST(TwoDimPoints, distance_squared) {
 TEST(Solver, prepare_dataset) {
   using namespace DBSCAN;
   Solver<input_type::TwoDimPoints> solver(
-          DBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
+      DBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
   auto& dataset = solver.dataset_view();
   EXPECT_THAT(dataset.d1, testing::ElementsAre(1.0, 2.0, 2.0, 8.0, 8.0, 25.0));
   EXPECT_THAT(dataset.d2, testing::ElementsAre(2.0, 2.0, 3.0, 7.0, 8.0, 80.0));
@@ -186,7 +186,7 @@ TEST(Solver, prepare_dataset) {
 TEST(Solver, make_graph_small_graph) {
   using namespace DBSCAN;
   Solver<input_type::TwoDimPoints> solver(
-          DBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
+      DBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_nodes());
@@ -214,7 +214,7 @@ TEST(Solver, make_graph_small_graph) {
 TEST(Solver, test_input1) {
   using namespace DBSCAN;
   Solver<input_type::TwoDimPoints> solver(
-          DBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
+      DBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f, 1u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_nodes());
@@ -228,7 +228,7 @@ TEST(Solver, test_input1) {
 TEST(Solver, test_input2) {
   using namespace DBSCAN;
   Solver<input_type::TwoDimPoints> solver(
-          DBSCAN_TestVariables::abs_loc + "/test_input2.txt", 2, 3.0f, 1u);
+      DBSCAN_TestVariables::abs_loc + "/test_input2.txt", 2, 3.0f, 1u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_nodes());
@@ -263,7 +263,7 @@ TEST(Solver, test_input2) {
 TEST(Solver, test_input3) {
   using namespace DBSCAN;
   Solver<input_type::TwoDimPoints> solver(
-          DBSCAN_TestVariables::abs_loc + "/test_input3.txt", 3, 3.0f, 1u);
+      DBSCAN_TestVariables::abs_loc + "/test_input3.txt", 3, 3.0f, 1u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_nodes());
@@ -300,7 +300,7 @@ TEST(Solver, test_input3) {
 TEST(Solver, test_input4) {
   using namespace DBSCAN;
   Solver<input_type::TwoDimPoints> solver(
-          DBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f, 1u);
+      DBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f, 1u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_nodes());
@@ -320,7 +320,7 @@ TEST(Solver, test_input4) {
 TEST(Solver, test_input4_four_threads) {
   using namespace DBSCAN;
   Solver<input_type::TwoDimPoints> solver(
-          DBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f, 4u);
+      DBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f, 4u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_nodes());

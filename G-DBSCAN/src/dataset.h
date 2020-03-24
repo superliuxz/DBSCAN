@@ -18,7 +18,7 @@ struct TwoDimPoints {
                                                 const float& py,
                                                 const float& qx,
                                                 const float& qy) {
-    return std::pow(px - qx, 2.f) + std::pow(py - qy, 2.f);
+    return (px - qx) * (px - qx) + (py - qy) * (py - qy);
   }
 };
 }  // namespace DBSCAN::input_type

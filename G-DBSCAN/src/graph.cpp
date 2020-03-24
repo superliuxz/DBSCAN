@@ -34,7 +34,7 @@ DBSCAN::Graph::Graph(const size_t& num_nodes, const size_t& num_threads)
 // insert edge
 #if defined(BIT_ADJ)
 void DBSCAN::Graph::insert_edge(const size_t& u, const size_t& idx,
-                                 const uint64_t& mask) {
+                                const uint64_t& mask) {
   assert_mutable_();
   if (u >= num_nodes_ || idx >= temp_adj_[u].size()) {
     std::ostringstream oss;

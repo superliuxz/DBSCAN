@@ -26,11 +26,13 @@ int main(int argc, char* argv[]) {
   std::cout << "minPts=" << min_pts << "; eps=" << radius << std::endl;
 
   uint64_t num_nodes = 0;
-  float xs[num_nodes], ys[num_nodes];
-  uint64_t Va[num_nodes];
 
   auto ifs = std::ifstream(input);
   ifs >> num_nodes;
+
+  float xs[num_nodes], ys[num_nodes];
+  uint64_t Va[num_nodes];
+
   uint64_t n;
   float x, y;
   while (ifs >> n >> x >> y) {
@@ -39,8 +41,10 @@ int main(int argc, char* argv[]) {
   }
 
   GDBSCAN::insert_edge(xs, ys, Va, radius * radius, num_nodes);
+  GDBSCAN::calc_Va(Va, num_nodes);
 
   if (output_labels) {
+    std::cout << "Va:" << std::endl;
     for (auto i = 0u; i < num_nodes; ++i)
       std::cout << i << " " << Va[i] << std::endl;
   }
