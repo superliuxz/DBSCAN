@@ -5,12 +5,11 @@
 #ifndef DBSCAN_GDBSCAN_CUH
 #define DBSCAN_GDBSCAN_CUH
 
-#include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/scan.h>
 
-#define CUDA_ERR_CHK(ans) \
-  { cuda_err_chk((ans), __FILE__, __LINE__); }
+#define CUDA_ERR_CHK(code) \
+  { cuda_err_chk((code), __FILE__, __LINE__); }
 inline void cuda_err_chk(cudaError_t code, const char *file, int line,
                          bool abort = true) {
   if (code != cudaSuccess) {
