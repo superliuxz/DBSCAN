@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig host="xiaozhou.duckdns.org" id="0a0adb80-449b-4b3f-ab7f-75217d96214f" keyPath="$USER_HOME$/.ssh/id_rsa" port="14158" />
+      <sshConfig host="xiaozhou.duckdns.org" id="fd1175e5-5bca-4313-b90f-7e58a3922690" keyPath="$USER_HOME$/.ssh/id_rsa" port="14158" />
+      <sshConfig host="xiaozhou.duckdns.org" id="6efcb721-525b-4e2d-8714-f57cd5f58691" keyPath="$USER_HOME$/.ssh/id_rsa" port="14158" />
+    </configs>
+  </component>
+</project>
