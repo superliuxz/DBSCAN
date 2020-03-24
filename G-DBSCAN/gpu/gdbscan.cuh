@@ -50,13 +50,14 @@ __global__ void k_num_nbs(float const *const x, float const *const y,
 void calc_num_neighbours(float const *const x, float const *const y,
                          uint64_t *const num_nbs, const float &rad_sq,
                          const uint64_t &num_nodes) {
+  const auto num_blocks = std::ceil(num_nodes / static_cast<float>(blocksize));
+
   const auto N = sizeof(x[0]) * num_nodes;
   const auto K = sizeof(num_nbs[0]) * num_nodes;
 
   printf("calc_num_neighbours needs: %lf MB\n",
          static_cast<double>(N + N + K) / 1024.f / 1024.f);
 
-  const auto num_blocks = std::ceil(num_nodes / static_cast<float>(blocksize));
   float *dev_x, *dev_y;
   uint64_t *dev_num_nbs;
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_x, N));
@@ -99,9 +100,7 @@ void append_neighbours(float const *const x, float const *const y,
                        uint64_t const *const start_pos,
                        uint64_t *const neighbours, const uint64_t num_nodes,
                        uint64_t const nb_arr_sz, float const rad_sq) {
-  std::cout << "append_neighbours called" << std::endl;
   const auto num_blocks = std::ceil(num_nodes / static_cast<float>(blocksize));
-  std::cout << "num_blocks calculated" << std::endl;
 
   const auto N = sizeof(x[0]) * num_nodes;
   const auto K = sizeof(start_pos[0]) * num_nodes;

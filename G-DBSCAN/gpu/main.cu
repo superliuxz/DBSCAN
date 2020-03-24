@@ -1,6 +1,8 @@
 //
 // Created by will on 2020-03-23.
 //
+#include <thrust/device_vector.h>
+
 #include <cxxopts.hpp>
 #include <fstream>
 
@@ -29,8 +31,9 @@ int main(int argc, char *argv[]) {
   auto ifs = std::ifstream(input);
   ifs >> num_nodes;
 
-  float xs[num_nodes], ys[num_nodes];
-  uint64_t num_neighbours[num_nodes], start_pos[num_nodes];
+  thrust::host_vector<float> xs(num_nodes, 0), ys(num_nodes, 0);
+  thrust::host_vector<uint64_t> num_neighbours(num_nodes, 0),
+      start_pos(num_nodes, 0);
 
   uint64_t n;
   float x, y;
@@ -39,15 +42,19 @@ int main(int argc, char *argv[]) {
     ys[n] = y;
   }
 
-  GDBSCAN::calc_num_neighbours(xs, ys, num_neighbours, radius * radius,
-                               num_nodes);
+  GDBSCAN::calc_num_neighbours(thrust::raw_pointer_cast(xs.data()),
+                               thrust::raw_pointer_cast(ys.data()),
+                               thrust::raw_pointer_cast(num_neighbours.data()),
+                               radius * radius, num_nodes);
   if (output_labels) {
     std::cout << "num_neighbours:" << std::endl;
     for (auto i = 0u; i < num_nodes; ++i)
       std::cout << i << " " << num_neighbours[i] << std::endl;
   }
 
-  GDBSCAN::calc_start_pos(num_neighbours, start_pos, num_nodes);
+  GDBSCAN::calc_start_pos(thrust::raw_pointer_cast(num_neighbours.data()),
+                          thrust::raw_pointer_cast(start_pos.data()),
+                          num_nodes);
   if (output_labels) {
     std::cout << "start_pos:" << std::endl;
     for (auto i = 0u; i < num_nodes; ++i)
@@ -57,16 +64,18 @@ int main(int argc, char *argv[]) {
   const uint64_t nbarr_sz =
       start_pos[num_nodes - 1] + num_neighbours[num_nodes - 1];
   std::cout << "size of neighbours array: " << nbarr_sz << std::endl;
-  auto *neighbours = new uint64_t[nbarr_sz];
-//  uint64_t neighbours[nbarr_sz];
-  std::cout << "huhuhuhuh" << std::endl;
-  GDBSCAN::append_neighbours(xs, ys, start_pos, neighbours, num_nodes,
-                             nbarr_sz, radius * radius);
+  thrust::host_vector<uint64_t> neighbours(nbarr_sz, 0);
+
+  GDBSCAN::append_neighbours(thrust::raw_pointer_cast(xs.data()),
+                             thrust::raw_pointer_cast(ys.data()),
+                             thrust::raw_pointer_cast(start_pos.data()),
+                             thrust::raw_pointer_cast(neighbours.data()),
+                             num_nodes, nbarr_sz, radius * radius);
   if (output_labels) {
     std::cout << "neighbours:" << std::endl;
     for (auto i = 0u; i < nbarr_sz; ++i)
       std::cout << i << " " << neighbours[i] << std::endl;
   }
-  delete []neighbours;
+
   return 0;
 }
