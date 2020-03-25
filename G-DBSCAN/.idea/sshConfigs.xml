@@ -7,6 +7,8 @@
       <sshConfig host="xiaozhou.duckdns.org" id="6efcb721-525b-4e2d-8714-f57cd5f58691" keyPath="$USER_HOME$/.ssh/id_rsa" port="14158" />
       <sshConfig host="xiaozhou.duckdns.org" id="73077465-6131-4176-b95c-cc9b4a0c0101" keyPath="$USER_HOME$/.ssh/id_rsa" port="14158" />
       <sshConfig host="xiaozhou.duckdns.org" id="882cc95d-1fb7-44e7-843a-be0ee4099823" keyPath="$USER_HOME$/.ssh/id_rsa" port="14158" />
+      <sshConfig host="xiaozhou.duckdns.org" id="9b0a74bc-f991-4ec1-b09a-4413a946baf5" keyPath="$USER_HOME$/.ssh/id_rsa" port="14158" />
+      <sshConfig host="xiaozhou.duckdns.org" id="cbefa2a2-d6b4-4af0-a775-44c63073bd1e" keyPath="$USER_HOME$/.ssh/id_rsa" port="14158" />
     </configs>
   </component>
 </project>

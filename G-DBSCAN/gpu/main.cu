@@ -43,10 +43,7 @@ int main(int argc, char *argv[]) {
     ys[n] = y;
   }
 
-  GDBSCAN::calc_num_neighbours(thrust::raw_pointer_cast(xs.data()),
-                               thrust::raw_pointer_cast(ys.data()),
-                               thrust::raw_pointer_cast(num_neighbours.data()),
-                               radius * radius, num_nodes);
+  GDBSCAN::calc_num_neighbours(xs, ys, num_neighbours, radius * radius);
   if (output_labels) {
     std::cout << "num_neighbours:" << std::endl;
     for (auto i = 0u; i < num_nodes; ++i)

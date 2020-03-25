@@ -34,11 +34,15 @@ inline void cuda_err_chk(cudaError_t code, const char *file, int line,
 namespace GDBSCAN {
 int const block_size = 512;
 
-void calc_num_neighbours(float const *const x, float const *const y,
-                         uint64_t *const num_nbs, const float &rad_sq,
-                         const uint64_t &num_nodes) {
-  const auto num_blocks = std::ceil(num_nodes / static_cast<float>(block_size));
+void calc_num_neighbours(const thrust::host_vector<float> &x,
+                         const thrust::host_vector<float> &y,
+                         thrust::host_vector<uint64_t> &num_nbs,
+                         const float rad_sq) {
+  assert(x.size() == y.size());
+  assert(x.size() == num_nbs.size());
 
+  const auto num_nodes = x.size();
+  const auto num_blocks = std::ceil(num_nodes / static_cast<float>(block_size));
   const auto N = sizeof(x[0]) * num_nodes;
   const auto K = sizeof(num_nbs[0]) * num_nodes;
 
@@ -50,13 +54,16 @@ void calc_num_neighbours(float const *const x, float const *const y,
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_x, N));
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_y, N));
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_num_nbs, K));
-  CUDA_ERR_CHK(cudaMemcpy(dev_x, x, N, cudaMemcpyHostToDevice));
-  CUDA_ERR_CHK(cudaMemcpy(dev_y, y, N, cudaMemcpyHostToDevice));
+  CUDA_ERR_CHK(cudaMemcpy(dev_x, thrust::raw_pointer_cast(x.data()), N,
+                          cudaMemcpyHostToDevice));
+  CUDA_ERR_CHK(cudaMemcpy(dev_y, thrust::raw_pointer_cast(y.data()), N,
+                          cudaMemcpyHostToDevice));
 
   GDBSCAN::kernel_functions::k_num_nbs<<<num_blocks, block_size>>>(
       dev_x, dev_y, dev_num_nbs, rad_sq, num_nodes);
 
-  CUDA_ERR_CHK(cudaMemcpy(num_nbs, dev_num_nbs, K, cudaMemcpyDeviceToHost));
+  CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(num_nbs.data()), dev_num_nbs,
+                          K, cudaMemcpyDeviceToHost));
   CUDA_ERR_CHK(cudaFree(dev_x));
   CUDA_ERR_CHK(cudaFree(dev_y));
   CUDA_ERR_CHK(cudaFree(dev_num_nbs));
