@@ -1,21 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" serverName="home">
-    <serverData>
-      <paths name="home">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/home/will/Desktop/sftp_deployment" local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="laptop">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/home/will/Desktop/sftp_deployment" local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
-    </serverData>
-  </component>
+  <component name="PublishConfigData" serverName="home" />
 </project>
