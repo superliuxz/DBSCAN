@@ -7,6 +7,7 @@
 #include <fstream>
 
 #include "gdbscan.cuh"
+#include "membership.h"
 
 int main(int argc, char *argv[]) {
   cxxopts::Options options("GDBSCAN", "ma, look, it's GDBSCAN");
@@ -75,6 +76,20 @@ int main(int argc, char *argv[]) {
     std::cout << "neighbours:" << std::endl;
     for (auto i = 0u; i < nbarr_sz; ++i)
       std::cout << i << " " << neighbours[i] << std::endl;
+  }
+
+  thrust::host_vector<DBSCAN::membership> membership(num_nodes,
+                                                     DBSCAN::membership::Noise);
+  for (uint64_t i = 0; i < num_nodes; ++i) {
+    if (num_neighbours[i] >= min_pts) membership[i] = DBSCAN::membership::Core;
+  }
+  if (output_labels) {
+    std::cout << "membership (Core vs non-Core):" << std::endl;
+    for (auto i = 0u; i < num_nodes; ++i)
+      std::cout << i << " "
+                << (membership[i] == DBSCAN::membership::Core ? "Core"
+                                                              : "non-Core")
+                << std::endl;
   }
 
   return 0;
