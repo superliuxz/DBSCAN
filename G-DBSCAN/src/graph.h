@@ -2,8 +2,8 @@
 // Created by William Liu on 2020-01-23.
 //
 
-#ifndef GDBSCAN_INCLUDE_GRAPH_H_
-#define GDBSCAN_INCLUDE_GRAPH_H_
+#ifndef DBSCAN_INCLUDE_GRAPH_H_
+#define DBSCAN_INCLUDE_GRAPH_H_
 
 #include <spdlog/spdlog.h>
 
@@ -65,4 +65,4 @@ class Graph {
 };
 }  // namespace DBSCAN
 
-#endif  // GDBSCAN_INCLUDE_GRAPH_H_
+#endif  // DBSCAN_INCLUDE_GRAPH_H_

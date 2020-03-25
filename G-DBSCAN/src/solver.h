@@ -2,8 +2,8 @@
 // Created by William Liu on 2020-01-24.
 //
 
-#ifndef GDBSCAN_INCLUDE_SOLVER_H_
-#define GDBSCAN_INCLUDE_SOLVER_H_
+#ifndef DBSCAN_INCLUDE_SOLVER_H_
+#define DBSCAN_INCLUDE_SOLVER_H_
 
 #include <immintrin.h>
 #include <nmmintrin.h>
@@ -74,4 +74,4 @@ class Solver {
 };
 }  // namespace DBSCAN
 
-#endif  // GDBSCAN_INCLUDE_SOLVER_H_
+#endif  // DBSCAN_INCLUDE_SOLVER_H_

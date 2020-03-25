@@ -2,8 +2,8 @@
 // Created by William Liu on 2020-03-06.
 //
 
-#ifndef GDBSCAN_INCLUDE_DATASET_H_
-#define GDBSCAN_INCLUDE_DATASET_H_
+#ifndef DBSCAN_INCLUDE_DATASET_H_
+#define DBSCAN_INCLUDE_DATASET_H_
 
 #include <cmath>
 #include <vector>
@@ -23,4 +23,4 @@ struct TwoDimPoints {
 };
 }  // namespace DBSCAN::input_type
 
-#endif  // GDBSCAN_INCLUDE_DATASET_H_
+#endif  // DBSCAN_INCLUDE_DATASET_H_

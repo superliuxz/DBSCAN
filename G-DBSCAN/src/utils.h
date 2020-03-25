@@ -2,8 +2,8 @@
 // Created by William Liu on 2020-01-31.
 //
 
-#ifndef GDBSCAN_INCLUDE_UTILS_H_
-#define GDBSCAN_INCLUDE_UTILS_H_
+#ifndef DBSCAN_INCLUDE_UTILS_H_
+#define DBSCAN_INCLUDE_UTILS_H_
 
 #include <cstdlib>
 #include <limits>
@@ -92,4 +92,4 @@ class AlignedAllocator {
 };
 }  // namespace DBSCAN::utils
 
-#endif  // GDBSCAN_INCLUDE_UTILS_H_
+#endif  // DBSCAN_INCLUDE_UTILS_H_
