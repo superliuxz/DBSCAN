@@ -1,6 +1,6 @@
 build/
-# Created by https://www.gitignore.io/api/c++,macos,clion
-# Edit at https://www.gitignore.io/?templates=c++,macos,clion
+# Created by https://www.gitignore.io/api/c++,macos,clion+all
+# Edit at https://www.gitignore.io/?templates=c++,macos,clion+all
 
 ### C++ ###
 # Prerequisites
@@ -36,7 +36,7 @@ build/
 *.out
 *.app
 
-### CLion ###
+### CLion+all ###
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio and WebStorm
 # Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
 
@@ -106,23 +106,21 @@ fabric.properties
 # Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
 
-### CLion Patch ###
-# Comment Reason: https://github.com/joeblau/gitignore.io/issues/186#issuecomment-215987721
+### CLion+all Patch ###
+# Ignores the whole .idea folder and all .iml files
+# See https://github.com/joeblau/gitignore.io/issues/186 and https://github.com/joeblau/gitignore.io/issues/360
 
-# *.iml
-# modules.xml
-# .idea/misc.xml
-# *.ipr
+.idea/
+
+# Reason: https://github.com/joeblau/gitignore.io/issues/186#issuecomment-249601023
+
+*.iml
+modules.xml
+.idea/misc.xml
+*.ipr
 
 # Sonarlint plugin
-.idea/**/sonarlint/
-
-# SonarQube Plugin
-.idea/**/sonarIssues.xml
-
-# Markdown Navigator plugin
-.idea/**/markdown-navigator.xml
-.idea/**/markdown-navigator/
+.idea/sonarlint
 
 ### macOS ###
 # General
@@ -152,4 +150,4 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
-# End of https://www.gitignore.io/api/c++,macos,clion
+# End of https://www.gitignore.io/api/c++,macos,clion+all

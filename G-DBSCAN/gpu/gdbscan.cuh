@@ -69,20 +69,25 @@ void calc_num_neighbours(const thrust::host_vector<float> &x,
   CUDA_ERR_CHK(cudaFree(dev_num_nbs));
 }
 
-void calc_start_pos(uint64_t const *const num_nbs, uint64_t *const start_pos,
-                    const uint64_t num_nodes) {
-  thrust::exclusive_scan(thrust::host, num_nbs, num_nbs + num_nodes, start_pos);
+void calc_start_pos(const thrust::host_vector<uint64_t> &num_nbs,
+                    thrust::host_vector<uint64_t> &start_pos) {
+  thrust::exclusive_scan(thrust::host, num_nbs.cbegin(), num_nbs.cend(),
+                         start_pos.begin());
 }
 
-void append_neighbours(float const *const x, float const *const y,
-                       uint64_t const *const start_pos,
-                       uint64_t *const neighbours, const uint64_t num_nodes,
-                       uint64_t const nb_arr_sz, float const rad_sq) {
+void append_neighbours(const thrust::host_vector<float> &x,
+                       const thrust::host_vector<float> &y,
+                       const thrust::host_vector<uint64_t> &start_pos,
+                       thrust::host_vector<uint64_t> &neighbours,
+                       float const rad_sq) {
+  assert(x.size() == y.size());
+  assert(x.size() == start_pos.size());
+  const auto num_nodes = x.size();
   const auto num_blocks = std::ceil(num_nodes / static_cast<float>(block_size));
 
   const auto N = sizeof(x[0]) * num_nodes;
   const auto K = sizeof(start_pos[0]) * num_nodes;
-  const auto J = sizeof(neighbours[0]) * nb_arr_sz;
+  const auto J = sizeof(neighbours[0]) * neighbours.size();
 
   printf("append_neighbours needs: %lf MB\n",
          static_cast<double>(N + N + K + J) / 1024.f / 1024.f);
@@ -95,15 +100,19 @@ void append_neighbours(float const *const x, float const *const y,
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_start_pos, K));
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_neighbours, J));
 
-  CUDA_ERR_CHK(cudaMemcpy(dev_x, x, N, cudaMemcpyHostToDevice));
-  CUDA_ERR_CHK(cudaMemcpy(dev_y, y, N, cudaMemcpyHostToDevice));
-  CUDA_ERR_CHK(cudaMemcpy(dev_start_pos, start_pos, K, cudaMemcpyHostToDevice));
+  CUDA_ERR_CHK(cudaMemcpy(dev_x, thrust::raw_pointer_cast(x.data()), N,
+                          cudaMemcpyHostToDevice));
+  CUDA_ERR_CHK(cudaMemcpy(dev_y, thrust::raw_pointer_cast(y.data()), N,
+                          cudaMemcpyHostToDevice));
+  CUDA_ERR_CHK(cudaMemcpy(dev_start_pos,
+                          thrust::raw_pointer_cast(start_pos.data()), K,
+                          cudaMemcpyHostToDevice));
 
   GDBSCAN::kernel_functions::k_append_neighbours<<<num_blocks, block_size>>>(
       dev_x, dev_y, dev_start_pos, dev_neighbours, num_nodes, rad_sq);
 
-  CUDA_ERR_CHK(
-      cudaMemcpy(neighbours, dev_neighbours, J, cudaMemcpyDeviceToHost));
+  CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(neighbours.data()),
+                          dev_neighbours, J, cudaMemcpyDeviceToHost));
   CUDA_ERR_CHK(cudaFree(dev_x));
   CUDA_ERR_CHK(cudaFree(dev_y));
   CUDA_ERR_CHK(cudaFree(dev_start_pos));

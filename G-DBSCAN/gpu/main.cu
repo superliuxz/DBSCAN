@@ -50,9 +50,8 @@ int main(int argc, char *argv[]) {
       std::cout << i << " " << num_neighbours[i] << std::endl;
   }
 
-  GDBSCAN::calc_start_pos(thrust::raw_pointer_cast(num_neighbours.data()),
-                          thrust::raw_pointer_cast(start_pos.data()),
-                          num_nodes);
+  GDBSCAN::calc_start_pos(num_neighbours, start_pos);
+
   if (output_labels) {
     std::cout << "start_pos:" << std::endl;
     for (auto i = 0u; i < num_nodes; ++i)
@@ -64,11 +63,8 @@ int main(int argc, char *argv[]) {
   std::cout << "size of neighbours array: " << nbarr_sz << std::endl;
   thrust::host_vector<uint64_t> neighbours(nbarr_sz, 0);
 
-  GDBSCAN::append_neighbours(thrust::raw_pointer_cast(xs.data()),
-                             thrust::raw_pointer_cast(ys.data()),
-                             thrust::raw_pointer_cast(start_pos.data()),
-                             thrust::raw_pointer_cast(neighbours.data()),
-                             num_nodes, nbarr_sz, radius * radius);
+  GDBSCAN::append_neighbours(xs, ys, start_pos, neighbours, radius * radius);
+
   if (output_labels) {
     std::cout << "neighbours:" << std::endl;
     for (auto i = 0u; i < nbarr_sz; ++i)
