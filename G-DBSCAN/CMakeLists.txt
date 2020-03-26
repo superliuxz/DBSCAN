@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(DBSCAN LANGUAGES CXX CUDA)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -pthread -O3 -march=native -mavx")
 
 if (DEFINED ENV{BIT_ADJ})

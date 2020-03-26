@@ -13,6 +13,7 @@
 #include "gdbscan_device_functions.cuh"
 #include "gdbscan_kernel_functions.cuh"
 #include "membership.h"
+#include "utils.h"
 
 // https://stackoverflow.com/a/14038590
 #define CUDA_ERR_CHK(code) \
@@ -26,17 +27,8 @@ inline void cuda_err_chk(cudaError_t code, const char *file, int line,
   }
 }
 
-// TODO:
-// - [x] construct Va and Ea, DO NOT use temp_adj. AVOID data transfer to GPU.
-//   - [x] Va: thrust::exclusive_scan
-//   - [x] Ea: one thread each node
-// - [x] ID core and non-core: do this on CPU, which is faster than copying data
-//     to GPU.
-// - [x] BFS. no clue ... on thread each node? then ima hving a n^2 bfs???
-// - Wrap all these non-kernel/non-device functions into Solver class
-//
 namespace GDBSCAN {
-int const block_size = 512;
+int const BLOCK_SIZE = 512;
 
 class Solver {
  public:
@@ -72,31 +64,29 @@ class Solver {
 
     const auto num_nodes = x_.size();
     const auto num_blocks =
-        std::ceil(num_nodes / static_cast<float>(block_size));
+        std::ceil(num_nodes / static_cast<float>(BLOCK_SIZE));
     const auto N = sizeof(x_[0]) * num_nodes;
     const auto K = sizeof(num_neighbours_[0]) * num_nodes;
 
     printf("calc_num_neighbours needs: %lf MB\n",
            static_cast<double>(N + N + K) / 1024.f / 1024.f);
 
-    float *dev_x, *dev_y;
-    uint64_t *dev_num_nbs;
-    CUDA_ERR_CHK(cudaMalloc((void **)&dev_x, N));
-    CUDA_ERR_CHK(cudaMalloc((void **)&dev_y, N));
-    CUDA_ERR_CHK(cudaMalloc((void **)&dev_num_nbs, K));
-    CUDA_ERR_CHK(cudaMemcpy(dev_x, thrust::raw_pointer_cast(x_.data()), N,
+    // do not free dev_x_ and dev_y_; they are required to calculate
+    // |neighbours_|
+    CUDA_ERR_CHK(cudaMalloc((void **)&dev_x_, N));
+    CUDA_ERR_CHK(cudaMalloc((void **)&dev_y_, N));
+    // do not free dev_num_neighbours_; it's required for the rest of algorithm.
+    CUDA_ERR_CHK(cudaMalloc((void **)&dev_num_neighbours_, K));
+    CUDA_ERR_CHK(cudaMemcpy(dev_x_, thrust::raw_pointer_cast(x_.data()), N,
                             cudaMemcpyHostToDevice));
-    CUDA_ERR_CHK(cudaMemcpy(dev_y, thrust::raw_pointer_cast(y_.data()), N,
+    CUDA_ERR_CHK(cudaMemcpy(dev_y_, thrust::raw_pointer_cast(y_.data()), N,
                             cudaMemcpyHostToDevice));
 
-    GDBSCAN::kernel_functions::k_num_nbs<<<num_blocks, block_size>>>(
-        dev_x, dev_y, dev_num_nbs, squared_radius_, num_nodes);
+    GDBSCAN::kernel_functions::k_num_nbs<<<num_blocks, BLOCK_SIZE>>>(
+        dev_x_, dev_y_, dev_num_neighbours_, squared_radius_, num_nodes);
 
     CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(num_neighbours_.data()),
-                            dev_num_nbs, K, cudaMemcpyDeviceToHost));
-    CUDA_ERR_CHK(cudaFree(dev_x));
-    CUDA_ERR_CHK(cudaFree(dev_y));
-    CUDA_ERR_CHK(cudaFree(dev_num_nbs));
+                            dev_num_neighbours_, K, cudaMemcpyDeviceToHost));
   }
 
   void calc_start_pos() {
@@ -106,16 +96,13 @@ class Solver {
   }
 
   void append_neighbours() {
-    assert(x_.size() == y_.size());
-    assert(x_.size() == start_pos_.size());
-
     neighbours_.resize(start_pos_[num_vtx_ - 1] + num_neighbours_[num_vtx_ - 1],
                        0);
     printf("size of neighbours array: %lu\n", neighbours_.size());
 
     const auto num_nodes = x_.size();
     const auto num_blocks =
-        std::ceil(num_nodes / static_cast<float>(block_size));
+        std::ceil(num_nodes / static_cast<float>(BLOCK_SIZE));
 
     const auto N = sizeof(x_[0]) * num_nodes;
     const auto K = sizeof(start_pos_[0]) * num_nodes;
@@ -124,32 +111,25 @@ class Solver {
     printf("append_neighbours needs: %lf MB\n",
            static_cast<double>(N + N + K + J) / 1024.f / 1024.f);
 
-    float *dev_x, *dev_y;
-    uint64_t *dev_start_pos, *dev_neighbours;
+    // |dev_x_| and |dev_y_| are in GPU memory.
+    // Do not free |dev_start_pos_| and |dev_neighbours_|. They are required
+    // for the rest of algorithm.
+    CUDA_ERR_CHK(cudaMalloc((void **)&dev_start_pos_, K));
+    CUDA_ERR_CHK(cudaMalloc((void **)&dev_neighbours_, J));
 
-    CUDA_ERR_CHK(cudaMalloc((void **)&dev_x, N));
-    CUDA_ERR_CHK(cudaMalloc((void **)&dev_y, N));
-    CUDA_ERR_CHK(cudaMalloc((void **)&dev_start_pos, K));
-    CUDA_ERR_CHK(cudaMalloc((void **)&dev_neighbours, J));
-
-    CUDA_ERR_CHK(cudaMemcpy(dev_x, thrust::raw_pointer_cast(x_.data()), N,
-                            cudaMemcpyHostToDevice));
-    CUDA_ERR_CHK(cudaMemcpy(dev_y, thrust::raw_pointer_cast(y_.data()), N,
-                            cudaMemcpyHostToDevice));
-    CUDA_ERR_CHK(cudaMemcpy(dev_start_pos,
+    CUDA_ERR_CHK(cudaMemcpy(dev_start_pos_,
                             thrust::raw_pointer_cast(start_pos_.data()), K,
                             cudaMemcpyHostToDevice));
 
-    GDBSCAN::kernel_functions::k_append_neighbours<<<num_blocks, block_size>>>(
-        dev_x, dev_y, dev_start_pos, dev_neighbours, num_nodes,
+    GDBSCAN::kernel_functions::k_append_neighbours<<<num_blocks, BLOCK_SIZE>>>(
+        dev_x_, dev_y_, dev_start_pos_, dev_neighbours_, num_nodes,
         squared_radius_);
 
     CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(neighbours_.data()),
-                            dev_neighbours, J, cudaMemcpyDeviceToHost));
-    CUDA_ERR_CHK(cudaFree(dev_x));
-    CUDA_ERR_CHK(cudaFree(dev_y));
-    CUDA_ERR_CHK(cudaFree(dev_start_pos));
-    CUDA_ERR_CHK(cudaFree(dev_neighbours));
+                            dev_neighbours_, J, cudaMemcpyDeviceToHost));
+    // |dev_x_| and |dev_y_| are no longer used.
+    CUDA_ERR_CHK(cudaFree(dev_x_));
+    CUDA_ERR_CHK(cudaFree(dev_y_));
   }
 
   void identify_cores() {
@@ -160,8 +140,6 @@ class Solver {
   }
 
   void identify_clusters() {
-    assert(num_neighbours_.size() == start_pos_.size());
-    assert(neighbours_.size() == start_pos_.back() + num_neighbours_.back());
     const auto num_nodes = num_neighbours_.size();
 
     int cluster = 0;
@@ -171,6 +149,9 @@ class Solver {
         ++cluster;
       }
     }
+    CUDA_ERR_CHK(cudaFree(dev_num_neighbours_));
+    CUDA_ERR_CHK(cudaFree(dev_start_pos_));
+    CUDA_ERR_CHK(cudaFree(dev_neighbours_));
   }
 
 #if !defined(TESTING)
@@ -180,19 +161,24 @@ class Solver {
 #endif
   // query params
   float squared_radius_;
-  uint64_t num_vtx_ = 0;
+  uint64_t num_vtx_{};
   uint64_t min_pts_;
   // data structures
-  thrust::host_vector<float> x_, y_;
-  thrust::host_vector<uint64_t> num_neighbours_, start_pos_, neighbours_;
-  thrust::host_vector<DBSCAN::membership> membership_;
-  thrust::host_vector<int> cluster_ids_;
+  std::vector<float> x_, y_;
+  std::vector<uint64_t> num_neighbours_, start_pos_;
+  std::vector<uint64_t, DBSCAN::utils::NonConstructAllocator<uint64_t>>
+      neighbours_;
+  std::vector<DBSCAN::membership> membership_;
+  std::vector<int> cluster_ids_;
+  // gpu vars. Class members to avoid unnecessary copy.
+  float *dev_x_{}, *dev_y_{};
+  uint64_t *dev_num_neighbours_{}, *dev_start_pos_{}, *dev_neighbours_{};
 
  private:
   void bfs(const uint64_t u, const int cluster) {
     const auto num_nodes = num_neighbours_.size();
     const auto num_blocks =
-        std::ceil(num_nodes / static_cast<float>(block_size));
+        std::ceil(num_nodes / static_cast<float>(BLOCK_SIZE));
 
     auto visited = new bool[num_nodes]();
     auto border = new bool[num_nodes]();
@@ -208,34 +194,21 @@ class Solver {
            static_cast<double>(T + T + N + N + K + L) / 1024.f / 1024.f);
 
     bool *dev_visited, *dev_border;
-    uint64_t *dev_num_nbs, *dev_start_pos, *dev_neighbours;
     DBSCAN::membership *dev_membership;
     CUDA_ERR_CHK(cudaMalloc((void **)&dev_visited, T));
     CUDA_ERR_CHK(cudaMalloc((void **)&dev_border, T));
-    CUDA_ERR_CHK(cudaMalloc((void **)&dev_num_nbs, N));
-    CUDA_ERR_CHK(cudaMalloc((void **)&dev_start_pos, N));
-    CUDA_ERR_CHK(cudaMalloc((void **)&dev_neighbours, K));
     CUDA_ERR_CHK(cudaMalloc((void **)&dev_membership, L))
     CUDA_ERR_CHK(cudaMemcpy(dev_visited, visited, T, cudaMemcpyHostToDevice));
     CUDA_ERR_CHK(cudaMemcpy(dev_border, border, T, cudaMemcpyHostToDevice));
-    CUDA_ERR_CHK(cudaMemcpy(dev_num_nbs,
-                            thrust::raw_pointer_cast(num_neighbours_.data()), N,
-                            cudaMemcpyHostToDevice));
-    CUDA_ERR_CHK(cudaMemcpy(dev_start_pos,
-                            thrust::raw_pointer_cast(start_pos_.data()), N,
-                            cudaMemcpyHostToDevice));
-    CUDA_ERR_CHK(cudaMemcpy(dev_neighbours,
-                            thrust::raw_pointer_cast(neighbours_.data()), K,
-                            cudaMemcpyHostToDevice));
     CUDA_ERR_CHK(cudaMemcpy(dev_membership,
                             thrust::raw_pointer_cast(membership_.data()), L,
                             cudaMemcpyHostToDevice));
 
     while (num_border > 0) {
       //    std::cout << "\t\tnum_border: " << num_border << std::endl;
-      GDBSCAN::kernel_functions::k_bfs<<<num_blocks, block_size>>>(
-          dev_visited, dev_border, dev_num_nbs, dev_start_pos, dev_neighbours,
-          dev_membership, num_nodes);
+      GDBSCAN::kernel_functions::k_bfs<<<num_blocks, BLOCK_SIZE>>>(
+          dev_visited, dev_border, dev_num_neighbours_, dev_start_pos_,
+          dev_neighbours_, dev_membership, num_nodes);
       num_border = thrust::count(thrust::device, dev_border,
                                  dev_border + num_nodes, true);
     }
@@ -244,9 +217,6 @@ class Solver {
     CUDA_ERR_CHK(cudaMemcpy(visited, dev_visited, T, cudaMemcpyDeviceToHost));
     CUDA_ERR_CHK(cudaFree(dev_visited));
     CUDA_ERR_CHK(cudaFree(dev_border));
-    CUDA_ERR_CHK(cudaFree(dev_num_nbs));
-    CUDA_ERR_CHK(cudaFree(dev_start_pos));
-    CUDA_ERR_CHK(cudaFree(dev_neighbours));
     CUDA_ERR_CHK(cudaFree(dev_membership));
 
     for (uint64_t n = 0; n < num_nodes; ++n) {

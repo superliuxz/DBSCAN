@@ -10,7 +10,8 @@
 
 #include "utils.h"
 
-namespace DBSCAN::input_type {
+namespace DBSCAN {
+namespace input_type {
 struct TwoDimPoints {
   std::vector<float, DBSCAN::utils::AlignedAllocator<float, 32>> d1, d2;
   explicit TwoDimPoints(size_t num_nodes) : d1(num_nodes), d2(num_nodes) {}
@@ -21,6 +22,7 @@ struct TwoDimPoints {
     return (px - qx) * (px - qx) + (py - qy) * (py - qy);
   }
 };
-}  // namespace DBSCAN::input_type
+}  // namespace input_type
+}  // namespace DBSCAN
 
 #endif  // DBSCAN_INCLUDE_DATASET_H_

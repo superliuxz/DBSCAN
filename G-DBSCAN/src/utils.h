@@ -13,7 +13,8 @@
 #include <string>
 #include <vector>
 
-namespace DBSCAN::utils {
+namespace DBSCAN {
+namespace utils {
 template <class T>
 std::string print_vector(const std::string& vector_name,
                          std::vector<T> vector) {
@@ -73,13 +74,7 @@ class AlignedAllocator {
         (sizeof(T) / ALIGNMENT + (sizeof(T) % ALIGNMENT != 0)) * ALIGNMENT;
     if (n > std::numeric_limits<std::size_t>::max() / aligned_size)
       throw std::bad_alloc();
-#if __APPLE__
-    // OSX's tool chain is so behind - std::aligned_alloc is not available
     if (auto p = static_cast<T*>(aligned_alloc(ALIGNMENT, n * aligned_size)))
-#else
-    if (auto p =
-            static_cast<T*>(std::aligned_alloc(ALIGNMENT, n * aligned_size)))
-#endif
       return p;
     throw std::bad_alloc();
   }
@@ -90,6 +85,7 @@ class AlignedAllocator {
     typedef AlignedAllocator<U, ALIGNMENT> other;
   };
 };
-}  // namespace DBSCAN::utils
+}  // namespace utils
+}  // namespace DBSCAN
 
 #endif  // DBSCAN_INCLUDE_UTILS_H_
