@@ -43,8 +43,8 @@ class Solver {
     y_.resize(num_vtx_, 0);
     num_neighbours_.resize(num_vtx_, 0);
     start_pos_.resize(num_vtx_, 0);
-    membership_.resize(num_vtx_, DBSCAN::membership::Noise);
-    cluster_ids_.resize(num_vtx_, -1);
+    memberships.resize(num_vtx_, DBSCAN::membership::Noise);
+    cluster_ids.resize(num_vtx_, -1);
 
     size_t n;
     float x, y;
@@ -135,7 +135,7 @@ class Solver {
   void identify_cores() {
     for (uint64_t i = 0; i < num_vtx_; ++i) {
       if (num_neighbours_[i] >= min_pts_)
-        membership_[i] = DBSCAN::membership::Core;
+        memberships[i] = DBSCAN::membership::Core;
     }
   }
 
@@ -144,7 +144,7 @@ class Solver {
 
     int cluster = 0;
     for (uint64_t u = 0; u < num_nodes; ++u) {
-      if (cluster_ids_[u] == -1 && membership_[u] == DBSCAN::membership::Core) {
+      if (cluster_ids[u] == -1 && memberships[u] == DBSCAN::membership::Core) {
         bfs(u, cluster);
         ++cluster;
       }
@@ -154,7 +154,7 @@ class Solver {
     CUDA_ERR_CHK(cudaFree(dev_neighbours_));
   }
 
-#if !defined(TESTING)
+#if defined(TESTING)
  public:
 #else
  private:
@@ -168,11 +168,13 @@ class Solver {
   std::vector<uint64_t> num_neighbours_, start_pos_;
   std::vector<uint64_t, DBSCAN::utils::NonConstructAllocator<uint64_t>>
       neighbours_;
-  std::vector<DBSCAN::membership> membership_;
-  std::vector<int> cluster_ids_;
   // gpu vars. Class members to avoid unnecessary copy.
   float *dev_x_{}, *dev_y_{};
   uint64_t *dev_num_neighbours_{}, *dev_start_pos_{}, *dev_neighbours_{};
+
+ public:
+  std::vector<int> cluster_ids;
+  std::vector<DBSCAN::membership> memberships;
 
  private:
   void bfs(const uint64_t u, const int cluster) {
@@ -201,7 +203,7 @@ class Solver {
     CUDA_ERR_CHK(cudaMemcpy(dev_visited, visited, T, cudaMemcpyHostToDevice));
     CUDA_ERR_CHK(cudaMemcpy(dev_border, border, T, cudaMemcpyHostToDevice));
     CUDA_ERR_CHK(cudaMemcpy(dev_membership,
-                            thrust::raw_pointer_cast(membership_.data()), L,
+                            thrust::raw_pointer_cast(memberships.data()), L,
                             cudaMemcpyHostToDevice));
 
     while (num_border > 0) {
@@ -222,9 +224,9 @@ class Solver {
     for (uint64_t n = 0; n < num_nodes; ++n) {
       if (visited[n]) {
         //      std::cout << "\tvtx " << n << " is visited" << std::endl;
-        cluster_ids_[n] = cluster;
-        if (membership_[n] != DBSCAN::membership::Core)
-          membership_[n] = DBSCAN::membership::Border;
+        cluster_ids[n] = cluster;
+        if (memberships[n] != DBSCAN::membership::Core)
+          memberships[n] = DBSCAN::membership::Border;
       }
     }
 

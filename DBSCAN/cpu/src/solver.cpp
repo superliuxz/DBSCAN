@@ -29,7 +29,7 @@ DBSCAN::Solver<DataType>::Solver(const std::string& input,
   dataset_ = std::make_unique<DataType>(num_nodes_);
   size_t n;
   float x, y;
-  if (std::is_same_v<DataType, input_type::TwoDimPoints>) {
+  if (std::is_same<DataType, input_type::TwoDimPoints>::value) {
     while (ifs >> n >> x >> y) {
       dataset_->d1[n] = x;
       dataset_->d2[n] = y;

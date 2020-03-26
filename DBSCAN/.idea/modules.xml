@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/../G-DBSCAN/.idea/DBSCAN.iml" filepath="$PROJECT_DIR$/../G-DBSCAN/.idea/DBSCAN.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/DBSCAN1.iml" filepath="$PROJECT_DIR$/.idea/DBSCAN1.iml" />
     </modules>
   </component>
 </project>

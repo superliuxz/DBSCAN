@@ -30,44 +30,14 @@ int main(int argc, char *argv[]) {
   GDBSCAN::Solver solver(input, min_pts, radius);
 
   solver.calc_num_neighbours();
-  if (output_labels) {
-    std::cout << "num_neighbours:" << std::endl;
-    for (auto i = 0u; i < solver.num_vtx_; ++i)
-      std::cout << i << " " << solver.num_neighbours_[i] << std::endl;
-  }
-
   solver.calc_start_pos();
-  if (output_labels) {
-    std::cout << "start_pos:" << std::endl;
-    for (auto i = 0u; i < solver.num_vtx_; ++i)
-      std::cout << i << " " << solver.start_pos_[i] << std::endl;
-  }
-
   solver.append_neighbours();
-  if (output_labels) {
-    std::cout << "neighbours:" << std::endl;
-    for (auto i = 0u; i < solver.neighbours_.size(); ++i)
-      std::cout << i << " " << solver.neighbours_[i] << std::endl;
-  }
-
   solver.identify_cores();
-
   solver.identify_clusters();
-  if (output_labels) {
-    std::cout << "membership:" << std::endl;
-    for (auto i = 0u; i < solver.num_vtx_; ++i) {
-      if (solver.membership_[i] == DBSCAN::membership::Core)
-        std::cout << i << " Core" << std::endl;
-      else if (solver.membership_[i] == DBSCAN::membership::Border)
-        std::cout << i << " Border" << std::endl;
-      else
-        std::cout << i << " Noise" << std::endl;
-    }
-  }
+
   if (output_labels) {
     std::cout << "cluster ids:" << std::endl;
-    for (auto i = 0u; i < solver.num_vtx_; ++i)
-      std::cout << i << " " << solver.cluster_ids_[i] << std::endl;
+    for (const auto &id : solver.cluster_ids) std::cout << id << std::endl;
   }
 
   return 0;

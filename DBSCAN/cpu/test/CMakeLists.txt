@@ -1,0 +1,5 @@
+enable_testing()
+add_executable(cpu-test tests.cpp)
+add_test(cpu-test tests.cpp)
+target_link_libraries(cpu-test gtest_main gmock_main DBSCAN)
+target_compile_definitions(cpu-test PRIVATE TESTING "${BIT_ADJ}" "${AVX}")

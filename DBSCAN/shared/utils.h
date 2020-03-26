@@ -85,7 +85,7 @@ class AlignedAllocator {
     typedef AlignedAllocator<U, ALIGNMENT> other;
   };
 };
-}  // namespace utils
+}  // namespace shared
 }  // namespace DBSCAN
 
 #endif  // DBSCAN_INCLUDE_UTILS_H_
