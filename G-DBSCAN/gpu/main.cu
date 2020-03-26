@@ -27,84 +27,47 @@ int main(int argc, char *argv[]) {
 
   std::cout << "minPts=" << min_pts << "; eps=" << radius << std::endl;
 
-  uint64_t num_nodes = 0;
+  GDBSCAN::Solver solver(input, min_pts, radius);
 
-  auto ifs = std::ifstream(input);
-  ifs >> num_nodes;
-
-  thrust::host_vector<float> xs(num_nodes, 0), ys(num_nodes, 0);
-  thrust::host_vector<uint64_t> num_neighbours(num_nodes, 0),
-      start_pos(num_nodes, 0);
-
-  uint64_t n;
-  float x, y;
-  while (ifs >> n >> x >> y) {
-    xs[n] = x;
-    ys[n] = y;
-  }
-
-  GDBSCAN::calc_num_neighbours(xs, ys, num_neighbours, radius * radius);
+  solver.calc_num_neighbours();
   if (output_labels) {
     std::cout << "num_neighbours:" << std::endl;
-    for (auto i = 0u; i < num_nodes; ++i)
-      std::cout << i << " " << num_neighbours[i] << std::endl;
+    for (auto i = 0u; i < solver.num_vtx_; ++i)
+      std::cout << i << " " << solver.num_neighbours_[i] << std::endl;
   }
 
-  GDBSCAN::calc_start_pos(num_neighbours, start_pos);
-
+  solver.calc_start_pos();
   if (output_labels) {
     std::cout << "start_pos:" << std::endl;
-    for (auto i = 0u; i < num_nodes; ++i)
-      std::cout << i << " " << start_pos[i] << std::endl;
+    for (auto i = 0u; i < solver.num_vtx_; ++i)
+      std::cout << i << " " << solver.start_pos_[i] << std::endl;
   }
 
-  const uint64_t nbarr_sz =
-      start_pos[num_nodes - 1] + num_neighbours[num_nodes - 1];
-  std::cout << "size of neighbours array: " << nbarr_sz << std::endl;
-  thrust::host_vector<uint64_t> neighbours(nbarr_sz, 0);
-
-  GDBSCAN::append_neighbours(xs, ys, start_pos, neighbours, radius * radius);
-
+  solver.append_neighbours();
   if (output_labels) {
     std::cout << "neighbours:" << std::endl;
-    for (auto i = 0u; i < nbarr_sz; ++i)
-      std::cout << i << " " << neighbours[i] << std::endl;
+    for (auto i = 0u; i < solver.neighbours_.size(); ++i)
+      std::cout << i << " " << solver.neighbours_[i] << std::endl;
   }
 
-  thrust::host_vector<DBSCAN::membership> membership(num_nodes,
-                                                     DBSCAN::membership::Noise);
-  for (uint64_t i = 0; i < num_nodes; ++i) {
-    if (num_neighbours[i] >= min_pts) membership[i] = DBSCAN::membership::Core;
-  }
-  if (output_labels) {
-    std::cout << "membership (Core vs non-Core):" << std::endl;
-    for (auto i = 0u; i < num_nodes; ++i)
-      std::cout << i << " "
-                << (membership[i] == DBSCAN::membership::Core ? "Core"
-                                                              : "non-Core")
-                << std::endl;
-  }
+  solver.identify_cores();
 
-  thrust::host_vector<int> cluster_ids(num_nodes, -1);
-  GDBSCAN::identify_clusters(num_neighbours, start_pos, neighbours, membership,
-                             cluster_ids);
-
+  solver.identify_clusters();
   if (output_labels) {
     std::cout << "membership:" << std::endl;
-    for (auto i = 0u; i < num_nodes; ++i) {
-      if (membership[i] == DBSCAN::membership::Core)
+    for (auto i = 0u; i < solver.num_vtx_; ++i) {
+      if (solver.membership_[i] == DBSCAN::membership::Core)
         std::cout << i << " Core" << std::endl;
-      else if (membership[i] == DBSCAN::membership::Border)
+      else if (solver.membership_[i] == DBSCAN::membership::Border)
         std::cout << i << " Border" << std::endl;
       else
         std::cout << i << " Noise" << std::endl;
     }
   }
-
   if (output_labels) {
     std::cout << "cluster ids:" << std::endl;
-    for (auto i = 0u; i < num_nodes; ++i)
-      std::cout << i << " " << cluster_ids[i] << std::endl;
+    for (auto i = 0u; i < solver.num_vtx_; ++i)
+      std::cout << i << " " << solver.cluster_ids_[i] << std::endl;
   }
 
   return 0;
