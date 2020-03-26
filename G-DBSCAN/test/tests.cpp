@@ -220,7 +220,7 @@ TEST(Solver, test_input1) {
   ASSERT_NO_THROW(solver.classify_nodes());
   ASSERT_NO_THROW(solver.identify_cluster());
   auto& graph = solver.graph_view();
-  // nodes 0 1 and 2 are core nodes with cluster id = 1; nodes 3 4 and 5 are
+  // nodes 0 1 and 2 are core nodes with cluster id = 0; nodes 3 4 and 5 are
   // noise nodes hence cluster id = -1.
   EXPECT_THAT(graph.cluster_ids, testing::ElementsAre(0, 0, 0, -1, -1, -1));
 }

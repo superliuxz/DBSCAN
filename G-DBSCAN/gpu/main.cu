@@ -85,5 +85,27 @@ int main(int argc, char *argv[]) {
                 << std::endl;
   }
 
+  thrust::host_vector<int> cluster_ids(num_nodes, -1);
+  GDBSCAN::identify_clusters(num_neighbours, start_pos, neighbours, membership,
+                             cluster_ids);
+
+  if (output_labels) {
+    std::cout << "membership:" << std::endl;
+    for (auto i = 0u; i < num_nodes; ++i) {
+      if (membership[i] == DBSCAN::membership::Core)
+        std::cout << i << " Core" << std::endl;
+      else if (membership[i] == DBSCAN::membership::Border)
+        std::cout << i << " Border" << std::endl;
+      else
+        std::cout << i << " Noise" << std::endl;
+    }
+  }
+
+  if (output_labels) {
+    std::cout << "cluster ids:" << std::endl;
+    for (auto i = 0u; i < num_nodes; ++i)
+      std::cout << i << " " << cluster_ids[i] << std::endl;
+  }
+
   return 0;
 }
