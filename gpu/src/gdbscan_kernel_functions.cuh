@@ -57,10 +57,7 @@ __global__ void k_bfs(bool *const visited, bool *const border,
   //  u_start);
   for (uint64_t i = 0; i < num_nbs[u]; ++i) {
     uint64_t v = neighbours[u_start + i];
-    if (!visited[v]) {
-      //      printf("\t\t\tput %lu on new border\n", v);
-      border[v] = true;
-    }
+    border[v] = !visited[v];  // equal to if (!visited[v]) border[v] = true
   }
 }
 }  // namespace kernel_functions
