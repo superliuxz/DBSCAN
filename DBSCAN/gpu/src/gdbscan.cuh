@@ -50,14 +50,10 @@ class Solver {
   }
 
   void calc_num_neighbours() {
-    assert(x_.size() == y_.size());
-    assert(x_.size() == num_neighbours_.size());
-
-    const auto num_nodes = x_.size();
     const auto num_blocks =
-        std::ceil(num_nodes / static_cast<float>(BLOCK_SIZE));
-    const auto N = sizeof(x_[0]) * num_nodes;
-    const auto K = sizeof(num_neighbours_[0]) * num_nodes;
+        std::ceil(num_vtx_ / static_cast<float>(BLOCK_SIZE));
+    const auto N = sizeof(x_[0]) * num_vtx_;
+    const auto K = sizeof(num_neighbours_[0]) * num_vtx_;
 
     printf("calc_num_neighbours needs: %lf MB\n",
            static_cast<double>(N + N + K) / 1024.f / 1024.f);
@@ -74,7 +70,8 @@ class Solver {
                             cudaMemcpyHostToDevice));
 
     GDBSCAN::kernel_functions::k_num_nbs<<<num_blocks, BLOCK_SIZE>>>(
-        dev_x_, dev_y_, dev_num_neighbours_, squared_radius_, num_nodes);
+        dev_x_, dev_y_, dev_num_neighbours_, squared_radius_, num_vtx_);
+    CUDA_ERR_CHK(cudaPeekAtLastError());
 
     CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(num_neighbours_.data()),
                             dev_num_neighbours_, K, cudaMemcpyDeviceToHost));
@@ -91,12 +88,11 @@ class Solver {
                        0);
     //    printf("size of neighbours array: %lu\n", neighbours_.size());
 
-    const auto num_nodes = x_.size();
     const auto num_blocks =
-        std::ceil(num_nodes / static_cast<float>(BLOCK_SIZE));
+        std::ceil(num_vtx_ / static_cast<float>(BLOCK_SIZE));
 
-    const auto N = sizeof(x_[0]) * num_nodes;
-    const auto K = sizeof(start_pos_[0]) * num_nodes;
+    const auto N = sizeof(x_[0]) * num_vtx_;
+    const auto K = sizeof(start_pos_[0]) * num_vtx_;
     const auto J = sizeof(neighbours_[0]) * neighbours_.size();
 
     printf("append_neighbours needs: %lf MB\n",
@@ -113,8 +109,9 @@ class Solver {
                             cudaMemcpyHostToDevice));
 
     GDBSCAN::kernel_functions::k_append_neighbours<<<num_blocks, BLOCK_SIZE>>>(
-        dev_x_, dev_y_, dev_start_pos_, dev_neighbours_, num_nodes,
+        dev_x_, dev_y_, dev_start_pos_, dev_neighbours_, num_vtx_,
         squared_radius_);
+    CUDA_ERR_CHK(cudaPeekAtLastError());
 
     CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(neighbours_.data()),
                             dev_neighbours_, J, cudaMemcpyDeviceToHost));
@@ -131,10 +128,8 @@ class Solver {
   }
 
   void identify_clusters() {
-    const auto num_nodes = num_neighbours_.size();
-
     int cluster = 0;
-    for (uint64_t u = 0; u < num_nodes; ++u) {
+    for (uint64_t u = 0; u < num_vtx_; ++u) {
       if (cluster_ids[u] == -1 && memberships[u] == DBSCAN::membership::Core) {
         bfs(u, cluster);
         ++cluster;
@@ -174,19 +169,18 @@ class Solver {
 
  private:
   void bfs(const uint64_t u, const int cluster) {
-    const auto num_nodes = num_neighbours_.size();
     const auto num_blocks =
-        std::ceil(num_nodes / static_cast<float>(BLOCK_SIZE));
+        std::ceil(num_vtx_ / static_cast<float>(BLOCK_SIZE));
 
-    auto visited = new bool[num_nodes]();
-    auto border = new bool[num_nodes]();
+    auto visited = new bool[num_vtx_]();
+    auto border = new bool[num_vtx_]();
     uint64_t num_border = 1;
     border[u] = true;
 
-    const auto T = sizeof(visited[0]) * num_nodes;
-    const auto N = sizeof(num_neighbours_[0]) * num_nodes;
+    const auto T = sizeof(visited[0]) * num_vtx_;
+    const auto N = sizeof(num_neighbours_[0]) * num_vtx_;
     const auto K = sizeof(neighbours_[0]) * neighbours_.size();
-    const auto L = sizeof(DBSCAN::membership::Core) * num_nodes;
+    const auto L = sizeof(DBSCAN::membership::Core) * num_vtx_;
 
     printf("bfs at %lu needs: %lf MB\n", u,
            static_cast<double>(T + T + N + N + K + L) / 1024.f / 1024.f);
@@ -206,9 +200,10 @@ class Solver {
       //    std::cout << "\t\tnum_border: " << num_border << std::endl;
       GDBSCAN::kernel_functions::k_bfs<<<num_blocks, BLOCK_SIZE>>>(
           dev_visited, dev_border, dev_num_neighbours_, dev_start_pos_,
-          dev_neighbours_, dev_membership, num_nodes);
+          dev_neighbours_, dev_membership, num_vtx_);
+      CUDA_ERR_CHK(cudaPeekAtLastError());
       num_border = thrust::count(thrust::device, dev_border,
-                                 dev_border + num_nodes, true);
+                                 dev_border + num_vtx_, true);
     }
     // we don't care about he content in dev_border now, hence no need to copy
     // back.
@@ -217,7 +212,7 @@ class Solver {
     CUDA_ERR_CHK(cudaFree(dev_border));
     CUDA_ERR_CHK(cudaFree(dev_membership));
 
-    for (uint64_t n = 0; n < num_nodes; ++n) {
+    for (uint64_t n = 0; n < num_vtx_; ++n) {
       if (visited[n]) {
         //      std::cout << "\tvtx " << n << " is visited" << std::endl;
         cluster_ids[n] = cluster;
