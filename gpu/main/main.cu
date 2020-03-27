@@ -1,7 +1,6 @@
 //
 // Created by will on 2020-03-23.
 //
-#include <thrust/device_vector.h>
 
 #include <cxxopts.hpp>
 #include <fstream>

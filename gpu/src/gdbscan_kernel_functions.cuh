@@ -7,6 +7,8 @@
 
 #include <membership.h>
 
+#include "gdbscan_device_functions.cuh"
+
 namespace GDBSCAN {
 namespace kernel_functions {
 // Calculate the number of neighbours of each node

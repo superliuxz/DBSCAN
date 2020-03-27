@@ -4,6 +4,13 @@
 
 #include "graph.h"
 
+#include <spdlog/spdlog.h>
+
+#include <vector>
+
+#include "membership.h"
+#include "utils.h"
+
 // ctor
 #if defined(BIT_ADJ)
 DBSCAN::Graph::Graph(const size_t& num_nodes, const size_t& num_threads)

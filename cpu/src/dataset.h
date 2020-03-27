@@ -5,7 +5,6 @@
 #ifndef DBSCAN_INCLUDE_DATASET_H_
 #define DBSCAN_INCLUDE_DATASET_H_
 
-#include <cmath>
 #include <vector>
 
 #include "utils.h"

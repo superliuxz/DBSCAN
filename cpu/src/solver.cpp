@@ -4,6 +4,15 @@
 
 #include "solver.h"
 
+#include <nmmintrin.h>
+
+#include <memory>
+#include <thread>
+
+#include "dataset.h"
+#include "graph.h"
+#include "spdlog/spdlog.h"
+
 // ctor
 template <class DataType>
 DBSCAN::Solver<DataType>::Solver(const std::string& input,
