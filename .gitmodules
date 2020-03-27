@@ -1,6 +1,6 @@
 [submodule "G-DBSCAN/spdlog"]
-	path = DBSCAN/third_party/spdlog
+	path = spdlog
 	url = https://github.com/gabime/spdlog
 [submodule "G-DBSCAN/cxxopts"]
-	path = DBSCAN/third_party/cxxopts
+	path = cxxopts
 	url = https://github.com/jarro2783/cxxopts
