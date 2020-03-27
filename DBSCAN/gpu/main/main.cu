@@ -7,7 +7,6 @@
 #include <fstream>
 
 #include "gdbscan.cuh"
-#include "membership.h"
 
 int main(int argc, char *argv[]) {
   cxxopts::Options options("GDBSCAN", "ma, look, it's GDBSCAN");

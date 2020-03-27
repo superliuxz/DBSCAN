@@ -8,8 +8,6 @@
 #include <thrust/execution_policy.h>
 #include <thrust/scan.h>
 
-#include <chrono>
-
 #include "gdbscan_device_functions.cuh"
 #include "gdbscan_kernel_functions.cuh"
 #include "membership.h"
@@ -34,9 +32,6 @@ class Solver {
  public:
   Solver(const std::string &input, const uint64_t &min_pts, const float &radius)
       : squared_radius_(radius * radius), min_pts_(min_pts) {
-    using namespace std::chrono;
-    high_resolution_clock::time_point start = high_resolution_clock::now();
-
     auto ifs = std::ifstream(input);
     ifs >> num_vtx_;
     x_.resize(num_vtx_, 0);
@@ -52,10 +47,6 @@ class Solver {
       x_[n] = x;
       y_[n] = y;
     }
-
-    duration<double> time_spent =
-        duration_cast<duration<double>>(high_resolution_clock::now() - start);
-    printf("reading vertices takes %lf seconds\n", time_spent.count());
   }
 
   void calc_num_neighbours() {
@@ -98,7 +89,7 @@ class Solver {
   void append_neighbours() {
     neighbours_.resize(start_pos_[num_vtx_ - 1] + num_neighbours_[num_vtx_ - 1],
                        0);
-    printf("size of neighbours array: %lu\n", neighbours_.size());
+    //    printf("size of neighbours array: %lu\n", neighbours_.size());
 
     const auto num_nodes = x_.size();
     const auto num_blocks =
@@ -159,15 +150,20 @@ class Solver {
 #else
  private:
 #endif
+  // data structures
+  std::vector<uint64_t> num_neighbours_, start_pos_;
+  std::vector<uint64_t, DBSCAN::utils::NonConstructAllocator<uint64_t>>
+      neighbours_;
+
+ private:
+  // GPU param
+  int const BLOCK_SIZE_ = 1024;
   // query params
   float squared_radius_;
   uint64_t num_vtx_{};
   uint64_t min_pts_;
   // data structures
   std::vector<float> x_, y_;
-  std::vector<uint64_t> num_neighbours_, start_pos_;
-  std::vector<uint64_t, DBSCAN::utils::NonConstructAllocator<uint64_t>>
-      neighbours_;
   // gpu vars. Class members to avoid unnecessary copy.
   float *dev_x_{}, *dev_y_{};
   uint64_t *dev_num_neighbours_{}, *dev_start_pos_{}, *dev_neighbours_{};

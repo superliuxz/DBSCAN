@@ -6,6 +6,7 @@
 #define DBSCAN_GDBSCAN_KERNEL_FUNCTIONS_CUH
 
 #include <membership.h>
+
 namespace GDBSCAN {
 namespace kernel_functions {
 // Calculate the number of neighbours of each node
