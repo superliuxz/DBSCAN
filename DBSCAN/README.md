@@ -1,23 +1,28 @@
-# G-DBSCAN
+# DBSCAN
 
-Based on: [G-DBSCAN: A GPU Accelerated Algorithm for Density-based
-Clustering](https://www.sciencedirect.com/science/article/pii/S1877050913003438)
+The GPU implementation is inspired by 
+[this](https://www.sciencedirect.com/science/article/pii/S1877050913003438) 
+paper.
 
-## Build instructions:
+## Requirements
+C++14; CUDA; Thrust.
+
+## Build instructions
 0. For the first time: `git submodule update --init --recursive`
 1. `cmake -Bbuild -H.`
-2. `cmake --build build --target example`
+2. `cmake --build build --target <target>`
 
-## How to run:
+## How to run
+
 0. Generate an example using the Python script:
 `python3 generate_dateset.py --n-samples=20000 --cluster-std=3.0`
-  - 20,000 points with 3.0 stddiv;
+    - 20,000 points with 3.0 stddiv;
 
 1. Cluster the input and visualize it:
 `python3 dbscan.py --input-name=test_input.txt --eps=0.1 --min-samples=12`
-  - 0.1 radius and 12 neighbour points for clustering.
+    - 0.1 radius and 12 neighbour points for clustering.
 
-2. `./build/main --input=$(pwd)/test_input.txt --eps=0.1 --min-samples=12`.
+2. `./build/cpu/main/cpu-main --input=$(pwd)/test_input.txt --eps=0.1 --min-samples=12 --print`.
 
 ## Misc
 test_input_avg_medium.txt is generated using `--cluster-std=2.2 --n-samples=100000`,
