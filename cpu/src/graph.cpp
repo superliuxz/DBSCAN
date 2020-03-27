@@ -7,6 +7,7 @@
 #include <spdlog/spdlog.h>
 
 #include <vector>
+#include <cmath>
 
 #include "membership.h"
 #include "utils.h"
@@ -21,8 +22,7 @@ DBSCAN::Graph::Graph(const size_t& num_nodes, const size_t& num_threads)
       num_nodes_(num_nodes),
       num_threads_(num_threads) {
   set_logger_();
-  // uint64_t is 64 bits; ceiling division.
-  size_t num_uint64 = num_nodes_ / 64u + (num_nodes_ % 64u != 0);
+  size_t num_uint64 = ceil(num_nodes_ / 64f);
   temp_adj_.resize(num_nodes_, std::vector<uint64_t>(num_uint64, 0u));
 }
 #else
@@ -113,8 +113,7 @@ void DBSCAN::Graph::finalize() {
   logger_->info("\tInit Ea takes {} seconds", d2.count());
 
   std::vector<std::thread> threads(num_threads_);
-  const size_t chunk =
-      num_nodes_ / num_threads_ + (num_nodes_ % num_threads_ != 0);
+  const size_t chunk = ceil(num_nodes_ / static_cast<double>(num_threads_));
   for (size_t tid = 0; tid < num_threads_; ++tid) {
     // logger_->debug("\tspawning thread {}", tid);
     threads[tid] = std::thread(
@@ -194,8 +193,7 @@ void DBSCAN::Graph::finalize() {
   logger_->info("\tInit Ea takes {} seconds", d2.count());
 
   std::vector<std::thread> threads(num_threads_);
-  const size_t chunk =
-      num_nodes_ / num_threads_ + (num_nodes_ % num_threads_ != 0);
+  const size_t chunk = ceil(num_nodes_ / static_cast<double>(num_threads_));
   for (size_t tid = 0; tid < num_threads_; ++tid) {
     // logger_->debug("\tspawning thread {}", tid);
     threads[tid] = std::thread(

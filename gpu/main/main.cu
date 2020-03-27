@@ -2,6 +2,7 @@
 // Created by will on 2020-03-23.
 //
 
+#include <chrono>
 #include <cxxopts.hpp>
 #include <fstream>
 
@@ -25,6 +26,9 @@ int main(int argc, char *argv[]) {
 
   std::cout << "minPts=" << min_pts << "; eps=" << radius << std::endl;
 
+  using namespace std::chrono;
+  high_resolution_clock::time_point start = high_resolution_clock::now();
+
   GDBSCAN::Solver solver(input, min_pts, radius);
 
   solver.calc_num_neighbours();
@@ -32,6 +36,11 @@ int main(int argc, char *argv[]) {
   solver.append_neighbours();
   solver.identify_cores();
   solver.identify_clusters();
+
+  duration<double> time_spent =
+      duration_cast<duration<double>>(high_resolution_clock::now() - start);
+  std::cout << "G-DBSCAN takes " << time_spent.count() << " seconds"
+            << std::endl;
 
   if (output_labels) {
     std::cout << "cluster ids:" << std::endl;

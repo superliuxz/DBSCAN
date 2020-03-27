@@ -10,9 +10,9 @@ parser = argparse.ArgumentParser(
   description='Perform DBSCAN clustering on test input')
 
 # DBSCAN clustering
-parser.add_argument('--input-name', type=str,
+parser.add_argument('--input', type=str,
                     help='visualize the clustering result')
-parser.add_argument('--print-cluster-id', action='store_true',
+parser.add_argument('--print', action='store_true',
                     help='print the clustered result to stdout')
 parser.add_argument('--eps', type=float, default=0.3,
                     help='clustering radius')
@@ -22,13 +22,11 @@ parser.add_argument('--algorithm', type=str, default=['kd_tree'],
                     help="algorithm used to fixed-radius neighbour query. "
                          "Choose between 'brute' and 'kd_tree'",
                     choices=['brute', 'kd_tree'], nargs=1)
-parser.add_argument('--num-threads', type=int, default=1,
-                    help='number of threads')
 
 args = parser.parse_args()
 
 points = []
-with open(args.input_name) as fin:
+with open(args.input) as fin:
   for line in fin.readlines():
     line = line.split(" ")
     if len(line) != 3:
@@ -42,10 +40,10 @@ N = len(points)
 t = time.time()
 assert len(args.algorithm) == 1
 db = DBSCAN(eps=args.eps, min_samples=args.min_samples + 1,
-            algorithm=args.algorithm[0], n_jobs=args.num_threads).fit(points)
+            algorithm=args.algorithm[0]).fit(points)
 print(f"DBSCAN takes {time.time() - t:.4f} seconds")
 
-if args.print_cluster_id:
+if args.print:
   for l in db.labels_:
     print(l)
 

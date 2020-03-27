@@ -5,6 +5,7 @@
 #ifndef DBSCAN_INCLUDE_UTILS_H_
 #define DBSCAN_INCLUDE_UTILS_H_
 
+#include <cmath>
 #include <cstdlib>
 #include <limits>
 #include <new>
@@ -71,7 +72,7 @@ class AlignedAllocator {
     // If T's size < ALIGNMENT, each T occupies ALIGNMENT.
     // Else, each T occupies ALIGNMENT*ceil(T/ALIGNMENT).
     const size_t aligned_size =
-        (sizeof(T) / ALIGNMENT + (sizeof(T) % ALIGNMENT != 0)) * ALIGNMENT;
+        ALIGNMENT * ceil(sizeof(T) / static_cast<double>(ALIGNMENT));
     if (n > std::numeric_limits<std::size_t>::max() / aligned_size)
       throw std::bad_alloc();
     if (auto p = static_cast<T*>(aligned_alloc(ALIGNMENT, n * aligned_size)))
@@ -85,7 +86,7 @@ class AlignedAllocator {
     typedef AlignedAllocator<U, ALIGNMENT> other;
   };
 };
-}  // namespace shared
+}  // namespace utils
 }  // namespace DBSCAN
 
 #endif  // DBSCAN_INCLUDE_UTILS_H_
