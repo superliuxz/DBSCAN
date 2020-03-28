@@ -22,7 +22,7 @@ DBSCAN::Graph::Graph(const size_t& num_nodes, const size_t& num_threads)
       num_nodes_(num_nodes),
       num_threads_(num_threads) {
   set_logger_();
-  size_t num_uint64 = ceil(num_nodes_ / 64f);
+  size_t num_uint64 = ceil(num_nodes_ / 64.0f);
   temp_adj_.resize(num_nodes_, std::vector<uint64_t>(num_uint64, 0u));
 }
 #else

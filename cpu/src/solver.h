@@ -19,13 +19,14 @@
 
 namespace DBSCAN {
 
-template <class DataType>
 class Solver {
  public:
   explicit Solver(const std::string&, const size_t&, const float&,
                   const uint8_t&);
 #if defined(TESTING)
-  const DataType& dataset_view() const { return *dataset_; }
+  inline const DBSCAN::input_type::TwoDimPoints& dataset_view() const {
+    return *dataset_;
+  }
 #endif
   [[nodiscard]] const Graph& graph_view() const { return *graph_; }
   /*
@@ -63,7 +64,7 @@ class Solver {
   __m256 sq_rad8_;
 #endif
   uint8_t num_threads_;
-  std::unique_ptr<DataType> dataset_ = nullptr;
+  std::unique_ptr<DBSCAN::input_type::TwoDimPoints> dataset_ = nullptr;
   std::unique_ptr<Graph> graph_ = nullptr;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
   /*

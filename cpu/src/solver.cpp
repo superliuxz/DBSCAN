@@ -14,10 +14,8 @@
 #include "spdlog/spdlog.h"
 
 // ctor
-template <class DataType>
-DBSCAN::Solver<DataType>::Solver(const std::string& input,
-                                 const size_t& min_pts, const float& radius,
-                                 const uint8_t& num_threads)
+DBSCAN::Solver::Solver(const std::string& input, const size_t& min_pts,
+                       const float& radius, const uint8_t& num_threads)
     : min_pts_(min_pts),
       squared_radius_(radius * radius),
       num_threads_(num_threads) {
@@ -35,16 +33,12 @@ DBSCAN::Solver<DataType>::Solver(const std::string& input,
 
   auto ifs = std::ifstream(input);
   ifs >> num_nodes_;
-  dataset_ = std::make_unique<DataType>(num_nodes_);
+  dataset_ = std::make_unique<DBSCAN::input_type::TwoDimPoints>(num_nodes_);
   size_t n;
   float x, y;
-  if (std::is_same<DataType, input_type::TwoDimPoints>::value) {
-    while (ifs >> n >> x >> y) {
-      dataset_->d1[n] = x;
-      dataset_->d2[n] = y;
-    }
-  } else {
-    throw std::runtime_error("Implement your own input_type!");
+  while (ifs >> n >> x >> y) {
+    dataset_->d1[n] = x;
+    dataset_->d2[n] = y;
   }
 
   duration<double> time_spent =
@@ -52,8 +46,7 @@ DBSCAN::Solver<DataType>::Solver(const std::string& input,
   logger_->info("reading vertices takes {} seconds", time_spent.count());
 }
 
-template <class DataType>
-void DBSCAN::Solver<DataType>::insert_edges() {
+void DBSCAN::Solver::insert_edges() {
   using namespace std::chrono;
   high_resolution_clock::time_point start = high_resolution_clock::now();
 
@@ -249,8 +242,7 @@ void DBSCAN::Solver<DataType>::insert_edges() {
                 time_spent.count());
 }
 
-template <class DataType>
-void DBSCAN::Solver<DataType>::classify_nodes() const {
+void DBSCAN::Solver::classify_nodes() const {
   using namespace std::chrono;
   high_resolution_clock::time_point start = high_resolution_clock::now();
   if (graph_ == nullptr) {
@@ -275,8 +267,7 @@ void DBSCAN::Solver<DataType>::classify_nodes() const {
   logger_->info("classify_nodes takes {} seconds", time_spent.count());
 }
 
-template <class DataType>
-void DBSCAN::Solver<DataType>::identify_cluster() const {
+void DBSCAN::Solver::identify_cluster() const {
   using namespace std::chrono;
   high_resolution_clock::time_point start = high_resolution_clock::now();
   int cluster = 0;
@@ -295,8 +286,7 @@ void DBSCAN::Solver<DataType>::identify_cluster() const {
                 time_spent.count());
 }
 
-template <class DataType>
-void DBSCAN::Solver<DataType>::bfs(size_t start_node, int cluster) const {
+void DBSCAN::Solver::bfs(size_t start_node, int cluster) const {
   std::vector<size_t> curr_level{start_node};
   // each thread has its own partial frontier.
   std::vector<std::vector<size_t>> next_level(num_threads_,
@@ -361,6 +351,3 @@ void DBSCAN::Solver<DataType>::bfs(size_t start_node, int cluster) const {
     // ++lvl_cnt;
   }
 }
-
-// https://stackoverflow.com/a/495056
-template class DBSCAN::Solver<DBSCAN::input_type::TwoDimPoints>;

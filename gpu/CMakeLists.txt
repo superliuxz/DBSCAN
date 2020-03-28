@@ -6,8 +6,8 @@ set(CUDA_ARCH arch=compute_61,code=sm_61)
 set(CMAKE_CUDA_FLAGS "-gencode ${CUDA_ARCH} --ptxas-options=-O3 -O3")
 set(CMAKE_CUDA_STANDARD 14)
 
-include_directories(${CMAKE_SOURCE_DIR}/gpu/src)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-add_subdirectory(${CMAKE_SOURCE_DIR}/gpu/src)
-add_subdirectory(${CMAKE_SOURCE_DIR}/gpu/test)
-add_subdirectory(${CMAKE_SOURCE_DIR}/gpu/main)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/test)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/main)
