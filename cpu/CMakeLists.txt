@@ -4,8 +4,6 @@ set(CMAKE_CXX_FLAGS "-Wall -Wextra -pthread -O3 -march=native -mavx")
 if (DEFINED ENV{BIT_ADJ})
     message("*** using packed uint64_t adjacency matrix (vector<vector<std::uint64_t>> of size NxN/64)")
     set(BIT_ADJ BIT_ADJ)
-else ()
-    message("*** using default dynamic adjacency list (std::vector<std::vector<size_t>>)")
 endif ()
 
 if (DEFINED ENV{AVX})
