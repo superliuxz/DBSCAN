@@ -28,8 +28,7 @@ int main(int argc, char* argv[]) {
   logger->debug("radius {} min_pts {}", radius, min_pts);
 
   auto const start = std::chrono::high_resolution_clock::now();
-  DBSCAN::Solver<DBSCAN::input_type::TwoDimPoints> solver(input, min_pts,
-                                                          radius, num_threads);
+  DBSCAN::Solver solver(input, min_pts, radius, num_threads);
   solver.insert_edges();
   solver.finalize_graph();
   solver.classify_nodes();

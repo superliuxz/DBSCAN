@@ -17,8 +17,8 @@ endif ()
 include_directories(${CMAKE_SOURCE_DIR}/third_party/spdlog/include)
 
 # DBSCAN
-include_directories(${CMAKE_SOURCE_DIR}/cpu/src)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-add_subdirectory(${CMAKE_SOURCE_DIR}/cpu/src)
-add_subdirectory(${CMAKE_SOURCE_DIR}/cpu/test)
-add_subdirectory(${CMAKE_SOURCE_DIR}/cpu/main)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/test)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/main)
