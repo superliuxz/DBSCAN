@@ -2,13 +2,13 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -pthread -O3 -march=native -mavx")
 
 if (DEFINED ENV{BIT_ADJ})
-    message("*** using packed uint64_t adjacency matrix (vector<vector<std::uint64_t>> of size NxN/64)")
-    set(BIT_ADJ BIT_ADJ)
+  message("*** using packed uint64_t adjacency matrix (vector<vector<std::uint64_t>> of size NxN/64)")
+  set(BIT_ADJ BIT_ADJ)
 endif ()
 
 if (DEFINED ENV{AVX})
-    message("*** enabling AVX")
-    set(AVX AVX)
+  message("*** enabling AVX")
+  set(AVX AVX)
 endif ()
 
 # spdlog
