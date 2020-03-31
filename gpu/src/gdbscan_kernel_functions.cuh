@@ -18,10 +18,9 @@ __global__ void k_num_nbs(float const *const x, float const *const y,
   uint64_t const u = threadIdx.x + blockIdx.x * blockDim.x;
   if (u >= num_nodes) return;
   num_nbs[u] = 0;
+  auto dist = GDBSCAN::device_functions::square_dist;
   for (auto v = 0u; v < num_nodes; ++v) {
-    if (u != v && GDBSCAN::device_functions::square_dist(x[u], y[u], x[v],
-                                                         y[v]) <= rad_sq)
-      ++num_nbs[u];
+    if (u != v && dist(x[u], y[u], x[v], y[v]) <= rad_sq) ++num_nbs[u];
   }
 }
 // Populate the actual neighbours array
@@ -33,11 +32,21 @@ __global__ void k_append_neighbours(float const *const x, float const *const y,
   uint64_t const u = threadIdx.x + blockIdx.x * blockDim.x;
   if (u >= num_nodes) return;
   uint64_t upos = start_pos[u];
+  auto dist = GDBSCAN::device_functions::square_dist;
   for (uint64_t v = 0u; v < num_nodes; ++v) {
-    if (u != v && GDBSCAN::device_functions::square_dist(x[u], y[u], x[v],
-                                                         y[v]) <= rad_sq)
+    if (u != v && dist(x[u], y[u], x[v], y[v]) <= rad_sq)
       neighbours[upos++] = v;
   }
+}
+// Identify all the Core vtx.
+__global__ void k_identify_cores(uint64_t const *const num_neighbours,
+                                 DBSCAN::membership *const membership,
+                                 const uint64_t num_nodes,
+                                 const uint64_t min_pts) {
+  uint64_t const u = threadIdx.x + blockIdx.x * blockDim.x;
+  if (u >= num_nodes) return;
+  membership[u] = DBSCAN::membership::Noise;
+  if (num_neighbours[u] >= min_pts) membership[u] = DBSCAN::membership::Core;
 }
 // BFS kernel.
 __global__ void k_bfs(bool *const visited, bool *const border,
@@ -49,7 +58,7 @@ __global__ void k_bfs(bool *const visited, bool *const border,
   uint64_t const u = threadIdx.x + blockIdx.x * blockDim.x;
   if (u >= num_nodes) return;
   if (!border[u]) return;
-  //  printf("\t\tmark %lu visited and remove from border\n", u);
+  //  printf("\t\ttmark %lu visited and remove from border\n", u);
   border[u] = false;
   visited[u] = true;
   // Stop BFS if u is not Core.

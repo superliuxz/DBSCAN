@@ -40,9 +40,9 @@ TEST(Solver, make_graph_small_graph) {
    * even though in Va, node 5's neighbours starts at index 8 in Ea, but since
    * node 5 has not neighbours, so Ea does not actually have index 8.
    */
-  EXPECT_THAT(solver.num_neighbours_, testing::ElementsAre(2, 2, 2, 1, 1, 0));
-  EXPECT_THAT(solver.start_pos_, testing::ElementsAre(0, 2, 4, 6, 7, 8));
-  EXPECT_THAT(solver.neighbours_, testing::ElementsAre(1, 2, 0, 2, 0, 1, 4, 3));
+  EXPECT_THAT(solver.num_neighbours, testing::ElementsAre(2, 2, 2, 1, 1, 0));
+  EXPECT_THAT(solver.start_pos, testing::ElementsAre(0, 2, 4, 6, 7, 8));
+  EXPECT_THAT(solver.neighbours, testing::ElementsAre(1, 2, 0, 2, 0, 1, 4, 3));
   EXPECT_THAT(solver.memberships,
               testing::ElementsAre(
                   DBSCAN::membership::Core, DBSCAN::membership::Core,
