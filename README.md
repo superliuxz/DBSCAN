@@ -41,23 +41,23 @@ with 20 clusters. Should use `--eps=0.09 --min-samples=110` to query.
 test_input_100k.txt is generated using `--cluster-std=2.2 --n-samples=100000`,
 with 20 clusters. Should use `--eps=0.07 --min-samples=100` to query.
 
-test_input_200k.txt is geenrated using `--cluster-std=2.2 --n-samples=200000`,
+test_input_200k.txt is generated using `--cluster-std=2.2 --n-samples=200000`,
 with 20 clusters. Should use `--eps=0.05 --min-samples=100` to query.
 
-test_input_300k.txt is geenrated using `--cluster-std=2.2 --n-samples=300000`,
+test_input_300k.txt is generated using `--cluster-std=2.2 --n-samples=300000`,
 with 20 clusters. Should use `--eps=0.044 --min-samples=100` to query.
 
-test_input_400k.txt is geenrated using `--cluster-std=2.2 --n-samples=400000`,
+test_input_400k.txt is generated using `--cluster-std=2.2 --n-samples=400000`,
 with 20 clusters. Should use `--eps=0.04 --min-samples=105` to query.
 
-test_input_500k.txt is geenrated using `--cluster-std=2.2 --n-samples=500000`,
+test_input_500k.txt is generated using `--cluster-std=2.2 --n-samples=500000`,
 with 20 clusters. Should use `--eps=0.035 --min-samples=115` to query.
 
-test_input_600k.txt is geenrated using `--cluster-std=2.2 --n-samples=600000`,
+test_input_600k.txt is generated using `--cluster-std=2.2 --n-samples=600000`,
 with 20 clusters. Should use `--eps=0.035 --min-samples=120` to query.
 
-test_input_700k.txt is geenrated using `--cluster-std=2.2 --n-samples=600000`,
+test_input_700k.txt is generated using `--cluster-std=2.2 --n-samples=600000`,
 with 20 clusters. Should use `--eps=0.033 --min-samples=122` to query.
 
-test_input_800k.txt is geenrated using `--cluster-std=2.2 --n-samples=800000`,
+test_input_800k.txt is generated using `--cluster-std=2.2 --n-samples=800000`,
 with 20 clusters. Should use `--eps=0.03 --min-samples=120` to query.
