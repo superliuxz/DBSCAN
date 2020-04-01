@@ -133,16 +133,18 @@ TEST(Solver, test_input3) {
                                    ));
 }
 
-TEST(Solver, test_input4) {
+TEST(Solver, test_input_20k) {
   using namespace GDBSCAN;
-  Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f);
+  Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input_20k.txt", 30,
+                0.15f);
   ASSERT_NO_THROW(solver.calc_num_neighbours());
   ASSERT_NO_THROW(solver.calc_start_pos());
   ASSERT_NO_THROW(solver.append_neighbours());
   ASSERT_NO_THROW(solver.identify_cores());
   ASSERT_NO_THROW(solver.identify_clusters());
   std::vector<int> expected_labels;
-  std::ifstream ifs(DBSCAN_TestVariables::abs_loc + "/test_input4_labels.txt");
+  std::ifstream ifs(DBSCAN_TestVariables::abs_loc +
+                    "/test_input_20k_labels.txt");
   int label;
   while (ifs >> label) expected_labels.push_back(label);
   EXPECT_THAT(solver.cluster_ids, testing::ElementsAreArray(expected_labels));

@@ -297,16 +297,17 @@ TEST(Solver, test_input3) {
                                    ));
 }
 
-TEST(Solver, test_input4) {
+TEST(Solver, test_input_20k) {
   using namespace DBSCAN;
-  Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f,
-                1u);
+  Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input_20k.txt", 30,
+                0.15f, 1u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_vertices());
   ASSERT_NO_THROW(solver.identify_cluster());
   std::vector<int> expected_labels;
-  std::ifstream ifs(DBSCAN_TestVariables::abs_loc + "/test_input4_labels.txt");
+  std::ifstream ifs(DBSCAN_TestVariables::abs_loc +
+                    "/test_input_20k_labels.txt");
   int label;
   while (ifs >> label) expected_labels.push_back(label);
   auto& graph = solver.graph_view();
@@ -317,16 +318,17 @@ TEST(Solver, test_input4) {
 // visiting. In the multi-threaded context, the order is nondeterministic. For
 // now, run multiple times until pass. I believe some carefully picked
 // clustering parameters could be robust to the nondeterministic behavior.
-TEST(Solver, test_input4_four_threads) {
+TEST(Solver, test_input_20k_four_threads) {
   using namespace DBSCAN;
-  Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input4.txt", 30, 0.15f,
-                4u);
+  Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input_20k.txt", 30,
+                0.15f, 4u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_vertices());
   ASSERT_NO_THROW(solver.identify_cluster());
   std::vector<int> expected_labels;
-  std::ifstream ifs(DBSCAN_TestVariables::abs_loc + "/test_input4_labels.txt");
+  std::ifstream ifs(DBSCAN_TestVariables::abs_loc +
+                    "/test_input_20k_labels.txt");
   int label;
   while (ifs >> label) expected_labels.push_back(label);
   auto& graph = solver.graph_view();
