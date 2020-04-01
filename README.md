@@ -14,17 +14,30 @@ C++14; CUDA; Thrust.
 
 ## How to run
 
-0. Generate an example using the Python script:
+0. [optional] Generate an example using the Python script:
 `python3 generate_dateset.py --n-samples=20000 --cluster-std=3.0`
     - 20,000 points with 3.0 stddiv;
 
-1. Cluster the input and visualize it:
+1. [optional] Cluster the input and visualize it using Sklearn:
 `python3 dbscan.py --input-name=test_input.txt --eps=0.1 --min-samples=12`
     - 0.1 radius and 12 neighbour points for clustering.
 
-2. `./build/cpu/main/cpu-main --input=$(pwd)/test_input.txt --eps=0.1 --min-samples=12 --print`.
+### CPU algorithm
+2. `./build/bin/cpu-main --input=test_input.txt --eps=0.1 --min-samples=12`.
+    - Append `--print` to see the cluster ids.
+    - Append `--num-threads=K` to speed up the processing.
 
-## Misc
+### GPU algorithm
+2. `./build/bin/gpu-main --input=test_input.txt --eps=0.1 --min-samples=12`.
+    - Append `--print` to see the cluster ids.
+
+## Test data
+test_input_20k.txt is generated using `--cluster-std=2.2 --n-samples=20000`,
+with 4 clusters. Should use `--eps=0.15 --min-samples=180` to query.
+
+test_input_50k.txt is generated using `--cluster-std=2.2 --n-samples=50000`,
+with 20 clusters. Should use `--eps=0.09 --min-samples=110` to query.
+
 test_input_100k.txt is generated using `--cluster-std=2.2 --n-samples=100000`,
 with 20 clusters. Should use `--eps=0.07 --min-samples=100` to query.
 
@@ -39,6 +52,12 @@ with 20 clusters. Should use `--eps=0.04 --min-samples=105` to query.
 
 test_input_500k.txt is geenrated using `--cluster-std=2.2 --n-samples=500000`,
 with 20 clusters. Should use `--eps=0.035 --min-samples=115` to query.
+
+test_input_600k.txt is geenrated using `--cluster-std=2.2 --n-samples=600000`,
+with 20 clusters. Should use `--eps=0.035 --min-samples=120` to query.
+
+test_input_700k.txt is geenrated using `--cluster-std=2.2 --n-samples=600000`,
+with 20 clusters. Should use `--eps=0.033 --min-samples=122` to query.
 
 test_input_800k.txt is geenrated using `--cluster-std=2.2 --n-samples=800000`,
 with 20 clusters. Should use `--eps=0.03 --min-samples=120` to query.
