@@ -141,25 +141,25 @@ TEST(Graph, finalize_success_no_edges) {
   ASSERT_TRUE(g.Ea.empty());
 }
 
-TEST(Graph, classify_node_success) {
+TEST(Graph, classify_vertex_success) {
   DBSCAN::Graph g(5, 1);
   ASSERT_NO_THROW(g.finalize());
-  ASSERT_NO_THROW(g.cluster_node(0, 2));
-  ASSERT_NO_THROW(g.cluster_node(1, 2));
-  ASSERT_NO_THROW(g.cluster_node(2, 4));
+  ASSERT_NO_THROW(g.cluster_vertex(0, 2));
+  ASSERT_NO_THROW(g.cluster_vertex(1, 2));
+  ASSERT_NO_THROW(g.cluster_vertex(2, 4));
 }
 
-TEST(Graph, classify_node_fail_no_finalize) {
+TEST(Graph, classify_vertex_fail_no_finalize) {
   DBSCAN::Graph g(5, 1);
-  ASSERT_THROW(g.cluster_node(0, 2), std::runtime_error);
+  ASSERT_THROW(g.cluster_vertex(0, 2), std::runtime_error);
 }
 
-TEST(Graph, classify_node_fail_oob) {
+TEST(Graph, classify_vertex_fail_oob) {
   DBSCAN::Graph g(5, 1);
   ASSERT_NO_THROW(g.finalize());
-  ASSERT_NO_THROW(g.cluster_node(0, 2));
-  ASSERT_THROW(g.cluster_node(-1, 2), std::runtime_error);
-  ASSERT_THROW(g.cluster_node(6, 2), std::runtime_error);
+  ASSERT_NO_THROW(g.cluster_vertex(0, 2));
+  ASSERT_THROW(g.cluster_vertex(-1, 2), std::runtime_error);
+  ASSERT_THROW(g.cluster_vertex(6, 2), std::runtime_error);
 }
 
 TEST(TwoDimPoints, distance_squared) {
@@ -189,7 +189,7 @@ TEST(Solver, make_graph_small_graph) {
                 1u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
-  ASSERT_NO_THROW(solver.classify_nodes());
+  ASSERT_NO_THROW(solver.classify_vertices());
   auto& graph = solver.graph_view();
   /*
    * Va:
@@ -201,8 +201,8 @@ TEST(Solver, make_graph_small_graph) {
    * 1 2 0 2 0 1 4 3 <- neighbours
    * 0 1 2 3 4 5 6 7 <- index
    *
-   * even though in Va, node 5's neighbours starts at index 8 in Ea, but since
-   * node 5 has not neighbours, so Ea does not actually have index 8.
+   * even though in Va, vertex 5's neighbours starts at index 8 in Ea, but since
+   * vertex 5 has not neighbours, so Ea does not actually have index 8.
    */
   EXPECT_THAT(graph.Va,
               testing::ElementsAre(0, 2, 2, 2, 4, 2, 6, 1, 7, 1, 8, 0));
@@ -217,11 +217,11 @@ TEST(Solver, test_input1) {
                 1u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
-  ASSERT_NO_THROW(solver.classify_nodes());
+  ASSERT_NO_THROW(solver.classify_vertices());
   ASSERT_NO_THROW(solver.identify_cluster());
   auto& graph = solver.graph_view();
-  // nodes 0 1 and 2 are core nodes with cluster id = 0; nodes 3 4 and 5 are
-  // noise nodes hence cluster id = -1.
+  // vertices 0 1 and 2 are core vertices with cluster id = 0; vertices 3 4 and
+  // 5 are noise vertices hence cluster id = -1.
   EXPECT_THAT(graph.cluster_ids, testing::ElementsAre(0, 0, 0, -1, -1, -1));
 }
 
@@ -231,7 +231,7 @@ TEST(Solver, test_input2) {
                 1u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
-  ASSERT_NO_THROW(solver.classify_nodes());
+  ASSERT_NO_THROW(solver.classify_vertices());
   ASSERT_NO_THROW(solver.identify_cluster());
   auto& graph = solver.graph_view();
   EXPECT_THAT(graph.memberships,
@@ -266,7 +266,7 @@ TEST(Solver, test_input3) {
                 1u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
-  ASSERT_NO_THROW(solver.classify_nodes());
+  ASSERT_NO_THROW(solver.classify_vertices());
   ASSERT_NO_THROW(solver.identify_cluster());
   auto& graph = solver.graph_view();
   EXPECT_THAT(graph.memberships,
@@ -303,7 +303,7 @@ TEST(Solver, test_input4) {
                 1u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
-  ASSERT_NO_THROW(solver.classify_nodes());
+  ASSERT_NO_THROW(solver.classify_vertices());
   ASSERT_NO_THROW(solver.identify_cluster());
   std::vector<int> expected_labels;
   std::ifstream ifs(DBSCAN_TestVariables::abs_loc + "/test_input4_labels.txt");
@@ -323,7 +323,7 @@ TEST(Solver, test_input4_four_threads) {
                 4u);
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
-  ASSERT_NO_THROW(solver.classify_nodes());
+  ASSERT_NO_THROW(solver.classify_vertices());
   ASSERT_NO_THROW(solver.identify_cluster());
   std::vector<int> expected_labels;
   std::ifstream ifs(DBSCAN_TestVariables::abs_loc + "/test_input4_labels.txt");

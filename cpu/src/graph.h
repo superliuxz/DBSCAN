@@ -26,18 +26,18 @@ class Graph {
 #if defined(BIT_ADJ)
   void insert_edge(const size_t&, const size_t&, const uint64_t&);
 #else
-  void start_insert(const size_t& u) { temp_adj_[u].reserve(num_nodes_); }
+  void start_insert(const size_t& u) { temp_adj_[u].reserve(num_vtx_); }
   void insert_edge(const size_t&, const size_t&);
   void finish_insert(const size_t& u) { temp_adj_[u].shrink_to_fit(); }
 #endif
   // construct Va and Ea.
   void finalize();
-  // set |node|'s cluster id to |cluster_id|
-  void cluster_node(const size_t& node, const int& cluster_id);
+  // set |vertex|'s cluster id to |cluster_id|
+  void cluster_vertex(const size_t& vertex, const int& cluster_id);
 
  private:
   bool immutable_ = false;
-  size_t num_nodes_;
+  size_t num_vtx_;
   size_t num_threads_;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
 #if defined(BIT_ADJ)

@@ -139,6 +139,8 @@ void GDBSCAN::Solver::identify_cores() {
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_membership_, M));
   GDBSCAN::kernel_functions::k_identify_cores<<<num_blocks, BLOCK_SIZE>>>(
       dev_num_neighbours_, dev_membership_, num_vtx_, min_pts_);
+  // Copy the membership data from GPU to CPU RAM as needed for the BFS
+  // condition check.
   CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(memberships.data()),
                           dev_membership_, M, D2H));
   // |dev_num_neighbours_|, |dev_start_pos_|, |dev_neighbours_|,
@@ -162,9 +164,9 @@ void GDBSCAN::Solver::identify_clusters() {
 
 void GDBSCAN::Solver::bfs(const uint64_t u, const int cluster) {
   auto visited = new bool[num_vtx_]();
-  auto border = new bool[num_vtx_]();
-  uint64_t num_border = 1;
-  border[u] = true;
+  auto frontier = new bool[num_vtx_]();
+  uint64_t num_frontier = 1;
+  frontier[u] = true;
 
   const auto T = sizeof(visited[0]) * num_vtx_;
   const auto N = sizeof(*dev_num_neighbours_) * num_vtx_;
@@ -174,28 +176,28 @@ void GDBSCAN::Solver::bfs(const uint64_t u, const int cluster) {
   printf("bfs at %lu needs: %lf MB\n", u,
          static_cast<double>(T + T + N + N + K + L) / 1024.f / 1024.f);
 
-  bool *dev_visited, *dev_border;
+  bool *dev_visited, *dev_frontier;
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_visited, T));
-  CUDA_ERR_CHK(cudaMalloc((void **)&dev_border, T));
+  CUDA_ERR_CHK(cudaMalloc((void **)&dev_frontier, T));
   CUDA_ERR_CHK(cudaMemcpy(dev_visited, visited, T, H2D));
-  CUDA_ERR_CHK(cudaMemcpy(dev_border, border, T, H2D));
+  CUDA_ERR_CHK(cudaMemcpy(dev_frontier, frontier, T, H2D));
   CUDA_ERR_CHK(cudaMemcpy(
       dev_membership_, thrust::raw_pointer_cast(memberships.data()), L, H2D));
 
-  while (num_border > 0) {
-    //    printf("\tnumber_border: %lu\n", num_border);
+  while (num_frontier > 0) {
+    //    printf("\tnumber_frontier: %lu\n", num_frontier);
     GDBSCAN::kernel_functions::k_bfs<<<num_blocks, BLOCK_SIZE>>>(
-        dev_visited, dev_border, dev_num_neighbours_, dev_start_pos_,
+        dev_visited, dev_frontier, dev_num_neighbours_, dev_start_pos_,
         dev_neighbours_, dev_membership_, num_vtx_);
     CUDA_ERR_CHK(cudaPeekAtLastError());
-    num_border =
-        thrust::count(thrust::device, dev_border, dev_border + num_vtx_, true);
+    num_frontier = thrust::count(thrust::device, dev_frontier,
+                                 dev_frontier + num_vtx_, true);
   }
-  // we don't care about he content in dev_border now, hence no need to copy
+  // we don't care about he content in dev_frontier now, hence no need to copy
   // back.
   CUDA_ERR_CHK(cudaMemcpy(visited, dev_visited, T, D2H));
   CUDA_ERR_CHK(cudaFree(dev_visited));
-  CUDA_ERR_CHK(cudaFree(dev_border));
+  CUDA_ERR_CHK(cudaFree(dev_frontier));
 
   for (uint64_t n = 0; n < num_vtx_; ++n) {
     if (visited[n]) {
@@ -209,5 +211,5 @@ void GDBSCAN::Solver::bfs(const uint64_t u, const int cluster) {
   }
 
   delete[] visited;
-  delete[] border;
+  delete[] frontier;
 }

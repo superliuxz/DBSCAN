@@ -11,15 +11,15 @@
 
 namespace GDBSCAN {
 namespace kernel_functions {
-// Calculate the number of neighbours of each node
+// Calculate the number of neighbours of each vertex
 __global__ void k_num_nbs(float const *const x, float const *const y,
                           uint64_t *const num_nbs, const float rad_sq,
-                          const uint64_t num_nodes) {
+                          const uint64_t num_vtx) {
   uint64_t const u = threadIdx.x + blockIdx.x * blockDim.x;
-  if (u >= num_nodes) return;
+  if (u >= num_vtx) return;
   num_nbs[u] = 0;
   auto dist = GDBSCAN::device_functions::square_dist;
-  for (auto v = 0u; v < num_nodes; ++v) {
+  for (auto v = 0u; v < num_vtx; ++v) {
     if (u != v && dist(x[u], y[u], x[v], y[v]) <= rad_sq) ++num_nbs[u];
   }
 }
@@ -27,13 +27,13 @@ __global__ void k_num_nbs(float const *const x, float const *const y,
 __global__ void k_append_neighbours(float const *const x, float const *const y,
                                     uint64_t const *const start_pos,
                                     uint64_t *const neighbours,
-                                    const uint64_t num_nodes,
+                                    const uint64_t num_vtx,
                                     const float rad_sq) {
   uint64_t const u = threadIdx.x + blockIdx.x * blockDim.x;
-  if (u >= num_nodes) return;
+  if (u >= num_vtx) return;
   uint64_t upos = start_pos[u];
   auto dist = GDBSCAN::device_functions::square_dist;
-  for (uint64_t v = 0u; v < num_nodes; ++v) {
+  for (uint64_t v = 0u; v < num_vtx; ++v) {
     if (u != v && dist(x[u], y[u], x[v], y[v]) <= rad_sq)
       neighbours[upos++] = v;
   }
@@ -41,25 +41,25 @@ __global__ void k_append_neighbours(float const *const x, float const *const y,
 // Identify all the Core vtx.
 __global__ void k_identify_cores(uint64_t const *const num_neighbours,
                                  DBSCAN::membership *const membership,
-                                 const uint64_t num_nodes,
+                                 const uint64_t num_vtx,
                                  const uint64_t min_pts) {
   uint64_t const u = threadIdx.x + blockIdx.x * blockDim.x;
-  if (u >= num_nodes) return;
+  if (u >= num_vtx) return;
   membership[u] = DBSCAN::membership::Noise;
   if (num_neighbours[u] >= min_pts) membership[u] = DBSCAN::membership::Core;
 }
 // BFS kernel.
-__global__ void k_bfs(bool *const visited, bool *const border,
+__global__ void k_bfs(bool *const visited, bool *const frontier,
                       uint64_t const *const num_nbs,
                       uint64_t const *const start_pos,
                       uint64_t const *const neighbours,
                       DBSCAN::membership const *const membership,
-                      uint64_t num_nodes) {
+                      uint64_t num_vtx) {
   uint64_t const u = threadIdx.x + blockIdx.x * blockDim.x;
-  if (u >= num_nodes) return;
-  if (!border[u]) return;
-  //  printf("\t\ttmark %lu visited and remove from border\n", u);
-  border[u] = false;
+  if (u >= num_vtx) return;
+  if (!frontier[u]) return;
+  //  printf("\t\ttmark %lu visited and remove from frontier\n", u);
+  frontier[u] = false;
   visited[u] = true;
   // Stop BFS if u is not Core.
   if (membership[u] != DBSCAN::membership::Core) return;
@@ -68,7 +68,7 @@ __global__ void k_bfs(bool *const visited, bool *const border,
   //  u_start);
   for (uint64_t i = 0; i < num_nbs[u]; ++i) {
     uint64_t v = neighbours[u_start + i];
-    border[v] = !visited[v];  // equal to if (!visited[v]) border[v] = true
+    frontier[v] = !visited[v];  // equal to if (!visited[v]) frontier[v] = true
   }
 }
 }  // namespace kernel_functions

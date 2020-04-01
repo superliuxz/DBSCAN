@@ -6,34 +6,34 @@
 
 #include <spdlog/spdlog.h>
 
-#include <vector>
 #include <cmath>
+#include <vector>
 
 #include "membership.h"
 #include "utils.h"
 
 // ctor
 #if defined(BIT_ADJ)
-DBSCAN::Graph::Graph(const size_t& num_nodes, const size_t& num_threads)
-    : Va(num_nodes * 2, 0),
+DBSCAN::Graph::Graph(const size_t& num_vtx, const size_t& num_threads)
+    : Va(num_vtx * 2, 0),
       // -1 as unvisited/un-clustered.
-      cluster_ids(num_nodes, -1),
-      memberships(num_nodes, membership::Noise),
-      num_nodes_(num_nodes),
+      cluster_ids(num_vtx, -1),
+      memberships(num_vtx, membership::Noise),
+      num_vtx_(num_vtx),
       num_threads_(num_threads) {
   set_logger_();
-  size_t num_uint64 = ceil(num_nodes_ / 64.0f);
-  temp_adj_.resize(num_nodes_, std::vector<uint64_t>(num_uint64, 0u));
+  size_t num_uint64 = ceil(num_vtx_ / 64.0f);
+  temp_adj_.resize(num_vtx_, std::vector<uint64_t>(num_uint64, 0u));
 }
 #else
-DBSCAN::Graph::Graph(const size_t& num_nodes, const size_t& num_threads)
-    : Va(num_nodes * 2, 0),
+DBSCAN::Graph::Graph(const size_t& num_vtx, const size_t& num_threads)
+    : Va(num_vtx * 2, 0),
       // -1 as unvisited/un-clustered.
-      cluster_ids(num_nodes, -1),
-      memberships(num_nodes, membership::Noise),
-      num_nodes_(num_nodes),
+      cluster_ids(num_vtx, -1),
+      memberships(num_vtx, membership::Noise),
+      num_vtx_(num_vtx),
       num_threads_(num_threads),
-      temp_adj_(num_nodes, std::vector<size_t>()) {
+      temp_adj_(num_vtx, std::vector<size_t>()) {
   set_logger_();
 }
 #endif
@@ -43,7 +43,7 @@ DBSCAN::Graph::Graph(const size_t& num_nodes, const size_t& num_threads)
 void DBSCAN::Graph::insert_edge(const size_t& u, const size_t& idx,
                                 const uint64_t& mask) {
   assert_mutable_();
-  if (u >= num_nodes_ || idx >= temp_adj_[u].size()) {
+  if (u >= num_vtx_ || idx >= temp_adj_[u].size()) {
     std::ostringstream oss;
     oss << "u=" << u << " or idx=" << idx << " is out of bound!";
     throw std::runtime_error(oss.str());
@@ -55,7 +55,7 @@ void DBSCAN::Graph::insert_edge(const size_t& u, const size_t& idx,
 #else
 void DBSCAN::Graph::insert_edge(const size_t& u, const size_t& v) {
   assert_mutable_();
-  if (u >= num_nodes_ || v >= num_nodes_) {
+  if (u >= num_vtx_ || v >= num_vtx_) {
     std::ostringstream oss;
     oss << "u=" << u << " or v=" << v << " is out of bound!";
     throw std::runtime_error(oss.str());
@@ -65,14 +65,15 @@ void DBSCAN::Graph::insert_edge(const size_t& u, const size_t& v) {
 }
 #endif
 
-void DBSCAN::Graph::cluster_node(const size_t& node, const int& cluster_id) {
+void DBSCAN::Graph::cluster_vertex(const size_t& vertex,
+                                   const int& cluster_id) {
   assert_immutable_();
-  if (node >= num_nodes_) {
+  if (vertex >= num_vtx_) {
     std::ostringstream oss;
-    oss << node << " is out of bound!";
+    oss << vertex << " is out of bound!";
     throw std::runtime_error(oss.str());
   }
-  cluster_ids[node] = cluster_id;
+  cluster_ids[vertex] = cluster_id;
 }
 
 #if defined(BIT_ADJ)
@@ -84,12 +85,13 @@ void DBSCAN::Graph::finalize() {
   auto t0 = high_resolution_clock::now();
 
   // TODO: exclusive scan
-  for (size_t node = 0; node < num_nodes_; ++node) {
+  for (size_t vertex = 0; vertex < num_vtx_; ++vertex) {
     // position in Ea
-    Va[node * 2] = node == 0 ? 0 : (Va[node * 2 - 1] + Va[node * 2 - 2]);
-    for (const uint64_t& val : temp_adj_[node]) {
+    Va[vertex * 2] =
+        vertex == 0 ? 0 : (Va[vertex * 2 - 1] + Va[vertex * 2 - 2]);
+    for (const uint64_t& val : temp_adj_[vertex]) {
       // number of neighbours
-      Va[node * 2 + 1] += __builtin_popcountll(val);
+      Va[vertex * 2 + 1] += __builtin_popcountll(val);
     }
   }
 
@@ -113,14 +115,14 @@ void DBSCAN::Graph::finalize() {
   logger_->info("\tInit Ea takes {} seconds", d2.count());
 
   std::vector<std::thread> threads(num_threads_);
-  const size_t chunk = ceil(num_nodes_ / static_cast<double>(num_threads_));
+  const size_t chunk = ceil(num_vtx_ / static_cast<double>(num_threads_));
   for (size_t tid = 0; tid < num_threads_; ++tid) {
     // logger_->debug("\tspawning thread {}", tid);
     threads[tid] = std::thread(
         [this, &chunk](const size_t& tid) {
           auto p_t0 = high_resolution_clock::now();
           const size_t start = tid * chunk;
-          const size_t end = std::min(start + chunk, num_nodes_);
+          const size_t end = std::min(start + chunk, num_vtx_);
           for (size_t u = start; u < end; ++u) {
             const std::vector<uint64_t>& nbs = temp_adj_[u];
             auto it = std::next(Ea.begin(), Va[2 * u]);
@@ -163,14 +165,15 @@ void DBSCAN::Graph::finalize() {
   using namespace std::chrono;
   auto t0 = high_resolution_clock::now();
 
-  size_t node = 0;
+  size_t vertex = 0;
   // TODO: paralleled exclusive scan
   for (const auto& nbs : temp_adj_) {
     // pos in Ea
-    Va[node * 2] = node == 0 ? 0 : (Va[node * 2 - 1] + Va[node * 2 - 2]);
+    Va[vertex * 2] =
+        vertex == 0 ? 0 : (Va[vertex * 2 - 1] + Va[vertex * 2 - 2]);
     // number of neighbours
-    Va[node * 2 + 1] = nbs.size();
-    ++node;
+    Va[vertex * 2 + 1] = nbs.size();
+    ++vertex;
   }
 
   auto t1 = high_resolution_clock::now();
@@ -193,14 +196,14 @@ void DBSCAN::Graph::finalize() {
   logger_->info("\tInit Ea takes {} seconds", d2.count());
 
   std::vector<std::thread> threads(num_threads_);
-  const size_t chunk = ceil(num_nodes_ / static_cast<double>(num_threads_));
+  const size_t chunk = ceil(num_vtx_ / static_cast<double>(num_threads_));
   for (size_t tid = 0; tid < num_threads_; ++tid) {
     // logger_->debug("\tspawning thread {}", tid);
     threads[tid] = std::thread(
         [this, &chunk](const size_t& tid) {
           auto p_t0 = high_resolution_clock::now();
           const size_t start = tid * chunk;
-          const size_t end = std::min(start + chunk, num_nodes_);
+          const size_t end = std::min(start + chunk, num_vtx_);
           for (size_t u = start; u < end; ++u) {
             const auto& nbs = temp_adj_[u];
             // logger_->trace("\twriting vtx {} with # nbs {}", u,

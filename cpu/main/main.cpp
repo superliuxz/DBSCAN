@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
   DBSCAN::Solver solver(input, min_pts, radius, num_threads);
   solver.insert_edges();
   solver.finalize_graph();
-  solver.classify_nodes();
+  solver.classify_vertices();
   solver.identify_cluster();
   auto const end = std::chrono::high_resolution_clock::now();
   auto const duration =
