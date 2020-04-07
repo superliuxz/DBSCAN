@@ -40,8 +40,7 @@ int main(int argc, char* argv[]) {
   spdlog::info("DBSCAN takes {} sec", duration.count());
 
   if (output_labels) {
-    auto& g = solver.graph_view();
-    for (const auto& l : g.cluster_ids) {
+    for (const auto& l : solver.cluster_ids) {
       std::cout << l << std::endl;
     }
   }

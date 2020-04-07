@@ -23,7 +23,6 @@ class GDBSCAN_TestEnvironment : public testing::Environment {
 TEST(Graph, ctor_success) {
   DBSCAN::Graph g(5, 1);
   EXPECT_EQ(g.Va.size(), 10);
-  EXPECT_EQ(g.cluster_ids.size(), 5);
   EXPECT_TRUE(g.Ea.empty());
 }
 
@@ -141,27 +140,6 @@ TEST(Graph, finalize_success_no_edges) {
   ASSERT_TRUE(g.Ea.empty());
 }
 
-TEST(Graph, classify_vertex_success) {
-  DBSCAN::Graph g(5, 1);
-  ASSERT_NO_THROW(g.finalize());
-  ASSERT_NO_THROW(g.cluster_vertex(0, 2));
-  ASSERT_NO_THROW(g.cluster_vertex(1, 2));
-  ASSERT_NO_THROW(g.cluster_vertex(2, 4));
-}
-
-TEST(Graph, classify_vertex_fail_no_finalize) {
-  DBSCAN::Graph g(5, 1);
-  ASSERT_THROW(g.cluster_vertex(0, 2), std::runtime_error);
-}
-
-TEST(Graph, classify_vertex_fail_oob) {
-  DBSCAN::Graph g(5, 1);
-  ASSERT_NO_THROW(g.finalize());
-  ASSERT_NO_THROW(g.cluster_vertex(0, 2));
-  ASSERT_THROW(g.cluster_vertex(-1, 2), std::runtime_error);
-  ASSERT_THROW(g.cluster_vertex(6, 2), std::runtime_error);
-}
-
 TEST(TwoDimPoints, distance_squared) {
   using namespace DBSCAN::input_type;
   EXPECT_FLOAT_EQ(TwoDimPoints::euclidean_distance_square(1, 2, 3, 4),
@@ -178,9 +156,10 @@ TEST(Solver, prepare_dataset) {
   using namespace DBSCAN;
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f,
                 1u);
-  auto& dataset = solver.dataset_view();
-  EXPECT_THAT(dataset.d1, testing::ElementsAre(1.0, 2.0, 2.0, 8.0, 8.0, 25.0));
-  EXPECT_THAT(dataset.d2, testing::ElementsAre(2.0, 2.0, 3.0, 7.0, 8.0, 80.0));
+  EXPECT_THAT(solver.dataset_->d1,
+              testing::ElementsAre(1.0, 2.0, 2.0, 8.0, 8.0, 25.0));
+  EXPECT_THAT(solver.dataset_->d2,
+              testing::ElementsAre(2.0, 2.0, 3.0, 7.0, 8.0, 80.0));
 }
 
 TEST(Solver, make_graph_small_graph) {
@@ -191,7 +170,6 @@ TEST(Solver, make_graph_small_graph) {
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_vertices());
-  auto& graph = solver.graph_view();
   /*
    * Va:
    * 0 2 4 6 7 8 <- start pos in Ea
@@ -205,10 +183,10 @@ TEST(Solver, make_graph_small_graph) {
    * even though in Va, vertex 5's neighbours starts at index 8 in Ea, but since
    * vertex 5 has not neighbours, so Ea does not actually have index 8.
    */
-  EXPECT_THAT(graph.Va,
+  EXPECT_THAT(solver.graph_->Va,
               testing::ElementsAre(0, 2, 2, 2, 4, 2, 6, 1, 7, 1, 8, 0));
-  EXPECT_THAT(graph.Ea, testing::ElementsAre(1, 2, 0, 2, 0, 1, 4, 3));
-  EXPECT_THAT(graph.memberships,
+  EXPECT_THAT(solver.graph_->Ea, testing::ElementsAre(1, 2, 0, 2, 0, 1, 4, 3));
+  EXPECT_THAT(solver.memberships,
               testing::ElementsAre(Core, Core, Core, Noise, Noise, Noise));
 }
 
@@ -221,10 +199,9 @@ TEST(Solver, test_input1) {
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_vertices());
   ASSERT_NO_THROW(solver.identify_cluster());
-  auto& graph = solver.graph_view();
   // vertices 0 1 and 2 are core vertices with cluster id = 0; vertices 3 4 and
   // 5 are noise vertices hence cluster id = -1.
-  EXPECT_THAT(graph.cluster_ids, testing::ElementsAre(0, 0, 0, -1, -1, -1));
+  EXPECT_THAT(solver.cluster_ids, testing::ElementsAre(0, 0, 0, -1, -1, -1));
 }
 
 TEST(Solver, test_input2) {
@@ -236,8 +213,7 @@ TEST(Solver, test_input2) {
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_vertices());
   ASSERT_NO_THROW(solver.identify_cluster());
-  auto& graph = solver.graph_view();
-  EXPECT_THAT(graph.memberships,
+  EXPECT_THAT(solver.memberships,
               testing::ElementsAre(Core,    // 0
                                    Core,    // 1
                                    Core,    // 2
@@ -249,7 +225,7 @@ TEST(Solver, test_input2) {
                                    Core,    // 8
                                    Noise    // 9
                                    ));
-  EXPECT_THAT(graph.cluster_ids,
+  EXPECT_THAT(solver.cluster_ids,
               testing::ElementsAre(0,  // 0
                                    0,  // 1
                                    0,  // 2
@@ -272,8 +248,7 @@ TEST(Solver, test_input3) {
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_vertices());
   ASSERT_NO_THROW(solver.identify_cluster());
-  auto& graph = solver.graph_view();
-  EXPECT_THAT(graph.memberships,
+  EXPECT_THAT(solver.memberships,
               testing::ElementsAre(Core,    // 0
                                    Core,    // 1
                                    Core,    // 2
@@ -286,7 +261,7 @@ TEST(Solver, test_input3) {
                                    Core,    // 9
                                    Core     // 10
                                    ));
-  EXPECT_THAT(graph.cluster_ids,
+  EXPECT_THAT(solver.cluster_ids,
               testing::ElementsAre(0,   // 0
                                    0,   // 1
                                    0,   // 2
@@ -315,8 +290,7 @@ TEST(Solver, test_input_20k) {
                     "/test_input_20k_labels.txt");
   int label;
   while (ifs >> label) expected_labels.push_back(label);
-  auto& graph = solver.graph_view();
-  EXPECT_THAT(graph.cluster_ids, testing::ElementsAreArray(expected_labels));
+  EXPECT_THAT(solver.cluster_ids, testing::ElementsAreArray(expected_labels));
 }
 
 // TODO: this test _could_ fail because DBSCAN result depends on the order of
@@ -337,8 +311,7 @@ TEST(Solver, test_input_20k_four_threads) {
                     "/test_input_20k_labels.txt");
   int label;
   while (ifs >> label) expected_labels.push_back(label);
-  auto& graph = solver.graph_view();
-  EXPECT_THAT(graph.cluster_ids, testing::ElementsAreArray(expected_labels));
+  EXPECT_THAT(solver.cluster_ids, testing::ElementsAreArray(expected_labels));
 }
 
 int main(int argc, char* argv[]) {

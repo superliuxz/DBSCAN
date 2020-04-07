@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(DBSCAN LANGUAGES CXX CUDA)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_VERBOSE_MAKEFILE OFF)
 
 # cxxopts
 include_directories(${CMAKE_SOURCE_DIR}/third_party/cxxopts/include)

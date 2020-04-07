@@ -57,6 +57,8 @@ DBSCAN::Solver::Solver(const std::string& input, const uint64_t& min_pts,
       duration_cast<duration<double>>(high_resolution_clock::now() - start);
   logger_->info("reading vertices takes {} seconds", time_spent.count());
 
+  cluster_ids.resize(num_vtx_, -1);
+  memberships.resize(num_vtx_, DBSCAN::membership::Noise);
   grid_ = std::make_unique<Grid>(max_x, max_y, min_x, min_y, radius, num_vtx_);
 }
 
@@ -267,7 +269,7 @@ void DBSCAN::Solver::insert_edges() {
                 time_spent.count());
 }
 
-void DBSCAN::Solver::classify_vertices() const {
+void DBSCAN::Solver::classify_vertices() {
   using namespace std::chrono;
   high_resolution_clock::time_point start = high_resolution_clock::now();
   if (graph_ == nullptr) {
@@ -281,10 +283,10 @@ void DBSCAN::Solver::classify_vertices() const {
     //                "false");
     if (graph_->Va[vertex * 2 + 1] >= min_pts_) {
       // logger_->trace("{} to Core", vertex);
-      graph_->memberships[vertex] = Core;
+      memberships[vertex] = Core;
     } else {
       // logger_->trace("{} to Noise", vertex);
-      graph_->memberships[vertex] = Noise;
+      memberships[vertex] = Noise;
     }
   }
   duration<double> time_spent =
@@ -292,14 +294,13 @@ void DBSCAN::Solver::classify_vertices() const {
   logger_->info("classify_vertices takes {} seconds", time_spent.count());
 }
 
-void DBSCAN::Solver::identify_cluster() const {
+void DBSCAN::Solver::identify_cluster() {
   using namespace std::chrono;
   high_resolution_clock::time_point start = high_resolution_clock::now();
   int cluster = 0;
   for (uint64_t vertex = 0; vertex < num_vtx_; ++vertex) {
-    if (graph_->cluster_ids[vertex] == -1 &&
-        graph_->memberships[vertex] == Core) {
-      graph_->cluster_ids[vertex] = cluster;
+    if (cluster_ids[vertex] == -1 && memberships[vertex] == Core) {
+      cluster_ids[vertex] = cluster;
       // logger_->debug("start bfs on vertex {} with cluster {}", vertex,
       // cluster);
       bfs_(vertex, cluster);
@@ -312,7 +313,7 @@ void DBSCAN::Solver::identify_cluster() const {
                 time_spent.count());
 }
 
-void DBSCAN::Solver::bfs_(uint64_t start_vertex, int cluster) const {
+void DBSCAN::Solver::bfs_(uint64_t start_vertex, int cluster) {
   std::vector<uint64_t> curr_level{start_vertex};
   // each thread has its own partial frontier.
   std::vector<std::vector<uint64_t>> next_level(num_threads_,
@@ -338,21 +339,21 @@ void DBSCAN::Solver::bfs_(uint64_t start_vertex, int cluster) const {
               uint64_t vertex = curr_level[curr_vertex_idx];
               // logger_->trace("visiting vertex {}", vertex);
               // Relabel a reachable Noise vertex, but do not keep exploring.
-              if (graph_->memberships[vertex] == Noise) {
+              if (memberships[vertex] == Noise) {
                 // logger_->trace("\tvertex {} is relabeled from Noise to
                 // Border", vertex);
-                graph_->memberships[vertex] = Border;
+                memberships[vertex] = Border;
                 continue;
               }
               uint64_t start_pos = graph_->Va[2 * vertex];
               uint64_t num_neighbours = graph_->Va[2 * vertex + 1];
               for (uint64_t i = 0; i < num_neighbours; ++i) {
                 uint64_t nb = graph_->Ea[start_pos + i];
-                if (graph_->cluster_ids[nb] == -1) {
+                if (cluster_ids[nb] == -1) {
                   // cluster the vertex
                   // logger_->trace("\tvertex {} is clustered to {}", nb,
                   // cluster);
-                  graph_->cluster_ids[nb] = cluster;
+                  cluster_ids[nb] = cluster;
                   // logger_->trace("\tneighbour {} of vertex {} is queued", nb,
                   // vertex);
                   next_level[tid].emplace_back(nb);

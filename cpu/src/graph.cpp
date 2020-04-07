@@ -17,8 +17,6 @@
 DBSCAN::Graph::Graph(const uint64_t& num_vtx, const uint64_t& num_threads)
     : Va(num_vtx * 2, 0),
       // -1 as unvisited/un-clustered.
-      cluster_ids(num_vtx, -1),
-      memberships(num_vtx, membership::Noise),
       num_vtx_(num_vtx),
       num_threads_(num_threads) {
   set_logger_();
@@ -28,9 +26,6 @@ DBSCAN::Graph::Graph(const uint64_t& num_vtx, const uint64_t& num_threads)
 #else
 DBSCAN::Graph::Graph(const uint64_t& num_vtx, const uint64_t& num_threads)
     : Va(num_vtx * 2, 0),
-      // -1 as unvisited/un-clustered.
-      cluster_ids(num_vtx, -1),
-      memberships(num_vtx, membership::Noise),
       num_vtx_(num_vtx),
       num_threads_(num_threads),
       temp_adj_(num_vtx, std::vector<uint64_t>()) {
@@ -53,7 +48,7 @@ void DBSCAN::Graph::insert_edge(const uint64_t& u, const uint64_t& idx,
   temp_adj_[u][idx] |= mask;
 }
 #else
-void DBSCAN::Graph::insert_edge(const uint64_t u, const uint64_t v) {
+void DBSCAN::Graph::insert_edge(const uint64_t& u, const uint64_t& v) {
   assert_mutable_();
   if (u >= num_vtx_ || v >= num_vtx_) {
     std::ostringstream oss;
@@ -64,17 +59,6 @@ void DBSCAN::Graph::insert_edge(const uint64_t u, const uint64_t v) {
   temp_adj_[u].push_back(v);
 }
 #endif
-
-void DBSCAN::Graph::cluster_vertex(const uint64_t& vertex,
-                                   const int& cluster_id) {
-  assert_immutable_();
-  if (vertex >= num_vtx_) {
-    std::ostringstream oss;
-    oss << vertex << " is out of bound!";
-    throw std::runtime_error(oss.str());
-  }
-  cluster_ids[vertex] = cluster_id;
-}
 
 #if defined(BIT_ADJ)
 void DBSCAN::Graph::finalize() {
