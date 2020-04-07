@@ -16,35 +16,31 @@ namespace DBSCAN {
 
 class Graph {
  public:
-  std::vector<size_t> Va;
-  std::vector<size_t, DBSCAN::utils::NonConstructAllocator<size_t>> Ea;
+  std::vector<uint64_t> Va;
+  std::vector<uint64_t, DBSCAN::utils::NonConstructAllocator<uint64_t>> Ea;
   std::vector<int> cluster_ids;
   std::vector<membership> memberships;
   // ctor
-  explicit Graph(const size_t&, const size_t&);
+  explicit Graph(const uint64_t&, const uint64_t&);
   // insert edge
 #if defined(BIT_ADJ)
-  void insert_edge(const size_t&, const size_t&, const uint64_t&);
+  void insert_edge(const uint64_t&, const uint64_t&, const uint64_t&);
 #else
-  void start_insert(const size_t& u) { temp_adj_[u].reserve(num_vtx_); }
-  void insert_edge(const size_t&, const size_t&);
-  void finish_insert(const size_t& u) { temp_adj_[u].shrink_to_fit(); }
+  void start_insert(const uint64_t u) { temp_adj_[u].reserve(num_vtx_); }
+  void insert_edge(const uint64_t, const uint64_t);
+  void finish_insert(const uint64_t u) { temp_adj_[u].shrink_to_fit(); }
 #endif
   // construct Va and Ea.
   void finalize();
   // set |vertex|'s cluster id to |cluster_id|
-  void cluster_vertex(const size_t& vertex, const int& cluster_id);
+  void cluster_vertex(const uint64_t& vertex, const int& cluster_id);
 
  private:
   bool immutable_ = false;
-  size_t num_vtx_;
-  size_t num_threads_;
+  uint64_t num_vtx_;
+  uint8_t num_threads_;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
-#if defined(BIT_ADJ)
   std::vector<std::vector<uint64_t>> temp_adj_;
-#else
-  std::vector<std::vector<size_t>> temp_adj_;
-#endif
 
   void constexpr assert_mutable_() const {
     if (immutable_) {

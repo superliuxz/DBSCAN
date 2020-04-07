@@ -14,6 +14,7 @@
 
 #include "dataset.h"
 #include "graph.h"
+#include "grid.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/spdlog.h"
 
@@ -21,7 +22,7 @@ namespace DBSCAN {
 
 class Solver {
  public:
-  explicit Solver(const std::string&, const size_t&, const float&,
+  explicit Solver(const std::string&, const uint64_t&, const float&,
                   const uint8_t&);
 #if defined(TESTING)
   [[nodiscard]] inline const DBSCAN::input_type::TwoDimPoints& dataset_view()
@@ -29,7 +30,16 @@ class Solver {
     return *dataset_;
   }
 #endif
+  // TODO: move membership and cluster_id out of graph_ and remove this function
   [[nodiscard]] const Graph& graph_view() const { return *graph_; }
+  /*
+   * Construct the search grid. Each cell has range {[x0, x0+eps),[y0, y0+eps)}.
+   * The number of vtx of each grid is stored in |grid_vtx_counter_|; the vtx
+   * indices reside within each cell is stored in |grid_|.
+   */
+  inline void construct_grid() {
+    grid_->construct_grid(dataset_->d1, dataset_->d2);
+  }
   /*
    * For each two vertices, if the distance is <= |squared_radius_|, insert them
    * into the graph (|temp_adj_|). Part of Algorithm 1 (Andrade et al).
@@ -58,21 +68,22 @@ class Solver {
   void identify_cluster() const;
 
  private:
-  size_t num_vtx_{};
-  size_t min_pts_;
+  uint64_t num_vtx_, min_pts_;
   float squared_radius_;
 #if defined(AVX)
+  const float max_radius_ = std::sqrt(std::numeric_limits<float>::max()) - 1;
   __m256 sq_rad8_;
 #endif
   uint8_t num_threads_;
   std::unique_ptr<DBSCAN::input_type::TwoDimPoints> dataset_ = nullptr;
   std::unique_ptr<Graph> graph_ = nullptr;
+  std::unique_ptr<Grid> grid_ = nullptr;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
   /*
    * Start from |vertex| and visit all the reachable neighbours. If a neighbour
    * is Noise, relabel it to Border.
    */
-  void bfs(size_t start_vertex, int cluster) const;
+  void bfs_(uint64_t, int) const;
 };
 }  // namespace DBSCAN
 

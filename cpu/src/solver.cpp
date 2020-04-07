@@ -4,8 +4,11 @@
 
 #include "solver.h"
 
+#if defined(AVX)
 #include <nmmintrin.h>
+#endif
 
+#include <limits>
 #include <memory>
 #include <thread>
 
@@ -14,7 +17,7 @@
 #include "spdlog/spdlog.h"
 
 // ctor
-DBSCAN::Solver::Solver(const std::string& input, const size_t& min_pts,
+DBSCAN::Solver::Solver(const std::string& input, const uint64_t& min_pts,
                        const float& radius, const uint8_t& num_threads)
     : min_pts_(min_pts),
       squared_radius_(radius * radius),
@@ -24,9 +27,7 @@ DBSCAN::Solver::Solver(const std::string& input, const size_t& min_pts,
     throw std::runtime_error("logger not created!");
   }
 #if defined(AVX)
-  sq_rad8_ = _mm256_set_ps(squared_radius_, squared_radius_, squared_radius_,
-                           squared_radius_, squared_radius_, squared_radius_,
-                           squared_radius_, squared_radius_);
+  sq_rad8_ = _mm256_set1_ps(squared_radius_);
 #endif
   using namespace std::chrono;
   high_resolution_clock::time_point start = high_resolution_clock::now();
@@ -34,16 +35,29 @@ DBSCAN::Solver::Solver(const std::string& input, const size_t& min_pts,
   auto ifs = std::ifstream(input);
   ifs >> num_vtx_;
   dataset_ = std::make_unique<DBSCAN::input_type::TwoDimPoints>(num_vtx_);
-  size_t n;
+  uint64_t n;
   float x, y;
+  // grid
+  float max_x = std::numeric_limits<float>::min(),
+        max_y = std::numeric_limits<float>::min(),
+        min_x = std::numeric_limits<float>::max(),
+        min_y = std::numeric_limits<float>::max();
   while (ifs >> n >> x >> y) {
     dataset_->d1[n] = x;
     dataset_->d2[n] = y;
+    // manually offset by radius/2 such the min/max values fall within
+    // second/second last cell.
+    max_x = std::max(max_x, x + radius / 2);
+    min_x = std::min(min_x, x - radius / 2);
+    max_y = std::max(max_y, y + radius / 2);
+    min_y = std::min(min_y, y - radius / 2);
   }
 
   duration<double> time_spent =
       duration_cast<duration<double>>(high_resolution_clock::now() - start);
   logger_->info("reading vertices takes {} seconds", time_spent.count());
+
+  grid_ = std::make_unique<Grid>(max_x, max_y, min_x, min_y, radius, num_vtx_);
 }
 
 void DBSCAN::Solver::insert_edges() {
@@ -57,31 +71,32 @@ void DBSCAN::Solver::insert_edges() {
   graph_ = std::make_unique<Graph>(num_vtx_, num_threads_);
 
   std::vector<std::thread> threads(num_threads_);
-  const size_t chunk = num_vtx_ / num_threads_ + (num_vtx_ % num_threads_ != 0);
+  const uint64_t chunk =
+      num_vtx_ / num_threads_ + (num_vtx_ % num_threads_ != 0);
 #if defined(BIT_ADJ)
   logger_->info("insert_edges - BIT_ADJ");
-  const size_t N = num_vtx_ / 64u + (num_vtx_ % 64u != 0);
-  for (size_t tid = 0; tid < num_threads_; ++tid) {
+  const uint64_t N = num_vtx_ / 64u + (num_vtx_ % 64u != 0);
+  for (uint8_t tid = 0; tid < num_threads_; ++tid) {
     threads[tid] = std::thread(
-        [this, &chunk, &N](const size_t& tid) {
+        [this, &chunk, &N](const uint8_t& tid) {
           auto t0 = high_resolution_clock::now();
-          const size_t start = tid * chunk;
-          const size_t end = std::min(start + chunk, num_vtx_);
-          for (size_t u = start; u < end; ++u) {
+          const uint64_t start = tid * chunk;
+          const uint64_t end = std::min(start + chunk, num_vtx_);
+          for (uint64_t u = start; u < end; ++u) {
             const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
 #if defined(AVX)
-            __m256 const u_x8 = _mm256_set_ps(ux, ux, ux, ux, ux, ux, ux, ux);
-            __m256 const u_y8 = _mm256_set_ps(uy, uy, uy, uy, uy, uy, uy, uy);
-            for (size_t outer = 0; outer < N; ++outer) {
-              for (size_t inner = 0; inner < 64; inner += 8) {
-                const size_t v0 = outer * 64llu + inner;
-                const size_t v1 = v0 + 1;
-                const size_t v2 = v0 + 2;
-                const size_t v3 = v0 + 3;
-                const size_t v4 = v0 + 4;
-                const size_t v5 = v0 + 5;
-                const size_t v6 = v0 + 6;
-                const size_t v7 = v0 + 7;
+            __m256 const u_x8 = _mm256_set1_ps(ux);
+            __m256 const u_y8 = _mm256_set1_ps(uy);
+            for (uint64_t outer = 0; outer < N; ++outer) {
+              for (uint64_t inner = 0; inner < 64; inner += 8) {
+                const uint64_t v0 = outer * 64llu + inner;
+                const uint64_t v1 = v0 + 1;
+                const uint64_t v2 = v0 + 2;
+                const uint64_t v3 = v0 + 3;
+                const uint64_t v4 = v0 + 4;
+                const uint64_t v5 = v0 + 5;
+                const uint64_t v6 = v0 + 6;
+                const uint64_t v7 = v0 + 7;
                 // TODO: if num_vtx_ is not a multiple of 8
                 // logger_->trace("vertex {} (num_vtx_ {}); outer{}; inner
                 // {}", u, num_vtx_, outer, inner);
@@ -98,7 +113,7 @@ void DBSCAN::Solver::insert_edges() {
 
                 // auto const temp = reinterpret_cast<float const*>(&sum);
                 // logger_->trace("summation of X^2 and Y^2 (sum):");
-                // for (size_t i = 0; i < 8; ++i)
+                // for (uint64_t i = 0; i < 8; ++i)
                 //   logger_->trace("\t{}", temp[i]);
 
                 int const cmp = _mm256_movemask_ps(
@@ -128,12 +143,12 @@ void DBSCAN::Solver::insert_edges() {
 #else
             const auto dist =
                 input_type::TwoDimPoints::euclidean_distance_square;
-            for (size_t outer = 0; outer < N; outer += 4) {
-              for (size_t inner = 0; inner < 64; ++inner) {
-                const size_t v1 = outer * 64llu + inner;
-                const size_t v2 = v1 + 64;
-                const size_t v3 = v2 + 64;
-                const size_t v4 = v3 + 64;
+            for (uint64_t outer = 0; outer < N; outer += 4) {
+              for (uint64_t inner = 0; inner < 64; ++inner) {
+                const uint64_t v1 = outer * 64llu + inner;
+                const uint64_t v2 = v1 + 64;
+                const uint64_t v3 = v2 + 64;
+                const uint64_t v4 = v3 + 64;
                 const uint64_t msk = 1llu << inner;
                 if (u != v1 && v1 < num_vtx_ &&
                     dist(ux, uy, dataset_->d1[v1], dataset_->d2[v1]) <=
@@ -164,26 +179,41 @@ void DBSCAN::Solver::insert_edges() {
 #else
   logger_->info("insert_edges - default");
   const auto dist = input_type::TwoDimPoints::euclidean_distance_square;
-  for (size_t tid = 0; tid < num_threads_; ++tid) {
+  for (uint8_t tid = 0; tid < num_threads_; ++tid) {
     threads[tid] = std::thread(
-        [this, &dist, &chunk](const size_t& tid) {
+        [this, &dist, &chunk](const uint8_t& tid) {
           auto t0 = high_resolution_clock::now();
-          const size_t start = tid * chunk;
-          const size_t end = std::min(start + chunk, num_vtx_);
+          const uint64_t start = tid * chunk;
+          const uint64_t end = std::min(start + chunk, num_vtx_);
 #if defined(AVX)
           // each float is 4 bytes; a 256bit register is 32 bytes. Hence 8
           // float at-a-time.
-          for (size_t u = start; u < end; ++u) {
+          for (uint64_t u = start; u < end; ++u) {
             graph_->start_insert(u);
             const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
-            __m256 const u_x8 = _mm256_set_ps(ux, ux, ux, ux, ux, ux, ux, ux);
-            __m256 const u_y8 = _mm256_set_ps(uy, uy, uy, uy, uy, uy, uy, uy);
-            // TODO: if num_vtx_ is not a multiple of 8
-            for (size_t v = 0; v < num_vtx_; v += 8) {
-              float const* const v_x_ptr = &(dataset_->d1.front());
-              __m256 const v_x_8 = _mm256_load_ps(v_x_ptr + v);
-              float const* const v_y_ptr = &(dataset_->d2.front());
-              __m256 const v_y_8 = _mm256_load_ps(v_y_ptr + v);
+            __m256 const u_x8 = _mm256_set1_ps(ux);
+            __m256 const u_y8 = _mm256_set1_ps(uy);
+            const std::vector<uint64_t> nbs =
+                grid_->retrieve_vtx_from_nb_cells(u, ux, uy);
+            for (uint64_t i = 0; i < nbs.size(); i += 8) {
+              __m256 const v_x_8 = _mm256_set_ps(
+                  dataset_->d1[nbs[i]],
+                  i + 1 < nbs.size() ? dataset_->d1[nbs[i + 1]] : max_radius_,
+                  i + 2 < nbs.size() ? dataset_->d1[nbs[i + 2]] : max_radius_,
+                  i + 3 < nbs.size() ? dataset_->d1[nbs[i + 3]] : max_radius_,
+                  i + 4 < nbs.size() ? dataset_->d1[nbs[i + 4]] : max_radius_,
+                  i + 5 < nbs.size() ? dataset_->d1[nbs[i + 5]] : max_radius_,
+                  i + 6 < nbs.size() ? dataset_->d1[nbs[i + 6]] : max_radius_,
+                  i + 7 < nbs.size() ? dataset_->d1[nbs[i + 7]] : max_radius_);
+              __m256 const v_y_8 = _mm256_set_ps(
+                  dataset_->d2[nbs[i]],
+                  i + 1 < nbs.size() ? dataset_->d2[nbs[i + 1]] : max_radius_,
+                  i + 2 < nbs.size() ? dataset_->d2[nbs[i + 2]] : max_radius_,
+                  i + 3 < nbs.size() ? dataset_->d2[nbs[i + 3]] : max_radius_,
+                  i + 4 < nbs.size() ? dataset_->d2[nbs[i + 4]] : max_radius_,
+                  i + 5 < nbs.size() ? dataset_->d2[nbs[i + 5]] : max_radius_,
+                  i + 6 < nbs.size() ? dataset_->d2[nbs[i + 6]] : max_radius_,
+                  i + 7 < nbs.size() ? dataset_->d2[nbs[i + 7]] : max_radius_);
 
               __m256 const x_diff_8 = _mm256_sub_ps(u_x8, v_x_8);
               __m256 const x_diff_sq_8 = _mm256_mul_ps(x_diff_8, x_diff_8);
@@ -194,32 +224,28 @@ void DBSCAN::Solver::insert_edges() {
 
               int const cmp =
                   _mm256_movemask_ps(_mm256_cmp_ps(sum, sq_rad8_, _CMP_LE_OS));
-
-              if (u != v && (cmp & 1 << 0)) graph_->insert_edge(u, v);
-              if (v + 1 < num_vtx_ && u != v + 1 && (cmp & 1 << 1))
-                graph_->insert_edge(u, v + 1);
-              if (v + 2 < num_vtx_ && u != v + 2 && (cmp & 1 << 2))
-                graph_->insert_edge(u, v + 2);
-              if (v + 3 < num_vtx_ && u != v + 3 && (cmp & 1 << 3))
-                graph_->insert_edge(u, v + 3);
-              if (v + 4 < num_vtx_ && u != v + 4 && (cmp & 1 << 4))
-                graph_->insert_edge(u, v + 4);
-              if (v + 5 < num_vtx_ && u != v + 5 && (cmp & 1 << 5))
-                graph_->insert_edge(u, v + 5);
-              if (v + 6 < num_vtx_ && u != v + 6 && (cmp & 1 << 6))
-                graph_->insert_edge(u, v + 6);
-              if (v + 7 < num_vtx_ && u != v + 7 && (cmp & 1 << 7))
-                graph_->insert_edge(u, v + 7);
+              if (cmp & 1 << 7) graph_->insert_edge(u, nbs[i]);
+              if (cmp & 1 << 6) graph_->insert_edge(u, nbs[i + 1]);
+              if (cmp & 1 << 5) graph_->insert_edge(u, nbs[i + 2]);
+              if (cmp & 1 << 4) graph_->insert_edge(u, nbs[i + 3]);
+              if (cmp & 1 << 3) graph_->insert_edge(u, nbs[i + 4]);
+              if (cmp & 1 << 2) graph_->insert_edge(u, nbs[i + 5]);
+              if (cmp & 1 << 1) graph_->insert_edge(u, nbs[i + 6]);
+              if (cmp & 1 << 0) graph_->insert_edge(u, nbs[i + 7]);
             }
             graph_->finish_insert(u);
           }
 #else
-          for (size_t u = start; u < end; ++u) {
+          for (uint64_t u = start; u < end; ++u) {
             graph_->start_insert(u);
             const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
-            for (size_t v = 0; v < num_vtx_; ++v) {
-              if (u != v && dist(ux, uy, dataset_->d1[v], dataset_->d2[v]) <=
-                                squared_radius_)
+            const std::vector<uint64_t> nbs =
+                grid_->retrieve_vtx_from_nb_cells(u, ux, uy);
+            //            printf("possible nbs of %lu: %s", u,
+            //                   DBSCAN::utils::print_vector("", nbs).c_str());
+            for (const auto v : nbs) {
+              if (dist(ux, uy, dataset_->d1[v], dataset_->d2[v]) <=
+                  squared_radius_)
                 graph_->insert_edge(u, v);
             }
             graph_->finish_insert(u);
@@ -247,7 +273,7 @@ void DBSCAN::Solver::classify_vertices() const {
   if (graph_ == nullptr) {
     throw std::runtime_error("Call insert_edges to generate the graph!");
   }
-  for (size_t vertex = 0; vertex < num_vtx_; ++vertex) {
+  for (uint64_t vertex = 0; vertex < num_vtx_; ++vertex) {
     // logger_->trace("{} has {} neighbours within {}", vertex,
     //                graph_->Va[vertex * 2 + 1], squared_radius_);
     // logger_->trace("{} >= {}: {}", graph_->Va[vertex * 2], min_pts_,
@@ -270,13 +296,13 @@ void DBSCAN::Solver::identify_cluster() const {
   using namespace std::chrono;
   high_resolution_clock::time_point start = high_resolution_clock::now();
   int cluster = 0;
-  for (size_t vertex = 0; vertex < num_vtx_; ++vertex) {
+  for (uint64_t vertex = 0; vertex < num_vtx_; ++vertex) {
     if (graph_->cluster_ids[vertex] == -1 &&
         graph_->memberships[vertex] == Core) {
       graph_->cluster_ids[vertex] = cluster;
       // logger_->debug("start bfs on vertex {} with cluster {}", vertex,
       // cluster);
-      bfs(vertex, cluster);
+      bfs_(vertex, cluster);
       ++cluster;
     }
   }
@@ -286,30 +312,30 @@ void DBSCAN::Solver::identify_cluster() const {
                 time_spent.count());
 }
 
-void DBSCAN::Solver::bfs(size_t start_vertex, int cluster) const {
-  std::vector<size_t> curr_level{start_vertex};
+void DBSCAN::Solver::bfs_(uint64_t start_vertex, int cluster) const {
+  std::vector<uint64_t> curr_level{start_vertex};
   // each thread has its own partial frontier.
-  std::vector<std::vector<size_t>> next_level(num_threads_,
-                                              std::vector<size_t>());
+  std::vector<std::vector<uint64_t>> next_level(num_threads_,
+                                                std::vector<uint64_t>());
 
   std::vector<std::thread> threads(num_threads_);
-  // size_t lvl_cnt = 0;
-  size_t chunk = 0;
+  // uint64_t lvl_cnt = 0;
+  uint64_t chunk = 0;
   while (!curr_level.empty()) {
     chunk = curr_level.size() / num_threads_ +
             (curr_level.size() % num_threads_ != 0);
     // logger_->info("\tBFS level {}", lvl_cnt);
-    for (size_t tid = 0u; tid < num_threads_; ++tid) {
+    for (uint8_t tid = 0u; tid < num_threads_; ++tid) {
       threads[tid] = std::thread(
           [this, &curr_level, &next_level, &cluster,
-           &chunk](const size_t& tid) {
+           &chunk](const uint8_t& tid) {
             // using namespace std::chrono;
             // auto p_t0 = high_resolution_clock::now();
-            size_t start = tid * chunk;
-            size_t end = std::min(start + chunk, curr_level.size());
-            for (size_t curr_vertex_idx = start; curr_vertex_idx < end;
+            uint64_t start = tid * chunk;
+            uint64_t end = std::min(start + chunk, curr_level.size());
+            for (uint64_t curr_vertex_idx = start; curr_vertex_idx < end;
                  ++curr_vertex_idx) {
-              size_t vertex = curr_level[curr_vertex_idx];
+              uint64_t vertex = curr_level[curr_vertex_idx];
               // logger_->trace("visiting vertex {}", vertex);
               // Relabel a reachable Noise vertex, but do not keep exploring.
               if (graph_->memberships[vertex] == Noise) {
@@ -318,10 +344,10 @@ void DBSCAN::Solver::bfs(size_t start_vertex, int cluster) const {
                 graph_->memberships[vertex] = Border;
                 continue;
               }
-              size_t start_pos = graph_->Va[2 * vertex];
-              size_t num_neighbours = graph_->Va[2 * vertex + 1];
-              for (size_t i = 0; i < num_neighbours; ++i) {
-                size_t nb = graph_->Ea[start_pos + i];
+              uint64_t start_pos = graph_->Va[2 * vertex];
+              uint64_t num_neighbours = graph_->Va[2 * vertex + 1];
+              for (uint64_t i = 0; i < num_neighbours; ++i) {
+                uint64_t nb = graph_->Ea[start_pos + i];
                 if (graph_->cluster_ids[nb] == -1) {
                   // cluster the vertex
                   // logger_->trace("\tvertex {} is clustered to {}", nb,
