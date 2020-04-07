@@ -115,17 +115,17 @@ std::vector<uint64_t> DBSCAN::Grid::retrieve_vtx_from_nb_cells(uint64_t u,
               grid_vtx_counter_[btm_right] + grid_vtx_counter_[right] +
               grid_vtx_counter_[top_right] + grid_vtx_counter_[top] +
               grid_vtx_counter_[top_left]);
-  //  printf("nbs expected size %lu\n", nbs.capacity());
-  //  printf("%s", DBSCAN::utils::print_vector("nbs @ begin of retrieve:",
-  //  nbs).c_str());
+  //  logger_->debug("nbs expected size {}", nbs.capacity());
+  //  logger_->debug("{}",
+  //                 DBSCAN::utils::print_vector("nbs @ begin of retrieve:",
+  //                 nbs));
   for (auto i = 0u; i < grid_vtx_counter_[cell_id]; ++i) {
     const auto nb = grid_[grid_start_pos_[cell_id] + i];
-    //    printf("vtx %lu nb %lu cellid %lu startpos %lu\n", u, nb, cell_id,
-    //           grid_start_pos_[cell_id]);
     if (u != nb) nbs.push_back(nb);
   }
-  //  printf("%s", DBSCAN::utils::print_vector("nbs @ middle of retrieve:",
-  //  nbs).c_str());
+  //  logger_->debug("{}",
+  //                 DBSCAN::utils::print_vector("nbs @ middle of retrieve:",
+  //                 nbs));
   for (auto i = 0u; i < grid_vtx_counter_[left]; ++i)
     nbs.push_back(grid_[grid_start_pos_[left] + i]);
   for (auto i = 0u; i < grid_vtx_counter_[btm_left]; ++i)
@@ -142,7 +142,5 @@ std::vector<uint64_t> DBSCAN::Grid::retrieve_vtx_from_nb_cells(uint64_t u,
     nbs.push_back(grid_[grid_start_pos_[top] + i]);
   for (auto i = 0u; i < grid_vtx_counter_[top_left]; ++i)
     nbs.push_back(grid_[grid_start_pos_[top_left] + i]);
-  //  printf("%s", DBSCAN::utils::print_vector("nbs @ end of retrieve:",
-  //  nbs).c_str());
   return nbs;
 }

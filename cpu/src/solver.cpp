@@ -59,7 +59,8 @@ DBSCAN::Solver::Solver(const std::string& input, const uint64_t& min_pts,
 
   cluster_ids.resize(num_vtx_, -1);
   memberships.resize(num_vtx_, DBSCAN::membership::Noise);
-  grid_ = std::make_unique<Grid>(max_x, max_y, min_x, min_y, radius, num_vtx_, num_threads_);
+  grid_ = std::make_unique<Grid>(max_x, max_y, min_x, min_y, radius, num_vtx_,
+                                 num_threads_);
 }
 
 void DBSCAN::Solver::insert_edges() {
@@ -242,8 +243,8 @@ void DBSCAN::Solver::insert_edges() {
             const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
             const std::vector<uint64_t> nbs =
                 grid_->retrieve_vtx_from_nb_cells(u, ux, uy);
-            //            printf("possible nbs of %lu: %s", u,
-            //                   DBSCAN::utils::print_vector("", nbs).c_str());
+            //            logger_->debug("possible nbs of {}: {}", u,
+            //                           DBSCAN::utils::print_vector("", nbs));
             for (const auto v : nbs) {
               if (dist(ux, uy, dataset_->d1[v], dataset_->d2[v]) <=
                   squared_radius_)
