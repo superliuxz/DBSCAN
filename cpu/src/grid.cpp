@@ -10,13 +10,14 @@
 #include "spdlog/spdlog.h"
 
 DBSCAN::Grid::Grid(float max_x, float max_y, float min_x, float min_y,
-                   float radius, uint64_t num_vtx)
+                   float radius, uint64_t num_vtx, uint8_t num_threads)
     : radius_(radius),
       num_vtx_(num_vtx),
       max_x_(max_x),
       max_y_(max_y),
       min_x_(min_x),
-      min_y_(min_y) {
+      min_y_(min_y),
+      num_threads_(num_threads) {
   logger_ = spdlog::get("console");
   if (logger_ == nullptr) {
     throw std::runtime_error("logger not created!");
@@ -37,23 +38,47 @@ void DBSCAN::Grid::construct_grid(
   using namespace std::chrono;
   high_resolution_clock::time_point start = high_resolution_clock::now();
 
-  for (uint64_t vtx = 0; vtx < num_vtx_; ++vtx) {
-    auto id = calc_cell_id_(xs[vtx], ys[vtx]);
-    ++grid_vtx_counter_[id];
+  std::vector<std::thread> threads(num_threads_);
+  const uint64_t chunk = std::ceil(num_vtx_ / num_threads_);
+  for (uint8_t tid = 0; tid < num_threads_; ++tid) {
+    threads[tid] = std::thread(
+        [this, &chunk, &xs, &ys](const uint8_t tid) {
+          const uint64_t start = tid * chunk;
+          const uint64_t end = std::min(start + chunk, num_vtx_);
+          for (uint64_t vtx = start; vtx < end; ++vtx) {
+            auto id = calc_cell_id_(xs[vtx], ys[vtx]);
+            ++grid_vtx_counter_[id];
+          }
+        },
+        tid);
   }
+  for (auto& tr : threads) tr.join();
+
   logger_->debug(
       DBSCAN::utils::print_vector("grid_vtx_counter_", grid_vtx_counter_));
   grid_start_pos_.resize(grid_vtx_counter_.size(), 0);
+  // TODO: exclusive_scan with GCC-10
   for (uint64_t i = 0; i < grid_vtx_counter_.size() - 1; ++i) {
     grid_start_pos_[i + 1] = grid_start_pos_[i] + grid_vtx_counter_[i];
   }
   // make a local copy to record the write position.
   std::vector<uint64_t> temp(grid_start_pos_);
-  logger_->debug(DBSCAN::utils::print_vector("grid_start_pos_", grid_start_pos_));
-  for (uint64_t vtx = 0; vtx < num_vtx_; ++vtx) {
-    auto id = calc_cell_id_(xs[vtx], ys[vtx]);
-    grid_[temp[id]++] = vtx;
+  logger_->debug(
+      DBSCAN::utils::print_vector("grid_start_pos_", grid_start_pos_));
+
+  for (uint8_t tid = 0; tid < num_threads_; ++tid) {
+    threads[tid] = std::thread(
+        [this, &chunk, &xs, &ys, &temp](const uint8_t tid) {
+          const uint64_t start = tid * chunk;
+          const uint64_t end = std::min(start + chunk, num_vtx_);
+          for (uint64_t vtx = start; vtx < end; ++vtx) {
+            auto id = calc_cell_id_(xs[vtx], ys[vtx]);
+            grid_[temp[id]++] = vtx;
+          }
+        },
+        tid);
   }
+  for (auto& tr : threads) tr.join();
   logger_->debug(DBSCAN::utils::print_vector("grid", grid_));
   duration<double> time_spent =
       duration_cast<duration<double>>(high_resolution_clock::now() - start);

@@ -59,7 +59,7 @@ DBSCAN::Solver::Solver(const std::string& input, const uint64_t& min_pts,
 
   cluster_ids.resize(num_vtx_, -1);
   memberships.resize(num_vtx_, DBSCAN::membership::Noise);
-  grid_ = std::make_unique<Grid>(max_x, max_y, min_x, min_y, radius, num_vtx_);
+  grid_ = std::make_unique<Grid>(max_x, max_y, min_x, min_y, radius, num_vtx_, num_threads_);
 }
 
 void DBSCAN::Solver::insert_edges() {
@@ -73,8 +73,7 @@ void DBSCAN::Solver::insert_edges() {
   graph_ = std::make_unique<Graph>(num_vtx_, num_threads_);
 
   std::vector<std::thread> threads(num_threads_);
-  const uint64_t chunk =
-      num_vtx_ / num_threads_ + (num_vtx_ % num_threads_ != 0);
+  const uint64_t chunk = std::ceil(num_vtx_ / num_threads_);
 #if defined(BIT_ADJ)
   logger_->info("insert_edges - BIT_ADJ");
   const uint64_t N = num_vtx_ / 64u + (num_vtx_ % 64u != 0);

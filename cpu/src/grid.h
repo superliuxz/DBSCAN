@@ -16,7 +16,7 @@
 namespace DBSCAN {
 class Grid {
  public:
-  Grid(float, float, float, float, float, uint64_t);
+  Grid(float, float, float, float, float, uint64_t, uint8_t);
   void construct_grid(
       const std::vector<float, DBSCAN::utils::AlignedAllocator<float, 32>>&,
       const std::vector<float, DBSCAN::utils::AlignedAllocator<float, 32>>&);
@@ -29,6 +29,7 @@ class Grid {
   uint64_t num_vtx_;
   // grid
   float max_x_, max_y_, min_x_, min_y_;
+  uint8_t num_threads_;
   uint64_t grid_rows_, grid_cols_;
   std::vector<uint64_t> grid_vtx_counter_, grid_start_pos_, grid_;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
