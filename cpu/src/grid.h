@@ -11,6 +11,8 @@
 #include <limits>
 #include <vector>
 
+#include "spdlog/spdlog.h"
+
 namespace DBSCAN {
 class Grid {
  public:
@@ -29,6 +31,7 @@ class Grid {
   float max_x_, max_y_, min_x_, min_y_;
   uint64_t grid_rows_, grid_cols_;
   std::vector<uint64_t> grid_vtx_counter_, grid_start_pos_, grid_;
+  std::shared_ptr<spdlog::logger> logger_ = nullptr;
   [[nodiscard]] uint64_t calc_cell_id_(float, float) const;
 };
 }  // namespace DBSCAN

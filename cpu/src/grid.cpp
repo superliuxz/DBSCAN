@@ -7,6 +7,8 @@
 #include <cassert>
 #include <cmath>
 
+#include "spdlog/spdlog.h"
+
 DBSCAN::Grid::Grid(float max_x, float max_y, float min_x, float min_y,
                    float radius, uint64_t num_vtx)
     : radius_(radius),
@@ -15,6 +17,10 @@ DBSCAN::Grid::Grid(float max_x, float max_y, float min_x, float min_y,
       max_y_(max_y),
       min_x_(min_x),
       min_y_(min_y) {
+  logger_ = spdlog::get("console");
+  if (logger_ == nullptr) {
+    throw std::runtime_error("logger not created!");
+  }
   // "1+" prepends an empty col/row to the grid. The empty row/col includes
   // points {x in [-INF, min_x_), y in [-INF, min_y_)}.
   // "+1" appends an empty rol/col. The last row/col includes points
@@ -28,27 +34,30 @@ DBSCAN::Grid::Grid(float max_x, float max_y, float min_x, float min_y,
 void DBSCAN::Grid::construct_grid(
     const std::vector<float, DBSCAN::utils::AlignedAllocator<float, 32>>& xs,
     const std::vector<float, DBSCAN::utils::AlignedAllocator<float, 32>>& ys) {
+  using namespace std::chrono;
+  high_resolution_clock::time_point start = high_resolution_clock::now();
+
   for (uint64_t vtx = 0; vtx < num_vtx_; ++vtx) {
     auto id = calc_cell_id_(xs[vtx], ys[vtx]);
     ++grid_vtx_counter_[id];
   }
-//  printf("%s",
-//         DBSCAN::utils::print_vector("grid_vtx_counter_\t", grid_vtx_counter_)
-//             .c_str());
+  logger_->debug(
+      DBSCAN::utils::print_vector("grid_vtx_counter_", grid_vtx_counter_));
   grid_start_pos_.resize(grid_vtx_counter_.size(), 0);
   for (uint64_t i = 0; i < grid_vtx_counter_.size() - 1; ++i) {
     grid_start_pos_[i + 1] = grid_start_pos_[i] + grid_vtx_counter_[i];
   }
   // make a local copy to record the write position.
   std::vector<uint64_t> temp(grid_start_pos_);
-//  printf("%s",
-//         DBSCAN::utils::print_vector("grid_start_pos_\t\t", grid_start_pos_)
-//             .c_str());
+  logger_->debug(DBSCAN::utils::print_vector("grid_start_pos_", grid_start_pos_));
   for (uint64_t vtx = 0; vtx < num_vtx_; ++vtx) {
     auto id = calc_cell_id_(xs[vtx], ys[vtx]);
     grid_[temp[id]++] = vtx;
   }
-//  printf("%s", DBSCAN::utils::print_vector("grid\t\t\t", grid_).c_str());
+  logger_->debug(DBSCAN::utils::print_vector("grid", grid_));
+  duration<double> time_spent =
+      duration_cast<duration<double>>(high_resolution_clock::now() - start);
+  logger_->info("construct_grid takes {} seconds", time_spent.count());
 }
 
 uint64_t DBSCAN::Grid::calc_cell_id_(float x, float y) const {
@@ -81,15 +90,17 @@ std::vector<uint64_t> DBSCAN::Grid::retrieve_vtx_from_nb_cells(uint64_t u,
               grid_vtx_counter_[btm_right] + grid_vtx_counter_[right] +
               grid_vtx_counter_[top_right] + grid_vtx_counter_[top] +
               grid_vtx_counter_[top_left]);
-//  printf("nbs expected size %lu\n", nbs.capacity());
-//  printf("%s", DBSCAN::utils::print_vector("nbs @ begin of retrieve:", nbs).c_str());
+  //  printf("nbs expected size %lu\n", nbs.capacity());
+  //  printf("%s", DBSCAN::utils::print_vector("nbs @ begin of retrieve:",
+  //  nbs).c_str());
   for (auto i = 0u; i < grid_vtx_counter_[cell_id]; ++i) {
     const auto nb = grid_[grid_start_pos_[cell_id] + i];
-//    printf("vtx %lu nb %lu cellid %lu startpos %lu\n", u, nb, cell_id,
-//           grid_start_pos_[cell_id]);
+    //    printf("vtx %lu nb %lu cellid %lu startpos %lu\n", u, nb, cell_id,
+    //           grid_start_pos_[cell_id]);
     if (u != nb) nbs.push_back(nb);
   }
-//  printf("%s", DBSCAN::utils::print_vector("nbs @ middle of retrieve:", nbs).c_str());
+  //  printf("%s", DBSCAN::utils::print_vector("nbs @ middle of retrieve:",
+  //  nbs).c_str());
   for (auto i = 0u; i < grid_vtx_counter_[left]; ++i)
     nbs.push_back(grid_[grid_start_pos_[left] + i]);
   for (auto i = 0u; i < grid_vtx_counter_[btm_left]; ++i)
@@ -106,6 +117,7 @@ std::vector<uint64_t> DBSCAN::Grid::retrieve_vtx_from_nb_cells(uint64_t u,
     nbs.push_back(grid_[grid_start_pos_[top] + i]);
   for (auto i = 0u; i < grid_vtx_counter_[top_left]; ++i)
     nbs.push_back(grid_[grid_start_pos_[top_left] + i]);
-//  printf("%s", DBSCAN::utils::print_vector("nbs @ end of retrieve:", nbs).c_str());
+  //  printf("%s", DBSCAN::utils::print_vector("nbs @ end of retrieve:",
+  //  nbs).c_str());
   return nbs;
 }

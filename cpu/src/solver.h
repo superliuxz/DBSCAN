@@ -15,7 +15,6 @@
 #include "dataset.h"
 #include "graph.h"
 #include "grid.h"
-#include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/spdlog.h"
 
 namespace DBSCAN {
