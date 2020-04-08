@@ -47,7 +47,8 @@ void DBSCAN::Grid::construct_grid(
           const uint64_t end = std::min(start + chunk, num_vtx_);
           for (uint64_t vtx = start; vtx < end; ++vtx) {
             auto id = calc_cell_id_(xs[vtx], ys[vtx]);
-            ++grid_vtx_counter_[id];
+            // https://gcc.gnu.org/onlinedocs/gcc/_005f_005fsync-Builtins.html#g_t_005f_005fsync-Builtins
+            __sync_fetch_and_add(grid_vtx_counter_.data() + id, 1);
           }
         },
         tid);
@@ -61,10 +62,11 @@ void DBSCAN::Grid::construct_grid(
   for (uint64_t i = 0; i < grid_vtx_counter_.size() - 1; ++i) {
     grid_start_pos_[i + 1] = grid_start_pos_[i] + grid_vtx_counter_[i];
   }
-  // make a local copy to record the write position.
-  std::vector<uint64_t> temp(grid_start_pos_);
   logger_->debug(
       DBSCAN::utils::print_vector("grid_start_pos_", grid_start_pos_));
+
+  // make a local copy to record the write position.
+  std::vector<uint64_t> temp(grid_start_pos_);
 
   for (uint8_t tid = 0; tid < num_threads_; ++tid) {
     threads[tid] = std::thread(
@@ -73,7 +75,9 @@ void DBSCAN::Grid::construct_grid(
           const uint64_t end = std::min(start + chunk, num_vtx_);
           for (uint64_t vtx = start; vtx < end; ++vtx) {
             auto id = calc_cell_id_(xs[vtx], ys[vtx]);
-            grid_[temp[id]++] = vtx;
+            const auto pos = __sync_fetch_and_add(temp.data() + id, 1);
+            // https://gcc.gnu.org/onlinedocs/gcc/_005f_005fsync-Builtins.html#g_t_005f_005fsync-Builtins
+            __sync_val_compare_and_swap(grid_.data() + pos, 0, vtx);
           }
         },
         tid);
