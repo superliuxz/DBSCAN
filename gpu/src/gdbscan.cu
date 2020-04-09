@@ -106,8 +106,8 @@ void GDBSCAN::Solver::construct_grid() {
 
   CUDA_ERR_CHK(cudaFree(dev_cell_id_array));
   CUDA_ERR_CHK(cudaFree(dev_vtx_idx_array));
-  // dev_x_, dev_y_, dev_grid_vtx_counter_, dev_grid_start_pos_, dev_grid_ in
-  // GPU RAM.
+  // |dev_x_|, |dev_y_|, |dev_grid_vtx_counter_|, |dev_grid_start_pos_|,
+  // |dev_grid_| in GPU RAM.
 }
 
 void GDBSCAN::Solver::calc_num_neighbours() {
@@ -122,7 +122,9 @@ void GDBSCAN::Solver::calc_num_neighbours() {
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_num_neighbours_, K));
 
   GDBSCAN::kernel_functions::k_num_nbs<<<num_blocks_vtx_, BLOCK_SIZE>>>(
-      dev_x_, dev_y_, dev_num_neighbours_, squared_radius_, num_vtx_);
+      dev_x_, dev_y_, dev_grid_vtx_counter_, dev_grid_start_pos_, dev_grid_,
+      min_x_, min_y_, radius_, squared_radius_, grid_cols_, num_vtx_,
+      dev_num_neighbours_);
   CUDA_ERR_CHK(cudaPeekAtLastError());
   CUDA_ERR_CHK(cudaMemcpy(&last_vtx_num_nbs, dev_num_neighbours_ + num_vtx_ - 1,
                           sizeof(last_vtx_num_nbs), D2H));
@@ -132,7 +134,8 @@ void GDBSCAN::Solver::calc_num_neighbours() {
                           dev_num_neighbours_, K, D2H));
 #endif
   total_num_nbs_ += last_vtx_num_nbs;
-  // |dev_x_|, |dev_y_|, |dev_num_neighbours_| in GPU RAM.
+  // |dev_x_|, |dev_y_|, |dev_num_neighbours_|, |dev_grid_vtx_counter_|,
+  // |dev_grid_start_pos_|, |dev_grid_| in GPU RAM.
 }
 
 void GDBSCAN::Solver::calc_start_pos() {
@@ -153,7 +156,8 @@ void GDBSCAN::Solver::calc_start_pos() {
                           dev_start_pos_, N, D2H));
 #endif
   total_num_nbs_ += last_vtx_start_pos;
-  // |dev_x_|, |dev_y_|, |dev_num_neighbours_|, |dev_start_pos_| in GPU RAM.
+  // |dev_x_|, |dev_y_|, |dev_num_neighbours_|, |dev_start_pos_|,
+  // |dev_grid_vtx_counter_|, |dev_grid_start_pos_|, |dev_grid_| in GPU RAM.
 }
 
 void GDBSCAN::Solver::append_neighbours() {
@@ -175,13 +179,18 @@ void GDBSCAN::Solver::append_neighbours() {
 
   GDBSCAN::kernel_functions::
       k_append_neighbours<<<num_blocks_vtx_, BLOCK_SIZE>>>(
-          dev_x_, dev_y_, dev_start_pos_, dev_neighbours_, num_vtx_,
-          squared_radius_);
+          dev_x_, dev_y_, dev_grid_vtx_counter_, dev_grid_start_pos_, dev_grid_,
+          min_x_, min_y_, radius_, dev_start_pos_, dev_neighbours_, num_vtx_,
+          squared_radius_, grid_cols_);
   CUDA_ERR_CHK(cudaPeekAtLastError());
 
   // |dev_x_| and |dev_y_| are no longer used.
   CUDA_ERR_CHK(cudaFree(dev_x_));
   CUDA_ERR_CHK(cudaFree(dev_y_));
+  // graph has been fully constructed, hence free all the grid related.
+  CUDA_ERR_CHK(cudaFree(dev_grid_vtx_counter_));
+  CUDA_ERR_CHK(cudaFree(dev_grid_start_pos_));
+  CUDA_ERR_CHK(cudaFree(dev_grid_));
 #if GDBSCAN_TESTING == 1
   CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(neighbours.data()),
                           dev_neighbours_, J, D2H));

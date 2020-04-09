@@ -23,6 +23,7 @@ class GDBSCAN_TestEnvironment : public testing::Environment {
 TEST(Solver, make_graph_small_graph) {
   using namespace GDBSCAN;
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f);
+  ASSERT_NO_THROW(solver.construct_grid());
   ASSERT_NO_THROW(solver.calc_num_neighbours());
   ASSERT_NO_THROW(solver.calc_start_pos());
   ASSERT_NO_THROW(solver.append_neighbours());
@@ -53,6 +54,7 @@ TEST(Solver, make_graph_small_graph) {
 TEST(Solver, test_input1) {
   using namespace GDBSCAN;
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f);
+  ASSERT_NO_THROW(solver.construct_grid());
   ASSERT_NO_THROW(solver.calc_num_neighbours());
   ASSERT_NO_THROW(solver.calc_start_pos());
   ASSERT_NO_THROW(solver.append_neighbours());
@@ -66,6 +68,7 @@ TEST(Solver, test_input1) {
 TEST(Solver, test_input2) {
   using namespace GDBSCAN;
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input2.txt", 2, 3.0f);
+  ASSERT_NO_THROW(solver.construct_grid());
   ASSERT_NO_THROW(solver.calc_num_neighbours());
   ASSERT_NO_THROW(solver.calc_start_pos());
   ASSERT_NO_THROW(solver.append_neighbours());
@@ -100,6 +103,7 @@ TEST(Solver, test_input2) {
 TEST(Solver, test_input3) {
   using namespace GDBSCAN;
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input3.txt", 3, 3.0f);
+  ASSERT_NO_THROW(solver.construct_grid());
   ASSERT_NO_THROW(solver.calc_num_neighbours());
   ASSERT_NO_THROW(solver.calc_start_pos());
   ASSERT_NO_THROW(solver.append_neighbours());
@@ -137,6 +141,7 @@ TEST(Solver, test_input_20k) {
   using namespace GDBSCAN;
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input_20k.txt", 30,
                 0.15f);
+  ASSERT_NO_THROW(solver.construct_grid());
   ASSERT_NO_THROW(solver.calc_num_neighbours());
   ASSERT_NO_THROW(solver.calc_start_pos());
   ASSERT_NO_THROW(solver.append_neighbours());
