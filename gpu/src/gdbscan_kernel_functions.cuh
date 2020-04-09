@@ -22,7 +22,7 @@ __global__ void k_populate_cell_id_array(float const *const x,
                                          const uint64_t num_vtx) {
   uint64_t const u = threadIdx.x + blockIdx.x * blockDim.x;
   if (u >= num_vtx) return;
-  auto get_cell_id = GDBSCAN::device_functions::calc_cell_id;
+  constexpr auto get_cell_id = GDBSCAN::device_functions::calc_cell_id;
   const auto id = get_cell_id(x[u], y[u], minx, miny, radius, grid_col_sz);
   cell_id_array[u] = id;
   vtx_idx_array[u] = u;
@@ -71,53 +71,38 @@ __global__ void k_num_nbs(float const *const x, float const *const y,
                           const uint64_t num_vtx, uint64_t *const num_nbs) {
   uint64_t const u = threadIdx.x + blockIdx.x * blockDim.x;
   if (u >= num_vtx) return;
-
-  auto get_cell_id = GDBSCAN::device_functions::calc_cell_id;
-  uint64_t cell_id = get_cell_id(x[u], y[u], minx, miny, radius, grid_col_sz);
+  float ux = x[u], uy = y[u];
+  uint64_t cell_id = GDBSCAN::device_functions::calc_cell_id(
+      x[u], y[u], minx, miny, radius, grid_col_sz);
   uint64_t left = cell_id - 1, btm_left = cell_id + grid_col_sz - 1,
-           btm = cell_id + grid_col_sz, btm_right = cell_id + grid_col_sz + 1,
-           right = cell_id + 1, top_right = cell_id - grid_col_sz + 1,
-           top = cell_id - grid_col_sz, top_left = cell_id - grid_col_sz - 1;
-
-  num_nbs[u] = 0;
-  auto dist = GDBSCAN::device_functions::square_dist;
-
-  for (auto i = 0u; i < grid_vtx_counter[cell_id]; ++i) {
-    const auto nb = grid[grid_start_pos[cell_id] + i];
-    if (u != nb && dist(x[u], y[u], x[nb], y[nb]) <= rad_sq) ++num_nbs[u];
+           top_left = cell_id - grid_col_sz - 1;
+  uint64_t ans = 0;
+  for (auto cell_pos = top_left; cell_pos < top_left + 3; ++cell_pos) {
+    const auto start = grid_start_pos[cell_pos];
+    const auto end = start + grid_vtx_counter[cell_pos];
+    for (auto i = start; i < end; ++i) {
+      ans += (GDBSCAN::device_functions::square_dist(ux, uy, x[grid[i]],
+                                                     y[grid[i]]) <= rad_sq);
+    }
   }
-  for (auto i = 0u; i < grid_vtx_counter[left]; ++i) {
-    const auto nb = grid[grid_start_pos[left] + i];
-    if (dist(x[u], y[u], x[nb], y[nb]) <= rad_sq) ++num_nbs[u];
+  for (auto cell_pos = left; cell_pos < left + 3; ++cell_pos) {
+    const auto start = grid_start_pos[cell_pos];
+    const auto end = start + grid_vtx_counter[cell_pos];
+    for (auto i = start; i < end; ++i) {
+      ans += (GDBSCAN::device_functions::square_dist(ux, uy, x[grid[i]],
+                                                     y[grid[i]]) <= rad_sq);
+    }
   }
-  for (auto i = 0u; i < grid_vtx_counter[btm_left]; ++i) {
-    const auto nb = grid[grid_start_pos[btm_left] + i];
-    if (dist(x[u], y[u], x[nb], y[nb]) <= rad_sq) ++num_nbs[u];
+  --ans;
+  for (auto cell_pos = btm_left; cell_pos < btm_left + 3; ++cell_pos) {
+    const auto start = grid_start_pos[cell_pos];
+    const auto end = start + grid_vtx_counter[cell_pos];
+    for (auto i = start; i < end; ++i) {
+      ans += (GDBSCAN::device_functions::square_dist(ux, uy, x[grid[i]],
+                                                     y[grid[i]]) <= rad_sq);
+    }
   }
-  for (auto i = 0u; i < grid_vtx_counter[btm]; ++i) {
-    const auto nb = grid[grid_start_pos[btm] + i];
-    if (dist(x[u], y[u], x[nb], y[nb]) <= rad_sq) ++num_nbs[u];
-  }
-  for (auto i = 0u; i < grid_vtx_counter[btm_right]; ++i) {
-    const auto nb = grid[grid_start_pos[btm_right] + i];
-    if (dist(x[u], y[u], x[nb], y[nb]) <= rad_sq) ++num_nbs[u];
-  }
-  for (auto i = 0u; i < grid_vtx_counter[right]; ++i) {
-    const auto nb = grid[grid_start_pos[right] + i];
-    if (dist(x[u], y[u], x[nb], y[nb]) <= rad_sq) ++num_nbs[u];
-  }
-  for (auto i = 0u; i < grid_vtx_counter[top_right]; ++i) {
-    const auto nb = grid[grid_start_pos[top_right] + i];
-    if (dist(x[u], y[u], x[nb], y[nb]) <= rad_sq) ++num_nbs[u];
-  }
-  for (auto i = 0u; i < grid_vtx_counter[top]; ++i) {
-    const auto nb = grid[grid_start_pos[top] + i];
-    if (dist(x[u], y[u], x[nb], y[nb]) <= rad_sq) ++num_nbs[u];
-  }
-  for (auto i = 0u; i < grid_vtx_counter[top_left]; ++i) {
-    const auto nb = grid[grid_start_pos[top_left] + i];
-    if (dist(x[u], y[u], x[nb], y[nb]) <= rad_sq) ++num_nbs[u];
-  }
+  num_nbs[u] = ans;
 }
 // Populate the actual neighbours array
 __global__ void k_append_neighbours(

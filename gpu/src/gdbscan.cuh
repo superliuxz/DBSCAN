@@ -65,9 +65,9 @@ class Solver {
   std::vector<float> x_, y_;
   uint64_t grid_rows_, grid_cols_, grid_size_;
   float max_x_ = std::numeric_limits<float>::min(),
-      max_y_ = std::numeric_limits<float>::min(),
-      min_x_ = std::numeric_limits<float>::max(),
-      min_y_ = std::numeric_limits<float>::max();
+        max_y_ = std::numeric_limits<float>::min(),
+        min_x_ = std::numeric_limits<float>::max(),
+        min_y_ = std::numeric_limits<float>::max();
   // gpu vars. Class members to avoid unnecessary copy.
   int num_blocks_vtx_{}, num_blocks_cell_{};
   float *dev_x_{}, *dev_y_{};
