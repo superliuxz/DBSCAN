@@ -31,6 +31,7 @@ int main(int argc, char *argv[]) {
 
   GDBSCAN::Solver solver(input, min_pts, radius);
 
+  solver.construct_grid();
   solver.calc_num_neighbours();
   solver.calc_start_pos();
   solver.append_neighbours();

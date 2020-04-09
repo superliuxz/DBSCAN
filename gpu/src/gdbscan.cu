@@ -24,10 +24,10 @@ inline void cuda_err_chk(cudaError_t code, const char *file, int line,
 
 GDBSCAN::Solver::Solver(const std::string &input, const uint64_t &min_pts,
                         const float &radius)
-    : squared_radius_(radius * radius), min_pts_(min_pts) {
+    : radius_(radius), squared_radius_(radius * radius), min_pts_(min_pts) {
   auto ifs = std::ifstream(input);
   ifs >> num_vtx_;
-  num_blocks = std::ceil(num_vtx_ / static_cast<float>(BLOCK_SIZE));
+  num_blocks_vtx_ = std::ceil(num_vtx_ / static_cast<float>(BLOCK_SIZE));
   x_.resize(num_vtx_, 0);
   y_.resize(num_vtx_, 0);
   memberships.resize(num_vtx_, DBSCAN::membership::Noise);
@@ -38,11 +38,76 @@ GDBSCAN::Solver::Solver(const std::string &input, const uint64_t &min_pts,
   while (ifs >> n >> x >> y) {
     x_[n] = x;
     y_[n] = y;
+    max_x_ = std::max(max_x_, x + radius / 2);
+    min_x_ = std::min(min_x_, x - radius / 2);
+    max_y_ = std::max(max_y_, y + radius / 2);
+    min_y_ = std::min(min_y_, y - radius / 2);
   }
+  // grid dims
+  grid_rows_ = 1 + std::ceil((max_y_ - min_y_) / radius) + 1;
+  grid_cols_ = 1 + std::ceil((max_x_ - min_x_) / radius) + 1;
+  grid_size_ = grid_rows_ * grid_cols_;
+  num_blocks_cell_ = std::ceil(grid_size_ / static_cast<float>(BLOCK_SIZE));
+
 #if GDBSCAN_TESTING == 1
   start_pos.resize(num_vtx_, 0);
   num_neighbours.resize(num_vtx_, 0);
 #endif
+}
+
+void GDBSCAN::Solver::construct_grid() {
+  const auto N = sizeof(x_[0]) * num_vtx_;
+  uint64_t *dev_cell_id_array, *dev_vtx_idx_array;
+  const auto M = sizeof(dev_cell_id_array[0]) * num_vtx_;
+  const auto L = sizeof(dev_grid_vtx_counter_[0]) * grid_size_;
+  const auto J = sizeof(dev_grid_[0]) * num_vtx_;
+  printf("construct_grid needs %lf MB\n",
+         static_cast<double>(N + N + M + M + L + L + J) / 1024.f / 1024.f);
+
+  // do not free dev_x_ and dev_y_; they are required to calculate
+  // |neighbours|
+  CUDA_ERR_CHK(cudaMalloc((void **)&dev_x_, N));
+  CUDA_ERR_CHK(cudaMalloc((void **)&dev_y_, N));
+  CUDA_ERR_CHK(cudaMemcpy(dev_x_, thrust::raw_pointer_cast(x_.data()), N, H2D));
+  CUDA_ERR_CHK(cudaMemcpy(dev_y_, thrust::raw_pointer_cast(y_.data()), N, H2D));
+
+  // calculate the cell index for each vtx
+  CUDA_ERR_CHK(cudaMalloc((void **)&dev_cell_id_array, M));
+  CUDA_ERR_CHK(cudaMalloc((void **)&dev_vtx_idx_array, M));
+  GDBSCAN::kernel_functions::
+      k_populate_cell_id_array<<<num_blocks_vtx_, BLOCK_SIZE>>>(
+          dev_x_, dev_y_, min_x_, min_y_, radius_, grid_cols_,
+          dev_cell_id_array, dev_vtx_idx_array, num_vtx_);
+  CUDA_ERR_CHK(cudaPeekAtLastError());
+
+  // sort using cell idx
+  thrust::sort_by_key(thrust::device, dev_cell_id_array,
+                      dev_cell_id_array + num_vtx_, dev_vtx_idx_array);
+
+  // count the number of vtx per cell. One thread each cell.
+  CUDA_ERR_CHK(cudaMalloc((void **)&dev_grid_vtx_counter_, L));
+  GDBSCAN::kernel_functions::
+      k_calc_grid_vtx_counter<<<num_blocks_cell_, BLOCK_SIZE>>>(
+          dev_cell_id_array, dev_grid_vtx_counter_, num_vtx_, grid_size_);
+  CUDA_ERR_CHK(cudaPeekAtLastError());
+
+  // calculate start positions using exclusive_scan
+  CUDA_ERR_CHK(cudaMalloc((void **)&dev_grid_start_pos_, L));
+  thrust::exclusive_scan(thrust::device, dev_grid_vtx_counter_,
+                         dev_grid_vtx_counter_ + grid_size_,
+                         dev_grid_start_pos_);
+
+  // populate grid. One thread each cell.
+  CUDA_ERR_CHK(cudaMalloc((void **)&dev_grid_, J));
+  GDBSCAN::kernel_functions::k_populate_grid<<<num_blocks_cell_, BLOCK_SIZE>>>(
+      dev_cell_id_array, dev_vtx_idx_array, dev_grid_start_pos_, dev_grid_,
+      num_vtx_, grid_size_);
+  CUDA_ERR_CHK(cudaPeekAtLastError());
+
+  CUDA_ERR_CHK(cudaFree(dev_cell_id_array));
+  CUDA_ERR_CHK(cudaFree(dev_vtx_idx_array));
+  // dev_x_, dev_y_, dev_grid_vtx_counter_, dev_grid_start_pos_, dev_grid_ in
+  // GPU RAM.
 }
 
 void GDBSCAN::Solver::calc_num_neighbours() {
@@ -53,16 +118,10 @@ void GDBSCAN::Solver::calc_num_neighbours() {
          static_cast<double>(N + N + K) / 1024.f / 1024.f);
 
   uint64_t last_vtx_num_nbs = 0;
-  // do not free dev_x_ and dev_y_; they are required to calculate
-  // |neighbours|
-  CUDA_ERR_CHK(cudaMalloc((void **)&dev_x_, N));
-  CUDA_ERR_CHK(cudaMalloc((void **)&dev_y_, N));
   // do not free |dev_num_neighbours_|; it's required for the rest of algorithm.
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_num_neighbours_, K));
-  CUDA_ERR_CHK(cudaMemcpy(dev_x_, thrust::raw_pointer_cast(x_.data()), N, H2D));
-  CUDA_ERR_CHK(cudaMemcpy(dev_y_, thrust::raw_pointer_cast(y_.data()), N, H2D));
 
-  GDBSCAN::kernel_functions::k_num_nbs<<<num_blocks, BLOCK_SIZE>>>(
+  GDBSCAN::kernel_functions::k_num_nbs<<<num_blocks_vtx_, BLOCK_SIZE>>>(
       dev_x_, dev_y_, dev_num_neighbours_, squared_radius_, num_vtx_);
   CUDA_ERR_CHK(cudaPeekAtLastError());
   CUDA_ERR_CHK(cudaMemcpy(&last_vtx_num_nbs, dev_num_neighbours_ + num_vtx_ - 1,
@@ -114,9 +173,10 @@ void GDBSCAN::Solver::append_neighbours() {
   // Do not free |dev_neighbours_|. It's required for the rest of algorithm.
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_neighbours_, J));
 
-  GDBSCAN::kernel_functions::k_append_neighbours<<<num_blocks, BLOCK_SIZE>>>(
-      dev_x_, dev_y_, dev_start_pos_, dev_neighbours_, num_vtx_,
-      squared_radius_);
+  GDBSCAN::kernel_functions::
+      k_append_neighbours<<<num_blocks_vtx_, BLOCK_SIZE>>>(
+          dev_x_, dev_y_, dev_start_pos_, dev_neighbours_, num_vtx_,
+          squared_radius_);
   CUDA_ERR_CHK(cudaPeekAtLastError());
 
   // |dev_x_| and |dev_y_| are no longer used.
@@ -137,7 +197,7 @@ void GDBSCAN::Solver::identify_cores() {
   // Do not free |dev_membership_| as it's used in BFS. The content will be
   // copied out at the end of |identify_clusters|.
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_membership_, M));
-  GDBSCAN::kernel_functions::k_identify_cores<<<num_blocks, BLOCK_SIZE>>>(
+  GDBSCAN::kernel_functions::k_identify_cores<<<num_blocks_vtx_, BLOCK_SIZE>>>(
       dev_num_neighbours_, dev_membership_, num_vtx_, min_pts_);
   // Copy the membership data from GPU to CPU RAM as needed for the BFS
   // condition check.
@@ -186,7 +246,7 @@ void GDBSCAN::Solver::bfs(const uint64_t u, const int cluster) {
 
   while (num_frontier > 0) {
     //    printf("\tnumber_frontier: %lu\n", num_frontier);
-    GDBSCAN::kernel_functions::k_bfs<<<num_blocks, BLOCK_SIZE>>>(
+    GDBSCAN::kernel_functions::k_bfs<<<num_blocks_vtx_, BLOCK_SIZE>>>(
         dev_visited, dev_frontier, dev_num_neighbours_, dev_start_pos_,
         dev_neighbours_, dev_membership_, num_vtx_);
     CUDA_ERR_CHK(cudaPeekAtLastError());

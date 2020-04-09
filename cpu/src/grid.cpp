@@ -38,6 +38,9 @@ void DBSCAN::Grid::construct_grid(
   using namespace std::chrono;
   high_resolution_clock::time_point start = high_resolution_clock::now();
 
+  // TODO: https://github.com/superliuxz/DBSCAN/issues/11, when GCC-10 arrives
+  //       update to a better parallel algorithm.
+  // TODO: for small # of threads, use the sequential implementation.
   std::vector<std::thread> threads(num_threads_);
   const uint64_t chunk = std::ceil(num_vtx_ / num_threads_);
   for (uint8_t tid = 0; tid < num_threads_; ++tid) {
