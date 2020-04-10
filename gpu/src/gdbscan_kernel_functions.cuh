@@ -12,97 +12,52 @@
 
 namespace GDBSCAN {
 namespace kernel_functions {
-// Write cell_id_array and vtx_idx_array. One thread per vtx.
-__global__ void k_populate_cell_id_array(float const *const x,
-                                         float const *const y, const float minx,
-                                         const float miny, const float radius,
-                                         const uint64_t grid_col_sz,
-                                         uint64_t *const cell_id_array,
-                                         uint64_t *const vtx_idx_array,
-                                         const uint64_t num_vtx) {
-  uint64_t const u = threadIdx.x + blockIdx.x * blockDim.x;
-  if (u >= num_vtx) return;
-  constexpr auto get_cell_id = GDBSCAN::device_functions::calc_cell_id;
-  const auto id = get_cell_id(x[u], y[u], minx, miny, radius, grid_col_sz);
-  cell_id_array[u] = id;
-  vtx_idx_array[u] = u;
-}
-// Calculate the number of vertices of each cell using binary search. One
-// thread per cell.
-__global__ void k_calc_grid_vtx_counter(uint64_t const *const cell_id_array,
-                                        uint64_t *const grid_vtx_counter,
-                                        const uint64_t num_vtx,
-                                        const uint64_t grid_sz) {
-  uint64_t const cell_id = threadIdx.x + blockIdx.x * blockDim.x;
-  if (cell_id >= grid_sz) return;
-  const auto p = thrust::equal_range(thrust::device, cell_id_array,
-                                     cell_id_array + num_vtx, cell_id);
-  grid_vtx_counter[cell_id] = p.second - p.first;
-}
-// Populate grid. One thread per cell.
-__global__ void k_populate_grid(uint64_t const *const cell_id_array,
-                                uint64_t const *const vtx_idx_array,
-                                uint64_t const *const grid_start_pos,
-                                uint64_t *const grid, const uint64_t num_vtx,
-                                const uint64_t grid_sz) {
-  uint64_t const cell_id = threadIdx.x + blockIdx.x * blockDim.x;
-  if (cell_id >= grid_sz) return;
-  const auto p = thrust::equal_range(thrust::device, cell_id_array,
-                                     cell_id_array + num_vtx, cell_id);
-  const auto start = p.first - cell_id_array;
-  const auto end = start + p.second - p.first;
-  //  printf("cell_id %lu/%lu start %lu end %lu start_pos %lu\n", cell_id,
-  //  grid_sz,
-  //         start, end, grid_start_pos[cell_id]);
-  auto out_ptr = grid + grid_start_pos[cell_id];
-  for (auto ptr = vtx_idx_array + start; ptr != vtx_idx_array + end;
-       ++ptr, ++out_ptr) {
-    //    printf("\twrite %lu to %lu\n", ptr, out_ptr);
-    *out_ptr = *ptr;
-  }
-}
-// Calculate the number of neighbours of each vertex
+/*!
+ * Calculate the number of neighbours of each vertex. One kernel per vertex.
+ * @param x - x values, sorted by l1 norm.
+ * @param y - y values, sorted by l1 norm.
+ * @param l1norm - sorted l1 norm.
+ * @param vtx_mapper - maps sorted vertex index to original.
+ * @param rad - radius.
+ * @param num_vtx - number of vertices.
+ * @param num_nbs - output array.
+ */
 __global__ void k_num_nbs(float const *const x, float const *const y,
-                          uint64_t const *const grid_vtx_counter,
-                          uint64_t const *const grid_start_pos,
-                          uint64_t const *const grid, const float minx,
-                          const float miny, const float radius,
-                          const float rad_sq, const uint64_t grid_col_sz,
+                          float const *const l1norm,
+                          uint64_t const *const vtx_mapper, const float rad,
                           const uint64_t num_vtx, uint64_t *const num_nbs) {
   uint64_t const u = threadIdx.x + blockIdx.x * blockDim.x;
   if (u >= num_vtx) return;
-  float ux = x[u], uy = y[u];
-  uint64_t cell_id = GDBSCAN::device_functions::calc_cell_id(
-      x[u], y[u], minx, miny, radius, grid_col_sz);
-  uint64_t left = cell_id - 1, btm_left = cell_id + grid_col_sz - 1,
-           top_left = cell_id - grid_col_sz - 1;
+  // first vtx of current block.
+  uint64_t tb_start = blockIdx.x * blockDim.x;
+  // last vtx of current block.
+  uint64_t tb_end = std::min(tb_start + blockDim.x, num_vtx - 1);
+  // inclusive start
+  uint64_t range_start = thrust::lower_bound(
+      thrust::device, l1norm, l1norm + num_vtx, l1norm[tb_start] - 2 * rad);
+  // exclusive end
+  uint64_t range_end = thrust::upper_bound(
+      thrust::device, l1norm, l1norm + num_vtx, l1norm[tb_end] + 2 * rad);
+  uint64_t range = range_end - range_start;
+  uint64_t num_tiles = std::ceil(static_cast<float>(range) * 4 * 2 / 64 / 1024);
+  uint64_t tile_size = std::ceil(static_cast<float>(range) / num_tiles);
+  __shared__ float[tile_size] sh_x;
+  __shared__ float[tile_size] sh_y;
   uint64_t ans = 0;
-  for (auto cell_pos = top_left; cell_pos < top_left + 3; ++cell_pos) {
-    const auto start = grid_start_pos[cell_pos];
-    const auto end = start + grid_vtx_counter[cell_pos];
-    for (auto i = start; i < end; ++i) {
-      ans += (GDBSCAN::device_functions::square_dist(ux, uy, x[grid[i]],
-                                                     y[grid[i]]) <= rad_sq);
+  for (auto curr = range_start; curr < range_end; curr += tile_size) {
+    uint64_t i_stop = std::min(tile_size, range_end - curr);
+    for (auto i = 0; i < i_stop; ++i) {
+      sh_x[i] = x[range_start + curr + i];
+      sh_y[i] = y[range_start + curr + i];
+    }
+    __sync_threads();
+    for (auto i = 0; i < i_stop; ++i) {
+      ans += GDBSCAN::device_functions::square_dist(
+                 sh_x[u], sh_y[u], sh_x[range_start + curr + i],
+                 sh_y[range_start + curr + i]) <= rad * rad
     }
   }
-  for (auto cell_pos = left; cell_pos < left + 3; ++cell_pos) {
-    const auto start = grid_start_pos[cell_pos];
-    const auto end = start + grid_vtx_counter[cell_pos];
-    for (auto i = start; i < end; ++i) {
-      ans += (GDBSCAN::device_functions::square_dist(ux, uy, x[grid[i]],
-                                                     y[grid[i]]) <= rad_sq);
-    }
-  }
-  --ans;
-  for (auto cell_pos = btm_left; cell_pos < btm_left + 3; ++cell_pos) {
-    const auto start = grid_start_pos[cell_pos];
-    const auto end = start + grid_vtx_counter[cell_pos];
-    for (auto i = start; i < end; ++i) {
-      ans += (GDBSCAN::device_functions::square_dist(ux, uy, x[grid[i]],
-                                                     y[grid[i]]) <= rad_sq);
-    }
-  }
-  num_nbs[u] = ans;
+  num_nbs[vtx_mapper[u]] = ans;
 }
 // Populate the actual neighbours array
 __global__ void k_append_neighbours(
