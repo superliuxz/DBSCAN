@@ -1,35 +1,40 @@
 # DBSCAN
 
-The GPU implementation is inspired by 
-[this](https://www.sciencedirect.com/science/article/pii/S1877050913003438) 
-paper.
-
 ## Requirements
-C++14; CUDA; Thrust.
+C++14/17; GCC; CUDA; Thrust.
 
-## Build instructions
-0. For the first time: `git submodule update --init --recursive`
-1. `cmake -Bbuild -H.`
-2. `cmake --build build --target <target>`
+## How to build
+- For the first time: `git submodule update --init --recursive`
+### Build main
+- `cmake -Bbuild -H.`
+  - For `cpu-main`
+    - set environment variable `AVX=1` to enable AVX instruction set;
+    - set environment variable `BIT_ADJ=1` if on average, each vertex has more than |V|/64
+      number of neighbours.
+- `cmake --build build --target cpu-main/gpu-main`
+### Build tests
+- `cmake -DCMAKE_BUILD_TYPE=Debug -Bbuild -H.`
+  - For `cpu-test` set `AVX=1` and `BIT_ADJ=1` correspondingly.
+- `cmake --build build --target cpu-test/gpu-test`
 
 ## How to run
 
-0. [optional] Generate an example using the Python script:
+- [optional] Generate an example using the Python script:
 `python3 generate_dateset.py --n-samples=20000 --cluster-std=3.0`
-    - 20,000 points with 3.0 stddiv;
+  - 20,000 points with 3.0 stddiv;
 
-1. [optional] Cluster the input and visualize it using Sklearn:
+- [optional] Cluster the input and visualize it using Sklearn:
 `python3 dbscan.py --input-name=test_input.txt --eps=0.1 --min-samples=12`
-    - 0.1 radius and 12 neighbour points for clustering.
+  - 0.1 radius and 12 neighbour points for clustering.
 
 ### CPU algorithm
-2. `./build/bin/cpu-main --input=test_input.txt --eps=0.1 --min-samples=12`.
-    - Append `--print` to see the cluster ids.
-    - Append `--num-threads=K` to speed up the processing.
+- `./build/bin/cpu-main --input=test_input.txt --eps=0.1 --min-samples=12`.
+  - Append `--print` to see the cluster ids.
+  - Append `--num-threads=K` to speed up the processing.
 
 ### GPU algorithm
-2. `./build/bin/gpu-main --input=test_input.txt --eps=0.1 --min-samples=12`.
-    - Append `--print` to see the cluster ids.
+- `./build/bin/gpu-main --input=test_input.txt --eps=0.1 --min-samples=12`.
+  - Append `--print` to see the cluster ids.
 
 ## Test data
 test_input_20k.txt is generated using `--cluster-std=2.2 --n-samples=20000`,

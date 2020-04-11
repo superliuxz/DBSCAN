@@ -33,8 +33,8 @@ int main(int argc, char *argv[]) {
 
   auto t0 = high_resolution_clock::now();
   auto d0 = duration_cast<duration<double>>(t0 - start);
-  solver.construct_grid();
-  printf("construct_grid takes %lf seconds\n", d0.count());
+  solver.sort_input_by_l1norm();
+  printf("sort_input_by_l1norm takes %lf seconds\n", d0.count());
 
   solver.calc_num_neighbours();
   auto t1 = high_resolution_clock::now();

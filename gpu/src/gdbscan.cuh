@@ -16,7 +16,7 @@ int const BLOCK_SIZE = 1024;
 
 class Solver {
  public:
-  Solver(const std::string &, const uint64_t &, const float &);
+  Solver(const std::string &, uint64_t, float);
   void sort_input_by_l1norm();
   /*
    * Spend n^2 time, calculate the number of neighbours for each vertex.
@@ -45,7 +45,7 @@ class Solver {
   std::vector<int> cluster_ids;
   std::vector<DBSCAN::membership> memberships;
 
-#if GDBSCAN_TESTING == 1
+#if defined(DBSCAN_TESTING)
  public:
   std::vector<uint64_t> num_neighbours, start_pos;
   std::vector<uint64_t, DBSCAN::utils::NonConstructAllocator<uint64_t>>

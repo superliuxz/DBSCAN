@@ -76,7 +76,7 @@ class Solver {
   const float max_radius_ = std::sqrt(std::numeric_limits<float>::max()) - 1;
   __m256 sq_rad8_;
 #endif
-#if DBSCAN_TESTING == true
+#if defined(DBSCAN_TESTING)
  public:
 #else
  private:

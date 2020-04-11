@@ -22,8 +22,8 @@ inline void cuda_err_chk(cudaError_t code, const char *file, int line,
   }
 }
 
-GDBSCAN::Solver::Solver(const std::string &input, const uint64_t &min_pts,
-                        const float &radius)
+GDBSCAN::Solver::Solver(const std::string &input, const uint64_t min_pts,
+                        const float radius)
     : radius_(radius), min_pts_(min_pts) {
   auto ifs = std::ifstream(input);
   ifs >> num_vtx_;
@@ -31,6 +31,7 @@ GDBSCAN::Solver::Solver(const std::string &input, const uint64_t &min_pts,
   x_.resize(num_vtx_, 0);
   y_.resize(num_vtx_, 0);
   l1norm_.resize(num_vtx_, 0);
+  vtx_mapper_.resize(num_vtx_, 0);
   memberships.resize(num_vtx_, DBSCAN::membership::Noise);
   cluster_ids.resize(num_vtx_, -1);
 
@@ -42,35 +43,25 @@ GDBSCAN::Solver::Solver(const std::string &input, const uint64_t &min_pts,
     l1norm_[n] = std::abs(x) + std::abs(y);
     vtx_mapper_[n] = n;
   }
-#if GDBSCAN_TESTING == 1
+#if defined(DBSCAN_TESTING)
   start_pos.resize(num_vtx_, 0);
   num_neighbours.resize(num_vtx_, 0);
 #endif
 }
 
 void GDBSCAN::Solver::sort_input_by_l1norm() {
-  std::vector<float> temp_key(l1norm_);
-  thrust::sort_by_key(thrust::host, temp_key.begin(), temp_key.end(),
-                      x_.begin());
-  temp_key = l1norm_;
-  thrust::sort_by_key(thrust::host, temp_key.begin(), temp_key.end(),
-                      y_.begin());
-  thrust::sort_by_key(thrust::host, l1norm_.begin(), l1norm_.end(),
-                      vtx_mapper_.begin());
-}
+  // https://stackoverflow.com/a/31919466
+  typedef typename thrust::tuple<float *, float *, uint64_t *> IteratorTuple;
+  typedef typename thrust::zip_iterator<IteratorTuple> ZipIterator;
 
-void GDBSCAN::Solver::calc_num_neighbours() {
   const auto N = sizeof(x_[0]) * num_vtx_;
-  const auto K = sizeof(*dev_num_neighbours_) * num_vtx_;
+  const auto K = sizeof(dev_vtx_mapper_[0]) * num_vtx_;
+  printf("sort_input_by_l1norm needs: %lf MB\n",
+         static_cast<double>(N * 3 + K) / 1024.f / 1024.f);
 
-  printf("calc_num_neighbours needs: %lf MB\n",
-         static_cast<double>(N + N + N + K + K) / 1024.f / 1024.f);
-
-  uint64_t last_vtx_num_nbs = 0;
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_x_, N));
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_y_, N));
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_l1norm_, N));
-  CUDA_ERR_CHK(cudaMalloc((void **)&dev_num_neighbours_, K));
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_vtx_mapper_, K));
   CUDA_ERR_CHK(cudaMemcpy(dev_x_, thrust::raw_pointer_cast(x_.data()), N, H2D));
   CUDA_ERR_CHK(cudaMemcpy(dev_y_, thrust::raw_pointer_cast(y_.data()), N, H2D));
@@ -79,87 +70,126 @@ void GDBSCAN::Solver::calc_num_neighbours() {
   CUDA_ERR_CHK(cudaMemcpy(
       dev_vtx_mapper_, thrust::raw_pointer_cast(vtx_mapper_.data()), K, H2D));
 
+  ZipIterator begin(thrust::make_tuple(dev_x_, dev_y_, dev_vtx_mapper_));
+  thrust::stable_sort_by_key(thrust::device, dev_l1norm_,
+                             dev_l1norm_ + num_vtx_, begin);
+#if defined(DBSCAN_TESTING)
+  CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(x_.data()), dev_x_, N, D2H));
+  CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(y_.data()), dev_y_, N, D2H));
+  CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(l1norm_.data()), dev_l1norm_,
+                          N, D2H));
+  CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(vtx_mapper_.data()),
+                          dev_vtx_mapper_, K, D2H));
+//  printf("sorted x: ");
+//  for (auto & v : x_) printf("%f ", v);
+//  printf("\nsorted y: ");
+//  for (auto & v : y_) printf("%f ", v);
+//  printf("\nsorted l1norm: ");
+//  for (auto & v : l1norm_) printf("%f ", v);
+//  printf("\nsorted vtx_mapper: ");
+//  for (auto & v : vtx_mapper_) printf("%lu ", v);
+//  printf("\n");
+#endif
+  // dev_x_, dev_y_, dev_l1norm_, dev_vtx_mapper_ in GPU RAM.
+}
+
+void GDBSCAN::Solver::calc_num_neighbours() {
+  const auto N = sizeof(x_[0]) * num_vtx_;
+  const auto K = sizeof(dev_num_neighbours_[0]) * num_vtx_;
+
+  printf("calc_num_neighbours needs: %lf MB\n",
+         static_cast<double>(N * 3 + K * 2) / 1024.f / 1024.f);
+
+  uint64_t last_vtx_num_nbs = 0;
+  CUDA_ERR_CHK(cudaMalloc((void **)&dev_num_neighbours_, K));
+
   GDBSCAN::kernel_functions::k_num_nbs<<<num_blocks_, BLOCK_SIZE>>>(
-      dev_x_, dev_y_, dev_l1norm_, dev_vtx_mapper_, radius_,
-      num_vtx_, dev_num_neighbours_);
+      dev_x_, dev_y_, dev_l1norm_, dev_vtx_mapper_, radius_, num_vtx_,
+      dev_num_neighbours_);
   CUDA_ERR_CHK(cudaPeekAtLastError());
   CUDA_ERR_CHK(cudaMemcpy(&last_vtx_num_nbs, dev_num_neighbours_ + num_vtx_ - 1,
                           sizeof(last_vtx_num_nbs), D2H));
-#if GDBSCAN_TESTING == 1
+#if defined(DBSCAN_TESTING)
   CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(num_neighbours.data()),
                           dev_num_neighbours_, K, D2H));
+//  printf("num_nbs: ");
+//  for (auto &v : num_neighbours) printf("%lu ", v);
+//  printf("\n");
 #endif
   total_num_nbs_ += last_vtx_num_nbs;
-  // |dev_x_|, |dev_y_|, |dev_num_neighbours_|, |dev_grid_vtx_counter_|,
-  // |dev_grid_start_pos_|, |dev_grid_| in GPU RAM.
+  // dev_x_, dev_y_, dev_l1norm_, dev_vtx_mapper_, dev_num_neighbours_
+  // in GPU RAM.
 }
 
 void GDBSCAN::Solver::calc_start_pos() {
   uint64_t last_vtx_start_pos = 0;
 
   const auto N = sizeof(dev_start_pos_[0]) * num_vtx_;
+  const auto K = sizeof(dev_num_neighbours_[0]) * num_vtx_;
 
   printf("calc_start_pos needs: %lf MB\n",
-         static_cast<double>(N) / 1024.f / 1024.f);
-  // Do not free |dev_start_pos_|. It's required for the rest of algorithm.
+         static_cast<double>(N * 3 + K * 3) / 1024.f / 1024.f);
+  // Do not free dev_start_pos_. It's required for the rest of algorithm.
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_start_pos_, N));
   thrust::exclusive_scan(thrust::device, dev_num_neighbours_,
                          dev_num_neighbours_ + num_vtx_, dev_start_pos_);
   CUDA_ERR_CHK(cudaMemcpy(&last_vtx_start_pos, dev_start_pos_ + num_vtx_ - 1,
                           sizeof(uint64_t), D2H));
-#if GDBSCAN_TESTING == 1
+#if defined(DBSCAN_TESTING)
   CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(start_pos.data()),
                           dev_start_pos_, N, D2H));
+//  printf("start_pos: ");
+//  for (auto & v : start_pos) printf("%lu ", v);
+//  printf("\n");
 #endif
   total_num_nbs_ += last_vtx_start_pos;
-  // |dev_x_|, |dev_y_|, |dev_num_neighbours_|, |dev_start_pos_|,
-  // |dev_grid_vtx_counter_|, |dev_grid_start_pos_|, |dev_grid_| in GPU RAM.
+  // dev_x_, dev_y_, dev_l1norm_, dev_vtx_mapper_, dev_num_neighbours_,
+  // dev_start_pos_, in GPU RAM.
 }
 
 void GDBSCAN::Solver::append_neighbours() {
-#if GDBSCAN_TESTING == 1
+#if defined(DBSCAN_TESTING)
   neighbours.resize(total_num_nbs_, 0);
 #endif
   //  printf("size of neighbours array: %lu\n", total_num_nbs_);
 
   const auto N = sizeof(x_[0]) * num_vtx_;
-  const auto K = sizeof(*dev_start_pos_) * num_vtx_;
-  const auto J = sizeof(*dev_neighbours_) * total_num_nbs_;
+  const auto K = sizeof(dev_start_pos_[0]) * num_vtx_;
+  const auto J = sizeof(dev_neighbours_[0]) * total_num_nbs_;
 
   printf("append_neighbours needs: %lf MB\n",
-         static_cast<double>(N + N + K + J) / 1024.f / 1024.f);
+         static_cast<double>(N * 3 + K * 3 + J) / 1024.f / 1024.f);
 
-  // |dev_x_| and |dev_y_| are in GPU memory.
-  // Do not free |dev_neighbours_|. It's required for the rest of algorithm.
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_neighbours_, J));
 
-  GDBSCAN::kernel_functions::
-      k_append_neighbours<<<num_blocks_vtx_, BLOCK_SIZE>>>(
-          dev_x_, dev_y_, dev_grid_vtx_counter_, dev_grid_start_pos_, dev_grid_,
-          min_x_, min_y_, radius_, dev_start_pos_, dev_neighbours_, num_vtx_,
-          squared_radius_, grid_cols_);
+  GDBSCAN::kernel_functions::k_append_neighbours<<<num_blocks_, BLOCK_SIZE>>>(
+      dev_x_, dev_y_, dev_l1norm_, dev_vtx_mapper_, dev_start_pos_, radius_,
+      num_vtx_, dev_neighbours_);
   CUDA_ERR_CHK(cudaPeekAtLastError());
 
-  // |dev_x_| and |dev_y_| are no longer used.
+  // dev_x_ and dev_y_ are no longer used.
   CUDA_ERR_CHK(cudaFree(dev_x_));
   CUDA_ERR_CHK(cudaFree(dev_y_));
-  // graph has been fully constructed, hence free all the grid related.
-  CUDA_ERR_CHK(cudaFree(dev_grid_vtx_counter_));
-  CUDA_ERR_CHK(cudaFree(dev_grid_start_pos_));
-  CUDA_ERR_CHK(cudaFree(dev_grid_));
-#if GDBSCAN_TESTING == 1
+  // graph has been fully constructed, hence free all the sorting related.
+  CUDA_ERR_CHK(cudaFree(dev_l1norm_));
+  CUDA_ERR_CHK(cudaFree(dev_vtx_mapper_));
+#if defined(DBSCAN_TESTING)
   CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(neighbours.data()),
                           dev_neighbours_, J, D2H));
+//  printf("neighbours: ");
+//  for (auto &v : neighbours) printf("%lu ", v);
+//  printf("\n");
 #endif
-  // |dev_num_neighbours_|, |dev_start_pos_|, |dev_neighbours_| in GPU RAM.
+  // dev_num_neighbours_, dev_start_pos_, dev_neighbours_ in GPU RAM.
 }
 
 void GDBSCAN::Solver::identify_cores() {
-  const auto N = sizeof(*dev_num_neighbours_) * num_vtx_;
-  const auto M = sizeof(*dev_membership_) * num_vtx_;
+  const auto N = sizeof(dev_num_neighbours_[0]) * num_vtx_;
+  const auto M = sizeof(dev_membership_[0]) * num_vtx_;
+  const auto J = sizeof(dev_neighbours_[0]) * total_num_nbs_;
   printf("identify_cores needs: %lf MB\n",
-         static_cast<double>(M + N) / 1024.f / 1024.f);
-  // Do not free |dev_membership_| as it's used in BFS. The content will be
+         static_cast<double>(N * 2 + J + M) / 1024.f / 1024.f);
+  // Do not free dev_membership_ as it's used in BFS. The content will be
   // copied out at the end of |identify_clusters|.
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_membership_, M));
   GDBSCAN::kernel_functions::k_identify_cores<<<num_blocks_, BLOCK_SIZE>>>(
@@ -168,14 +198,23 @@ void GDBSCAN::Solver::identify_cores() {
   // condition check.
   CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(memberships.data()),
                           dev_membership_, M, D2H));
-  // |dev_num_neighbours_|, |dev_start_pos_|, |dev_neighbours_|,
-  // |dev_membership_| in GPU RAM.
+  // dev_num_neighbours_, dev_start_pos_, dev_neighbours_, dev_membership_ in
+  // GPU RAM.
 }
 
 void GDBSCAN::Solver::identify_clusters() {
+  const auto T = sizeof(bool) * num_vtx_;
+  const auto N = sizeof(dev_num_neighbours_[0]) * num_vtx_;
+  const auto L = sizeof(dev_membership_[0]) * num_vtx_;
+  const auto K = sizeof(dev_neighbours_[0]) * total_num_nbs_;
+
+  printf("identify_clusters needs: %lf MB\n",
+         static_cast<double>(N * 2 + K + L + T * 2) / 1024.f / 1024.f);
+
   int cluster = 0;
   for (uint64_t u = 0; u < num_vtx_; ++u) {
     if (cluster_ids[u] == -1 && memberships[u] == DBSCAN::membership::Core) {
+      //      printf("vtx %lu cluster %d\n", u, cluster);
       bfs(u, cluster);
       ++cluster;
     }
@@ -192,14 +231,8 @@ void GDBSCAN::Solver::bfs(const uint64_t u, const int cluster) {
   auto frontier = new bool[num_vtx_]();
   uint64_t num_frontier = 1;
   frontier[u] = true;
-
   const auto T = sizeof(visited[0]) * num_vtx_;
-  const auto N = sizeof(*dev_num_neighbours_) * num_vtx_;
   const auto L = sizeof(*dev_membership_) * num_vtx_;
-  const auto K = sizeof(*dev_neighbours_) * total_num_nbs_;
-
-  printf("bfs at %lu needs: %lf MB\n", u,
-         static_cast<double>(T + T + N + N + K + L) / 1024.f / 1024.f);
 
   bool *dev_visited, *dev_frontier;
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_visited, T));
