@@ -15,7 +15,8 @@
 namespace GDBSCAN {
 namespace kernel_functions {
 /*!
- * Calculate the number of neighbours of each vertex. One kernel per vertex.
+ * Calculate the number of neighbours of each vertex. One kernel thread per
+ * vertex.
  * @param x - x values, sorted by l1 norm.
  * @param y - y values, sorted by l1 norm.
  * @param l1norm - sorted l1 norm.
@@ -63,7 +64,17 @@ __global__ void k_num_nbs(float const *const x, float const *const y,
   }
   num_nbs[vtx_mapper[u]] = ans - 1;
 }
-// Populate the actual neighbours array
+/*!
+ * Populate the neighbours array. One kernel thread per vertex.
+ * @param x - x values, sorted by l1 norm.
+ * @param y - y values, sorted by l1 norm.
+ * @param l1norm - sorted l1 norm.
+ * @param vtx_mapper - maps sorted vertex index to original.
+ * @param start_pos - neighbours starting index of each vertex.
+ * @param rad - radius.
+ * @param num_vtx - number of vertices
+ * @param neighbours - output array
+ */
 __global__ void k_append_neighbours(float const *const x, float const *const y,
                                     float const *const l1norm,
                                     uint64_t const *const vtx_mapper,
@@ -111,7 +122,14 @@ __global__ void k_append_neighbours(float const *const x, float const *const y,
     }
   }
 }
-// Identify all the Core vtx.
+/*!
+ * Identify all the Core vertices. One kernel thread per vertex.
+ * @param num_neighbours - the number of neighbours of each vertex.
+ * @param membership - membership of each vertex.
+ * @param num_vtx - number of vertex.
+ * @param min_pts - query parameter, minimum number of points to be consider as
+ * a Core.
+ */
 __global__ void k_identify_cores(uint64_t const *const num_neighbours,
                                  DBSCAN::membership *const membership,
                                  const uint64_t num_vtx,
@@ -121,7 +139,16 @@ __global__ void k_identify_cores(uint64_t const *const num_neighbours,
   membership[u] = DBSCAN::membership::Noise;
   if (num_neighbours[u] >= min_pts) membership[u] = DBSCAN::membership::Core;
 }
-// BFS kernel.
+/*!
+ * Traverse the graph from each vertex. One kernel thread per vertex.
+ * @param visited - boolean array that tracks if a vertex has been visited.
+ * @param frontier - boolean array that tracks if a vertex is on the frontier.
+ * @param num_nbs - the number of neighbours of each vertex.
+ * @param start_pos - neighbours starting index of each vertex.
+ * @param neighbours - the actually neighbour indices of each vertex.
+ * @param membership - membership of each vertex.
+ * @param num_vtx - number of vertices of the graph.
+ */
 __global__ void k_bfs(bool *const visited, bool *const frontier,
                       uint64_t const *const num_nbs,
                       uint64_t const *const start_pos,

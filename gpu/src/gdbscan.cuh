@@ -17,26 +17,28 @@ int const BLOCK_SIZE = 1024;
 class Solver {
  public:
   Solver(const std::string &, uint64_t, float);
+  /*!
+   * Sort the input by the l1norm of each point.
+   */
   void sort_input_by_l1norm();
-  /*
-   * Spend n^2 time, calculate the number of neighbours for each vertex.
+  /*!
+   * Spend k*V time, calculate the number of neighbours for each vertex.
    * Returns the number of neighbours of last vertex.
    */
   void calc_num_neighbours();
-  /*
-   * Prefix sum;
-   * Returns the start pos of last vertex.
+  /*!
+   * Prefix sum.
    */
   void calc_start_pos();
-  /*
-   * Spend n^2 time, populate the actual neighbours for each vertex.
+  /*!
+   * Spend k*V time, populate the actual neighbours for each vertex.
    */
   void append_neighbours();
-  /*
+  /*!
    * ID the Core and non-Core vertices.
    */
   void identify_cores();
-  /*
+  /*!
    * Identify all the existing clusters using BFS.
    */
   void identify_clusters();
@@ -62,6 +64,7 @@ class Solver {
   uint64_t min_pts_;
   // data structures
   std::vector<float> x_, y_, l1norm_;
+  // maps the sorted indices of each vertex to the original index.
   std::vector<uint64_t> vtx_mapper_;
   // gpu vars. Class members to avoid unnecessary copy.
   int num_blocks_{};
@@ -69,8 +72,10 @@ class Solver {
   uint64_t *dev_vtx_mapper_{}, *dev_num_neighbours_{}, *dev_start_pos_{},
       *dev_neighbours_{};
   DBSCAN::membership *dev_membership_{};
-  /*
+  /*!
    * BFS CPU kernel, which invokes the BFS GPU kernel, and syncs at each level.
+   * @param u - starting vertex of BFS.
+   * @param cluster - current cluster id.
    */
   void bfs(uint64_t u, int cluster);
 };
