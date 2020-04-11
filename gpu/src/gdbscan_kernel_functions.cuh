@@ -7,6 +7,7 @@
 
 #include <membership.h>
 #include <thrust/binary_search.h>
+#include <thrust/execution_policy.h>
 
 #include <cmath>
 
@@ -73,6 +74,7 @@ __global__ void k_num_nbs(float const *const x, float const *const y,
       ans += GDBSCAN::device_functions::square_dist(ux, uy, sh_x[j], sh_y[j]) <=
              rad * rad;
     }
+    __syncthreads();
   }
   num_nbs[vtx_mapper[u]] = ans - 1;
 }
