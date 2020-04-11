@@ -36,29 +36,38 @@ __global__ void k_num_nbs(float const *const x, float const *const y,
   // last vtx of current block.
   const uint64_t tb_end = min(tb_start + blockDim.x, num_vtx) - 1;
   // inclusive start
-  const float *range_start = thrust::lower_bound(
+  const float *possible_range_start = thrust::lower_bound(
       thrust::device, l1norm, l1norm + num_vtx, l1norm[tb_start] - 2 * rad);
   // exclusive end
-  const float *range_end = thrust::upper_bound(
+  const float *possible_range_end = thrust::upper_bound(
       thrust::device, l1norm, l1norm + num_vtx, l1norm[tb_end] + 2 * rad);
-  const uint64_t tile_size = 48 * 1024 / 4 / 2;
-  __shared__ float shared[tile_size * 2];
+  const uint64_t tile_size = 48 * 1024 / 4 / (1 + 1);
+  uint64_t const num_threads = tb_end - tb_start;
+  // first half of shared stores Xs; second half stores Ys.
+  __shared__ float shared[tile_size * (1 + 1)];
   auto *const sh_x = shared;
   auto *const sh_y = shared + tile_size;
   const float ux = x[u], uy = y[u];
   uint64_t ans = 0;
 
-  for (auto curr_ptr = range_start; curr_ptr < range_end;
+  for (auto curr_ptr = possible_range_start; curr_ptr < possible_range_end;
        curr_ptr += tile_size) {
+    // curr_ptr's index
     uint64_t const curr_idx = curr_ptr - l1norm;
-    uint64_t const i_stop = min(tile_size, range_end - curr_ptr);
-    for (auto i = 0u; i < i_stop; ++i) {
+    // current range; might be less than tile_size.
+    uint64_t const curr_range = min(tile_size, possible_range_end - curr_ptr);
+    // each thread updates sub_range number of Xs and Ys.
+    uint64_t const sub_range =
+        std::ceil(curr_range / static_cast<float>(num_threads));
+    uint64_t const i_start = sub_range * threadIdx.x;
+    uint64_t const i_stop = min(i_start + sub_range, curr_range);
+    for (auto i = i_start; i < i_stop; ++i) {
       sh_x[i] = x[curr_idx + i];
       sh_y[i] = y[curr_idx + i];
     }
     __syncthreads();
-    for (auto i = 0; i < i_stop; ++i) {
-      ans += GDBSCAN::device_functions::square_dist(ux, uy, sh_x[i], sh_y[i]) <=
+    for (auto j = 0; j < curr_range; ++j) {
+      ans += GDBSCAN::device_functions::square_dist(ux, uy, sh_x[j], sh_y[j]) <=
              rad * rad;
     }
   }
@@ -88,38 +97,51 @@ __global__ void k_append_neighbours(float const *const x, float const *const y,
   // last vtx of current block.
   const uint64_t tb_end = min(tb_start + blockDim.x, num_vtx) - 1;
   // inclusive start
-  const float *range_start = thrust::lower_bound(
+  const float *possible_range_start = thrust::lower_bound(
       thrust::device, l1norm, l1norm + num_vtx, l1norm[tb_start] - 2 * rad);
   // exclusive end
-  const float *range_end = thrust::upper_bound(
+  const float *possible_range_end = thrust::upper_bound(
       thrust::device, l1norm, l1norm + num_vtx, l1norm[tb_end] + 2 * rad);
-  const uint64_t tile_size = 48 * 1024 / 4 / 2;
-  __shared__ float shared[tile_size * 2];
+  // different from previous kernel, here the shared array is tri-partitioned,
+  // because of the frequent access to vtx_mapper. The vtx_mapper's partition
+  // size is twice large since uint64_t is 8 bytes whereas float is 4.
+  const uint64_t tile_size = 48 * 1024 / 4 / (1 + 1 + 2);
+  uint64_t const num_threads = tb_end - tb_start;
+  __shared__ float shared[tile_size * (1 + 1 + 2)];
   auto *const sh_x = shared;
   auto *const sh_y = shared + tile_size;
+  auto *const sh_vtx_mapper = (uint64_t *)(sh_y + tile_size);
   const float ux = x[u], uy = y[u];
   uint64_t upos = start_pos[vtx_mapper[u]];
 
-  for (auto curr_ptr = range_start; curr_ptr < range_end;
+  for (auto curr_ptr = possible_range_start; curr_ptr < possible_range_end;
        curr_ptr += tile_size) {
+    // curr_ptr's index
     uint64_t const curr_idx = curr_ptr - l1norm;
-    uint64_t const i_stop = min(tile_size, range_end - curr_ptr);
-    for (auto i = 0u; i < i_stop; ++i) {
+    // current range; might be less than tile_size.
+    uint64_t const curr_range = min(tile_size, possible_range_end - curr_ptr);
+    // each thread updates sub_range number of Xs and Ys.
+    uint64_t const sub_range =
+        std::ceil(curr_range / static_cast<float>(num_threads));
+    uint64_t const i_start = sub_range * threadIdx.x;
+    uint64_t const i_stop = min(i_start + sub_range, curr_range);
+    for (auto i = i_start; i < i_stop; ++i) {
       sh_x[i] = x[curr_idx + i];
       sh_y[i] = y[curr_idx + i];
+      sh_vtx_mapper[i] = vtx_mapper[curr_idx + i];
     }
     __syncthreads();
-    for (auto i = 0; i < i_stop; ++i) {
-      uint64_t v = curr_idx + i;
+    for (auto j = 0; j < curr_range; ++j) {
       // TODO: fix me. one padding of each vertex range
       //      neighbours[upos] = vtx_mapper[v];
       //      upos += ((u != v) & GDBSCAN::device_functions::square_dist(
       //                              ux, uy, sh_x[v], sh_y[v]) <= rad * rad);
-      if (u != v && GDBSCAN::device_functions::square_dist(
-                        ux, uy, sh_x[i], sh_y[i]) <= rad * rad) {
-        neighbours[upos++] = vtx_mapper[v];
+      if (u != curr_idx + j && GDBSCAN::device_functions::square_dist(
+                                   ux, uy, sh_x[j], sh_y[j]) <= rad * rad) {
+        neighbours[upos++] = sh_vtx_mapper[j];
       }
     }
+    __syncthreads();
   }
 }
 /*!
