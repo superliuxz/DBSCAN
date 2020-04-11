@@ -34,7 +34,7 @@ __global__ void k_num_nbs(float const *const x, float const *const y,
   // first vtx of current block.
   const uint64_t tb_start = blockIdx.x * blockDim.x;
   // last vtx of current block.
-  const uint64_t tb_end = min(tb_start + blockDim.x, num_vtx - 1);
+  const uint64_t tb_end = min(tb_start + blockDim.x, num_vtx) - 1;
   // inclusive start
   const float *range_start = thrust::lower_bound(
       thrust::device, l1norm, l1norm + num_vtx, l1norm[tb_start] - 2 * rad);
@@ -86,7 +86,7 @@ __global__ void k_append_neighbours(float const *const x, float const *const y,
   // first vtx of current block.
   const uint64_t tb_start = blockIdx.x * blockDim.x;
   // last vtx of current block.
-  const uint64_t tb_end = min(tb_start + blockDim.x, num_vtx - 1);
+  const uint64_t tb_end = min(tb_start + blockDim.x, num_vtx) - 1;
   // inclusive start
   const float *range_start = thrust::lower_bound(
       thrust::device, l1norm, l1norm + num_vtx, l1norm[tb_start] - 2 * rad);
