@@ -22,7 +22,7 @@ inline void cuda_err_chk(cudaError_t code, const char *file, int line,
   }
 }
 
-GDBSCAN::Solver::Solver(const std::string &input, const uint64_t min_pts,
+GDBSCAN::Solver::Solver(const std::string &input, const uint32_t min_pts,
                         const float radius)
     : radius_(radius), min_pts_(min_pts) {
   auto ifs = std::ifstream(input);
@@ -51,7 +51,7 @@ GDBSCAN::Solver::Solver(const std::string &input, const uint64_t min_pts,
 
 void GDBSCAN::Solver::sort_input_by_l1norm() {
   // https://stackoverflow.com/a/31919466
-  typedef typename thrust::tuple<float *, float *, uint64_t *> IteratorTuple;
+  typedef typename thrust::tuple<float *, float *, uint32_t *> IteratorTuple;
   typedef typename thrust::zip_iterator<IteratorTuple> ZipIterator;
 
   const auto N = sizeof(x_[0]) * num_vtx_;
@@ -100,7 +100,7 @@ void GDBSCAN::Solver::calc_num_neighbours() {
   printf("calc_num_neighbours needs: %lf MB\n",
          static_cast<double>(N * 3 + K * 2) / 1024.f / 1024.f);
 
-  uint64_t last_vtx_num_nbs = 0;
+  uint32_t last_vtx_num_nbs = 0;
   CUDA_ERR_CHK(cudaMalloc((void **)&dev_num_neighbours_, K));
 
   GDBSCAN::kernel_functions::k_num_nbs<<<num_blocks_, BLOCK_SIZE>>>(
@@ -109,6 +109,7 @@ void GDBSCAN::Solver::calc_num_neighbours() {
   CUDA_ERR_CHK(cudaPeekAtLastError());
   CUDA_ERR_CHK(cudaMemcpy(&last_vtx_num_nbs, dev_num_neighbours_ + num_vtx_ - 1,
                           sizeof(last_vtx_num_nbs), D2H));
+  total_num_nbs_ += last_vtx_num_nbs;
 #if defined(DBSCAN_TESTING)
   CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(num_neighbours.data()),
                           dev_num_neighbours_, K, D2H));
@@ -116,13 +117,12 @@ void GDBSCAN::Solver::calc_num_neighbours() {
 //  for (auto &v : num_neighbours) printf("%lu ", v);
 //  printf("\n");
 #endif
-  total_num_nbs_ += last_vtx_num_nbs;
   // dev_x_, dev_y_, dev_l1norm_, dev_vtx_mapper_, dev_num_neighbours_
   // in GPU RAM.
 }
 
 void GDBSCAN::Solver::calc_start_pos() {
-  uint64_t last_vtx_start_pos = 0;
+  uint32_t last_vtx_start_pos = 0;
 
   const auto N = sizeof(dev_start_pos_[0]) * num_vtx_;
   const auto K = sizeof(dev_num_neighbours_[0]) * num_vtx_;
@@ -134,7 +134,8 @@ void GDBSCAN::Solver::calc_start_pos() {
   thrust::exclusive_scan(thrust::device, dev_num_neighbours_,
                          dev_num_neighbours_ + num_vtx_, dev_start_pos_);
   CUDA_ERR_CHK(cudaMemcpy(&last_vtx_start_pos, dev_start_pos_ + num_vtx_ - 1,
-                          sizeof(uint64_t), D2H));
+                          sizeof(uint32_t), D2H));
+  total_num_nbs_ += last_vtx_start_pos;
 #if defined(DBSCAN_TESTING)
   CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(start_pos.data()),
                           dev_start_pos_, N, D2H));
@@ -142,7 +143,6 @@ void GDBSCAN::Solver::calc_start_pos() {
 //  for (auto & v : start_pos) printf("%lu ", v);
 //  printf("\n");
 #endif
-  total_num_nbs_ += last_vtx_start_pos;
   // dev_x_, dev_y_, dev_l1norm_, dev_vtx_mapper_, dev_num_neighbours_,
   // dev_start_pos_, in GPU RAM.
 }
@@ -212,7 +212,7 @@ void GDBSCAN::Solver::identify_clusters() {
          static_cast<double>(N * 2 + K + L + T * 2) / 1024.f / 1024.f);
 
   int cluster = 0;
-  for (uint64_t u = 0; u < num_vtx_; ++u) {
+  for (uint32_t u = 0; u < num_vtx_; ++u) {
     if (cluster_ids[u] == -1 && memberships[u] == DBSCAN::membership::Core) {
       //      printf("vtx %lu cluster %d\n", u, cluster);
       bfs(u, cluster);
@@ -226,10 +226,10 @@ void GDBSCAN::Solver::identify_clusters() {
   // nothing in GPU RAM.
 }
 
-void GDBSCAN::Solver::bfs(const uint64_t u, const int cluster) {
+void GDBSCAN::Solver::bfs(const uint32_t u, const int cluster) {
   auto visited = new bool[num_vtx_]();
   auto frontier = new bool[num_vtx_]();
-  uint64_t num_frontier = 1;
+  uint32_t num_frontier = 1;
   frontier[u] = true;
   const auto T = sizeof(visited[0]) * num_vtx_;
   const auto L = sizeof(*dev_membership_) * num_vtx_;
@@ -257,7 +257,7 @@ void GDBSCAN::Solver::bfs(const uint64_t u, const int cluster) {
   CUDA_ERR_CHK(cudaFree(dev_visited));
   CUDA_ERR_CHK(cudaFree(dev_frontier));
 
-  for (uint64_t n = 0; n < num_vtx_; ++n) {
+  for (uint32_t n = 0; n < num_vtx_; ++n) {
     if (visited[n]) {
       //      printf("\tvtx %lu is visited\n", n);
       cluster_ids[n] = cluster;

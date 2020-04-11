@@ -12,11 +12,11 @@
 #include "utils.h"
 
 namespace GDBSCAN {
-int const BLOCK_SIZE = 1024;
+int const BLOCK_SIZE = 512;
 
 class Solver {
  public:
-  Solver(const std::string &, uint64_t, float);
+  Solver(const std::string &, uint32_t, float);
   /*!
    * Sort the input by the l1norm of each point.
    */
@@ -49,8 +49,8 @@ class Solver {
 
 #if defined(DBSCAN_TESTING)
  public:
-  std::vector<uint64_t> num_neighbours, start_pos;
-  std::vector<uint64_t, DBSCAN::utils::NonConstructAllocator<uint64_t>>
+  std::vector<uint32_t> num_neighbours, start_pos;
+  std::vector<uint32_t, DBSCAN::utils::NonConstructAllocator<uint32_t>>
       neighbours;
 #endif
 
@@ -59,17 +59,17 @@ class Solver {
   cudaMemcpyKind H2D = cudaMemcpyHostToDevice;
   // query params
   float radius_;
-  uint64_t num_vtx_{};
-  uint64_t total_num_nbs_{};
-  uint64_t min_pts_;
+  uint32_t num_vtx_{};
+  uint32_t total_num_nbs_{};
+  uint32_t min_pts_;
   // data structures
   std::vector<float> x_, y_, l1norm_;
   // maps the sorted indices of each vertex to the original index.
-  std::vector<uint64_t> vtx_mapper_;
+  std::vector<uint32_t> vtx_mapper_;
   // gpu vars. Class members to avoid unnecessary copy.
   int num_blocks_{};
   float *dev_x_{}, *dev_y_{}, *dev_l1norm_{};
-  uint64_t *dev_vtx_mapper_{}, *dev_num_neighbours_{}, *dev_start_pos_{},
+  uint32_t *dev_vtx_mapper_{}, *dev_num_neighbours_{}, *dev_start_pos_{},
       *dev_neighbours_{};
   DBSCAN::membership *dev_membership_{};
   /*!
@@ -77,7 +77,7 @@ class Solver {
    * @param u - starting vertex of BFS.
    * @param cluster - current cluster id.
    */
-  void bfs(uint64_t u, int cluster);
+  void bfs(uint32_t u, int cluster);
 };
 }  // namespace GDBSCAN
 
