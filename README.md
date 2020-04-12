@@ -6,7 +6,7 @@ C++14/17; GCC; CUDA; Thrust.
 ## How to build
 - For the first time: `git submodule update --init --recursive`
 ### Build main
-- `cmake -Bbuild -H.`
+- `cmake -DCMAKE_BUILD_TYPE=None -Bbuild -H.`
   - For `cpu-main`
     - set environment variable `AVX=1` to enable AVX instruction set;
     - set environment variable `BIT_ADJ=1` if on average, each vertex has more than |V|/64

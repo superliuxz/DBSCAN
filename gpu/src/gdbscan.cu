@@ -50,10 +50,6 @@ GDBSCAN::Solver::Solver(const std::string &input, const uint32_t min_pts,
 }
 
 void GDBSCAN::Solver::sort_input_by_l1norm() {
-  // https://stackoverflow.com/a/31919466
-  typedef typename thrust::tuple<float *, float *, uint32_t *> IteratorTuple;
-  typedef typename thrust::zip_iterator<IteratorTuple> ZipIterator;
-
   const auto N = sizeof(x_[0]) * num_vtx_;
   const auto K = sizeof(dev_vtx_mapper_[0]) * num_vtx_;
   printf("sort_input_by_l1norm needs: %lf MB\n",
@@ -70,9 +66,12 @@ void GDBSCAN::Solver::sort_input_by_l1norm() {
   CUDA_ERR_CHK(cudaMemcpy(
       dev_vtx_mapper_, thrust::raw_pointer_cast(vtx_mapper_.data()), K, H2D));
 
+  // https://stackoverflow.com/a/31919466
+  typedef typename thrust::tuple<float *, float *, uint32_t *> IteratorTuple;
+  typedef typename thrust::zip_iterator<IteratorTuple> ZipIterator;
   ZipIterator begin(thrust::make_tuple(dev_x_, dev_y_, dev_vtx_mapper_));
-  thrust::stable_sort_by_key(thrust::device, dev_l1norm_,
-                             dev_l1norm_ + num_vtx_, begin);
+  thrust::sort_by_key(thrust::device, dev_l1norm_, dev_l1norm_ + num_vtx_,
+                      begin);
 #if defined(DBSCAN_TESTING)
   CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(x_.data()), dev_x_, N, D2H));
   CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(y_.data()), dev_y_, N, D2H));
@@ -114,7 +113,7 @@ void GDBSCAN::Solver::calc_num_neighbours() {
   CUDA_ERR_CHK(cudaMemcpy(thrust::raw_pointer_cast(num_neighbours.data()),
                           dev_num_neighbours_, K, D2H));
 //  printf("num_nbs: ");
-//  for (auto &v : num_neighbours) printf("%lu ", v);
+//  for (auto &v : num_neighbours) printf("%u ", v);
 //  printf("\n");
 #endif
   // dev_x_, dev_y_, dev_l1norm_, dev_vtx_mapper_, dev_num_neighbours_

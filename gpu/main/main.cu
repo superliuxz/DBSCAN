@@ -9,6 +9,10 @@
 #include "gdbscan.cuh"
 
 int main(int argc, char *argv[]) {
+#if defined(DBSCAN_TESTING)
+  fprintf(stderr, "DBSCAN_TESTING enabled, something is wrong...\n");
+  return 0;
+#endif
   cxxopts::Options options("GDBSCAN", "ma, look, it's GDBSCAN");
   // clang-format off
     options.add_options()

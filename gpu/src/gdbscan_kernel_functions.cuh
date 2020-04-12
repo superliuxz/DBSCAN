@@ -38,12 +38,22 @@ __global__ void k_num_nbs(float const *const x, float const *const y,
   const uint32_t tb_start = blockIdx.x * blockDim.x;
   // last vtx of current block.
   const uint32_t tb_end = min(tb_start + blockDim.x, num_vtx) - 1;
-  // inclusive start
-  const float *possible_range_start = thrust::lower_bound(
-      thrust::device, l1norm, l1norm + num_vtx, l1norm[tb_start] - 2 * rad);
-  // exclusive end
-  const float *possible_range_end = thrust::upper_bound(
-      thrust::device, l1norm, l1norm + num_vtx, l1norm[tb_end] + 2 * rad);
+
+  int land_id = threadIdx.x & 0x1f;
+  float const *possible_range_start, *possible_range_end;
+  if (land_id == 0) {
+    // inclusive start
+    possible_range_start = thrust::lower_bound(
+        thrust::device, l1norm, l1norm + num_vtx, l1norm[tb_start] - 2 * rad);
+    // exclusive end
+    possible_range_end = thrust::upper_bound(
+        thrust::device, l1norm, l1norm + num_vtx, l1norm[tb_end] + 2 * rad);
+  }
+  possible_range_start =
+      (float *)__shfl_sync(0xffffffff, (uint64_t)possible_range_start, 0);
+  possible_range_end =
+      (float *)__shfl_sync(0xffffffff, (uint64_t)possible_range_end, 0);
+
   const uint32_t tile_size = SHARED_MEMORY_BYTES / 4 / (1 + 1);
   uint32_t const num_threads = tb_end - tb_start;
   // first half of shared stores Xs; second half stores Ys.
@@ -59,13 +69,14 @@ __global__ void k_num_nbs(float const *const x, float const *const y,
     // current range; might be less than tile_size.
     uint32_t const curr_range =
         min(tile_size, static_cast<uint32_t>(possible_range_end - curr_ptr));
-    // each thread updates sub_range number of Xs and Ys.
+    // thread 0 updates sh_x[0], sh_x[0+sub_range], sh_x[0+2*sub_range] ...
+    // thread 1 updates sh_x[1], sh_x[1+sub_range], sh_x[1+2*sub_range] ...
+    // ...
+    // thread t updates sh_x[t], sh_x[t+sub_range], sh_x[t+2*sub_range] ...
     uint32_t const sub_range =
         std::ceil(curr_range / static_cast<float>(num_threads));
-    uint32_t const i_start = sub_range * threadIdx.x;
-    uint32_t const i_stop = min(i_start + sub_range, curr_range);
     __syncthreads();
-    for (auto i = i_start; i < i_stop; ++i) {
+    for (auto i = threadIdx.x; i < curr_range; i += sub_range) {
       sh_x[i] = x[curr_idx + i];
       sh_y[i] = y[curr_idx + i];
     }
@@ -101,12 +112,22 @@ __global__ void k_append_neighbours(float const *const x, float const *const y,
   const uint32_t tb_start = blockIdx.x * blockDim.x;
   // last vtx of current block.
   const uint32_t tb_end = min(tb_start + blockDim.x, num_vtx) - 1;
-  // inclusive start
-  const float *possible_range_start = thrust::lower_bound(
-      thrust::device, l1norm, l1norm + num_vtx, l1norm[tb_start] - 2 * rad);
-  // exclusive end
-  const float *possible_range_end = thrust::upper_bound(
-      thrust::device, l1norm, l1norm + num_vtx, l1norm[tb_end] + 2 * rad);
+
+  int land_id = threadIdx.x & 0x1f;
+  float const *possible_range_start, *possible_range_end;
+  if (land_id == 0) {
+    // inclusive start
+    possible_range_start = thrust::lower_bound(
+        thrust::device, l1norm, l1norm + num_vtx, l1norm[tb_start] - 2 * rad);
+    // exclusive end
+    possible_range_end = thrust::upper_bound(
+        thrust::device, l1norm, l1norm + num_vtx, l1norm[tb_end] + 2 * rad);
+  }
+  possible_range_start =
+      (float *)__shfl_sync(0xffffffff, (uint64_t)possible_range_start, 0);
+  possible_range_end =
+      (float *)__shfl_sync(0xffffffff, (uint64_t)possible_range_end, 0);
+
   // different from previous kernel, here the shared array is tri-partitioned,
   // because of the frequent access to vtx_mapper.
   const uint32_t tile_size = SHARED_MEMORY_BYTES / 4 / (1 + 1 + 1);
@@ -124,13 +145,14 @@ __global__ void k_append_neighbours(float const *const x, float const *const y,
     // current range; might be less than tile_size.
     uint32_t const curr_range =
         min(tile_size, static_cast<uint32_t>(possible_range_end - curr_ptr));
-    // each thread updates sub_range number of Xs and Ys.
+    // thread 0 updates sh_x[0], sh_x[0+sub_range], sh_x[0+2*sub_range] ...
+    // thread 1 updates sh_x[1], sh_x[1+sub_range], sh_x[1+2*sub_range] ...
+    // ...
+    // thread t updates sh_x[t], sh_x[t+sub_range], sh_x[t+2*sub_range] ...
     uint32_t const sub_range =
         std::ceil(curr_range / static_cast<float>(num_threads));
-    uint32_t const i_start = sub_range * threadIdx.x;
-    uint32_t const i_stop = min(i_start + sub_range, curr_range);
     __syncthreads();
-    for (auto i = i_start; i < i_stop; ++i) {
+    for (auto i = threadIdx.x; i < curr_range; i += sub_range) {
       sh_x[i] = x[curr_idx + i];
       sh_y[i] = y[curr_idx + i];
       sh_vtx_mapper[i] = vtx_mapper[curr_idx + i];
