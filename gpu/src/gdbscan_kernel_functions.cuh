@@ -64,6 +64,7 @@ __global__ void k_num_nbs(float const *const x, float const *const y,
         std::ceil(curr_range / static_cast<float>(num_threads));
     uint32_t const i_start = sub_range * threadIdx.x;
     uint32_t const i_stop = min(i_start + sub_range, curr_range);
+    __syncthreads();
     for (auto i = i_start; i < i_stop; ++i) {
       sh_x[i] = x[curr_idx + i];
       sh_y[i] = y[curr_idx + i];
@@ -74,7 +75,6 @@ __global__ void k_num_nbs(float const *const x, float const *const y,
       ans += GDBSCAN::device_functions::square_dist(ux, uy, sh_x[j], sh_y[j]) <=
              rad * rad;
     }
-    __syncthreads();
   }
   num_nbs[vtx_mapper[u]] = ans - 1;
 }
@@ -129,6 +129,7 @@ __global__ void k_append_neighbours(float const *const x, float const *const y,
         std::ceil(curr_range / static_cast<float>(num_threads));
     uint32_t const i_start = sub_range * threadIdx.x;
     uint32_t const i_stop = min(i_start + sub_range, curr_range);
+    __syncthreads();
     for (auto i = i_start; i < i_stop; ++i) {
       sh_x[i] = x[curr_idx + i];
       sh_y[i] = y[curr_idx + i];
@@ -146,7 +147,6 @@ __global__ void k_append_neighbours(float const *const x, float const *const y,
         neighbours[upos++] = sh_vtx_mapper[j];
       }
     }
-    __syncthreads();
   }
 }
 /*!
