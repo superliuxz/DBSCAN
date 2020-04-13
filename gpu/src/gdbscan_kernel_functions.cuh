@@ -216,7 +216,10 @@ __global__ void k_bfs(bool *const visited, bool *const frontier,
   //  u_start);
   for (uint32_t i = 0; i < num_nbs[u]; ++i) {
     uint32_t v = neighbours[u_start + i];
-    frontier[v] = !visited[v];  // equal to if (!visited[v]) frontier[v] = true
+    // scarifies divergence for less global memory access.
+    // `frontier[v] = !visited[v];` would make it branch-less at the cost of
+    // more global write.
+    if (!visited[v]) frontier[v] = true;
   }
 }
 }  // namespace kernel_functions
