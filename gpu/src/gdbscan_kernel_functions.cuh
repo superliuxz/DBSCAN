@@ -160,10 +160,9 @@ __global__ void k_append_neighbours(float const *const x, float const *const y,
     __syncthreads();
     const float ux = x[u], uy = y[u];
     for (auto j = 0; j < curr_range; ++j) {
-      // TODO: fix me. one padding of each vertex range
-      //      neighbours[upos] = vtx_mapper[v];
-      //      upos += ((u != v) & GDBSCAN::device_functions::square_dist(
-      //                              ux, uy, sh_x[v], sh_y[v]) <= rad * rad);
+      // the if guard is faster than a branchless because the write to
+      // neighbours is slow. In the branchless version, neighbours is updated
+      // for every j.
       if (u != curr_idx + j && GDBSCAN::device_functions::square_dist(
                                    ux, uy, sh_x[j], sh_y[j]) <= rad * rad) {
         neighbours[upos++] = sh_vtx_mapper[j];
