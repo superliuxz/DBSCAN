@@ -21,6 +21,10 @@ std::string print_vector(const std::string& vector_name,
                          std::vector<T> vector) {
   std::ostringstream oss;
   oss << vector_name << ": ";
+  if (vector.empty()) {
+    oss << "EMPTY!" << std::endl;
+    return oss.str();
+  }
   auto it = vector.cbegin();
   while (it != vector.cend() - 1) oss << *(it++) << ", ";
   oss << *it << std::endl;

@@ -16,7 +16,7 @@ parser.add_argument('--print', action='store_true',
                     help='print the clustered result to stdout')
 parser.add_argument('--eps', type=float, default=0.3,
                     help='clustering radius')
-parser.add_argument('--min-samples', type=int, default=9,
+parser.add_argument('--min-pts', type=int, default=9,
                     help='number of points to be considered as a Core')
 parser.add_argument('--algorithm', type=str, default=['kd_tree'],
                     help="algorithm used to fixed-radius neighbour query. "

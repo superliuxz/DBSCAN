@@ -3,7 +3,7 @@
 # V100: sm_70, compute_70
 # 1070: sm_61, compute_61
 set(CUDA_ARCH arch=compute_61,code=sm_61)
-set(CMAKE_CUDA_FLAGS "-gencode ${CUDA_ARCH} --ptxas-options=-O3 -O3")
+set(CMAKE_CUDA_FLAGS "-gencode ${CUDA_ARCH} --ptxas-options=-O3 -O3 --generate-line-info")
 set(CMAKE_CUDA_STANDARD 14)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)

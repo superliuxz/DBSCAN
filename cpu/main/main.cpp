@@ -1,9 +1,15 @@
+#include <spdlog/sinks/stdout_color_sinks.h>
+
 #include <cxxopts.hpp>
 #include <iostream>
 
 #include "solver.h"
 
 int main(int argc, char* argv[]) {
+#if defined(DBSCAN_TESTING)
+  fprintf(stderr, "DBSCAN_TESTING enabled, something is wrong...\n");
+  return 0;
+#endif
   auto logger = spdlog::stdout_color_mt("console");
   logger->set_level(spdlog::level::info);
 
@@ -12,7 +18,7 @@ int main(int argc, char* argv[]) {
   options.add_options()
       ("p,print", "Print clustering IDs") // boolean
       ("r,eps", "Clustering radius", cxxopts::value<float>())
-      ("n,min-samples", "Number of points within radius", cxxopts::value<size_t>())
+      ("n,min-pts", "Number of points within radius", cxxopts::value<size_t>())
       ("i,input", "Input filename", cxxopts::value<std::string>())
       ("t,num-threads", "Number of threads", cxxopts::value<uint8_t>()->default_value("1"))
       ;
@@ -21,7 +27,7 @@ int main(int argc, char* argv[]) {
 
   bool output_labels = args["print"].as<bool>();
   float radius = args["eps"].as<float>();
-  uint min_pts = args["min-samples"].as<size_t>();
+  uint min_pts = args["min-pts"].as<size_t>();
   std::string input = args["input"].as<std::string>();
   uint8_t num_threads = args["num-threads"].as<uint8_t>();
 
@@ -29,6 +35,7 @@ int main(int argc, char* argv[]) {
 
   auto const start = std::chrono::high_resolution_clock::now();
   DBSCAN::Solver solver(input, min_pts, radius, num_threads);
+  solver.construct_grid();
   solver.insert_edges();
   solver.finalize_graph();
   solver.classify_vertices();
@@ -39,8 +46,7 @@ int main(int argc, char* argv[]) {
   spdlog::info("DBSCAN takes {} sec", duration.count());
 
   if (output_labels) {
-    auto& g = solver.graph_view();
-    for (const auto& l : g.cluster_ids) {
+    for (const auto& l : solver.cluster_ids) {
       std::cout << l << std::endl;
     }
   }

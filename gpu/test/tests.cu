@@ -20,13 +20,15 @@ class GDBSCAN_TestEnvironment : public testing::Environment {
   }
 };
 
-TEST(Solver, make_graph_small_graph) {
+TEST(Solver, test_input1) {
   using namespace GDBSCAN;
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f);
+  ASSERT_NO_THROW(solver.sort_input_by_l1norm());
   ASSERT_NO_THROW(solver.calc_num_neighbours());
   ASSERT_NO_THROW(solver.calc_start_pos());
   ASSERT_NO_THROW(solver.append_neighbours());
   ASSERT_NO_THROW(solver.identify_cores());
+  ASSERT_NO_THROW(solver.identify_clusters());
   /*
    * Va:
    * 0 2 4 6 7 8 <- start pos in Ea
@@ -48,16 +50,6 @@ TEST(Solver, make_graph_small_graph) {
                   DBSCAN::membership::Core, DBSCAN::membership::Core,
                   DBSCAN::membership::Core, DBSCAN::membership::Noise,
                   DBSCAN::membership::Noise, DBSCAN::membership::Noise));
-}
-
-TEST(Solver, test_input1) {
-  using namespace GDBSCAN;
-  Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f);
-  ASSERT_NO_THROW(solver.calc_num_neighbours());
-  ASSERT_NO_THROW(solver.calc_start_pos());
-  ASSERT_NO_THROW(solver.append_neighbours());
-  ASSERT_NO_THROW(solver.identify_cores());
-  ASSERT_NO_THROW(solver.identify_clusters());
   // vertices 0 1 and 2 are core vertices with cluster id = 0; vertices 3 4 and
   // 5 are noise vertices hence cluster id = -1.
   EXPECT_THAT(solver.cluster_ids, testing::ElementsAre(0, 0, 0, -1, -1, -1));
@@ -66,6 +58,7 @@ TEST(Solver, test_input1) {
 TEST(Solver, test_input2) {
   using namespace GDBSCAN;
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input2.txt", 2, 3.0f);
+  ASSERT_NO_THROW(solver.sort_input_by_l1norm());
   ASSERT_NO_THROW(solver.calc_num_neighbours());
   ASSERT_NO_THROW(solver.calc_start_pos());
   ASSERT_NO_THROW(solver.append_neighbours());
@@ -100,6 +93,7 @@ TEST(Solver, test_input2) {
 TEST(Solver, test_input3) {
   using namespace GDBSCAN;
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input3.txt", 3, 3.0f);
+  ASSERT_NO_THROW(solver.sort_input_by_l1norm());
   ASSERT_NO_THROW(solver.calc_num_neighbours());
   ASSERT_NO_THROW(solver.calc_start_pos());
   ASSERT_NO_THROW(solver.append_neighbours());
@@ -137,6 +131,7 @@ TEST(Solver, test_input_20k) {
   using namespace GDBSCAN;
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input_20k.txt", 30,
                 0.15f);
+  ASSERT_NO_THROW(solver.sort_input_by_l1norm());
   ASSERT_NO_THROW(solver.calc_num_neighbours());
   ASSERT_NO_THROW(solver.calc_start_pos());
   ASSERT_NO_THROW(solver.append_neighbours());

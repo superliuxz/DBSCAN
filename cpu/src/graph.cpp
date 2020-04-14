@@ -9,38 +9,32 @@
 #include <cmath>
 #include <vector>
 
-#include "membership.h"
 #include "utils.h"
 
 // ctor
 #if defined(BIT_ADJ)
-DBSCAN::Graph::Graph(const size_t& num_vtx, const size_t& num_threads)
+DBSCAN::Graph::Graph(const uint64_t& num_vtx, const uint64_t& num_threads)
     : Va(num_vtx * 2, 0),
       // -1 as unvisited/un-clustered.
-      cluster_ids(num_vtx, -1),
-      memberships(num_vtx, membership::Noise),
       num_vtx_(num_vtx),
       num_threads_(num_threads) {
   set_logger_();
-  size_t num_uint64 = ceil(num_vtx_ / 64.0f);
+  uint64_t num_uint64 = std::ceil(num_vtx_ / 64.0f);
   temp_adj_.resize(num_vtx_, std::vector<uint64_t>(num_uint64, 0u));
 }
 #else
-DBSCAN::Graph::Graph(const size_t& num_vtx, const size_t& num_threads)
+DBSCAN::Graph::Graph(const uint64_t& num_vtx, const uint64_t& num_threads)
     : Va(num_vtx * 2, 0),
-      // -1 as unvisited/un-clustered.
-      cluster_ids(num_vtx, -1),
-      memberships(num_vtx, membership::Noise),
       num_vtx_(num_vtx),
       num_threads_(num_threads),
-      temp_adj_(num_vtx, std::vector<size_t>()) {
+      temp_adj_(num_vtx, std::vector<uint64_t>()) {
   set_logger_();
 }
 #endif
 
 // insert edge
 #if defined(BIT_ADJ)
-void DBSCAN::Graph::insert_edge(const size_t& u, const size_t& idx,
+void DBSCAN::Graph::insert_edge(const uint64_t& u, const uint64_t& idx,
                                 const uint64_t& mask) {
   assert_mutable_();
   if (u >= num_vtx_ || idx >= temp_adj_[u].size()) {
@@ -53,7 +47,7 @@ void DBSCAN::Graph::insert_edge(const size_t& u, const size_t& idx,
   temp_adj_[u][idx] |= mask;
 }
 #else
-void DBSCAN::Graph::insert_edge(const size_t& u, const size_t& v) {
+void DBSCAN::Graph::insert_edge(const uint64_t& u, const uint64_t& v) {
   assert_mutable_();
   if (u >= num_vtx_ || v >= num_vtx_) {
     std::ostringstream oss;
@@ -65,17 +59,6 @@ void DBSCAN::Graph::insert_edge(const size_t& u, const size_t& v) {
 }
 #endif
 
-void DBSCAN::Graph::cluster_vertex(const size_t& vertex,
-                                   const int& cluster_id) {
-  assert_immutable_();
-  if (vertex >= num_vtx_) {
-    std::ostringstream oss;
-    oss << vertex << " is out of bound!";
-    throw std::runtime_error(oss.str());
-  }
-  cluster_ids[vertex] = cluster_id;
-}
-
 #if defined(BIT_ADJ)
 void DBSCAN::Graph::finalize() {
   logger_->info("finalize - BIT_ADJ");
@@ -85,7 +68,7 @@ void DBSCAN::Graph::finalize() {
   auto t0 = high_resolution_clock::now();
 
   // TODO: exclusive scan
-  for (size_t vertex = 0; vertex < num_vtx_; ++vertex) {
+  for (uint64_t vertex = 0; vertex < num_vtx_; ++vertex) {
     // position in Ea
     Va[vertex * 2] =
         vertex == 0 ? 0 : (Va[vertex * 2 - 1] + Va[vertex * 2 - 2]);
@@ -99,7 +82,7 @@ void DBSCAN::Graph::finalize() {
   auto d1 = duration_cast<duration<double>>(t1 - t0);
   logger_->info("\tconstructing Va takes {} seconds", d1.count());
 
-  const size_t sz = Va[Va.size() - 1] + Va[Va.size() - 2];
+  const uint64_t sz = Va[Va.size() - 1] + Va[Va.size() - 2];
   // return if the graph has no edges.
   if (sz == 0u) {
     temp_adj_.clear();
@@ -115,18 +98,19 @@ void DBSCAN::Graph::finalize() {
   logger_->info("\tInit Ea takes {} seconds", d2.count());
 
   std::vector<std::thread> threads(num_threads_);
-  const size_t chunk = ceil(num_vtx_ / static_cast<double>(num_threads_));
-  for (size_t tid = 0; tid < num_threads_; ++tid) {
+  const uint64_t chunk =
+      std::ceil(num_vtx_ / static_cast<double>(num_threads_));
+  for (uint8_t tid = 0; tid < num_threads_; ++tid) {
     // logger_->debug("\tspawning thread {}", tid);
     threads[tid] = std::thread(
-        [this, &chunk](const size_t& tid) {
+        [this, &chunk](const uint8_t& tid) {
           auto p_t0 = high_resolution_clock::now();
-          const size_t start = tid * chunk;
-          const size_t end = std::min(start + chunk, num_vtx_);
-          for (size_t u = start; u < end; ++u) {
+          const uint64_t start = tid * chunk;
+          const uint64_t end = std::min(start + chunk, num_vtx_);
+          for (uint64_t u = start; u < end; ++u) {
             const std::vector<uint64_t>& nbs = temp_adj_[u];
             auto it = std::next(Ea.begin(), Va[2 * u]);
-            for (size_t i = 0; i < nbs.size(); ++i) {
+            for (uint64_t i = 0; i < nbs.size(); ++i) {
               uint64_t val = nbs[i];
               while (val) {
                 uint8_t k = __builtin_ffsll(val) - 1;
@@ -136,7 +120,7 @@ void DBSCAN::Graph::finalize() {
                 val &= (val - 1);
               }
             }
-            assert(static_cast<size_t>(std::distance(Ea.begin(), it)) ==
+            assert(static_cast<uint64_t>(std::distance(Ea.begin(), it)) ==
                        Va[2 * u] + Va[2 * u + 1] &&
                    "iterator steps != Va[2*u+1]");
           }
@@ -165,7 +149,7 @@ void DBSCAN::Graph::finalize() {
   using namespace std::chrono;
   auto t0 = high_resolution_clock::now();
 
-  size_t vertex = 0;
+  uint64_t vertex = 0;
   // TODO: paralleled exclusive scan
   for (const auto& nbs : temp_adj_) {
     // pos in Ea
@@ -180,7 +164,7 @@ void DBSCAN::Graph::finalize() {
   auto d1 = duration_cast<duration<double>>(t1 - t0);
   logger_->info("\tCalc Va takes {} seconds", d1.count());
 
-  const size_t sz = Va[Va.size() - 1] + Va[Va.size() - 2];
+  const uint64_t sz = Va[Va.size() - 1] + Va[Va.size() - 2];
   // return if the graph has no edges.
   if (sz == 0u) {
     temp_adj_.clear();
@@ -196,15 +180,15 @@ void DBSCAN::Graph::finalize() {
   logger_->info("\tInit Ea takes {} seconds", d2.count());
 
   std::vector<std::thread> threads(num_threads_);
-  const size_t chunk = ceil(num_vtx_ / static_cast<double>(num_threads_));
-  for (size_t tid = 0; tid < num_threads_; ++tid) {
+  const uint64_t chunk = ceil(num_vtx_ / static_cast<double>(num_threads_));
+  for (uint8_t tid = 0; tid < num_threads_; ++tid) {
     // logger_->debug("\tspawning thread {}", tid);
     threads[tid] = std::thread(
-        [this, &chunk](const size_t& tid) {
+        [this, &chunk](const uint8_t& tid) {
           auto p_t0 = high_resolution_clock::now();
-          const size_t start = tid * chunk;
-          const size_t end = std::min(start + chunk, num_vtx_);
-          for (size_t u = start; u < end; ++u) {
+          const uint64_t start = tid * chunk;
+          const uint64_t end = std::min(start + chunk, num_vtx_);
+          for (uint64_t u = start; u < end; ++u) {
             const auto& nbs = temp_adj_[u];
             // logger_->trace("\twriting vtx {} with # nbs {}", u,
             // nbs.size());
