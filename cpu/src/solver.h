@@ -14,7 +14,6 @@
 
 #include "dataset.h"
 #include "graph.h"
-#include "grid.h"
 #include "spdlog/spdlog.h"
 
 namespace DBSCAN {
@@ -25,14 +24,7 @@ class Solver {
   std::vector<DBSCAN::membership> memberships;
   explicit Solver(const std::string&, const uint64_t&, const float&,
                   const uint8_t&);
-  /*
-   * Construct the search grid. Each cell has range {[x0, x0+eps),[y0, y0+eps)}.
-   * The number of vtx of each grid is stored in |grid_vtx_counter_|; the vtx
-   * indices reside within each cell is stored in |grid_|.
-   */
-  inline void construct_grid() {
-    grid_->construct_grid(dataset_->d1, dataset_->d2);
-  }
+  void sort_data_by_l1norm();
   /*
    * For each two vertices, if the distance is <= |squared_radius_|, insert them
    * into the graph (|temp_adj_|). Part of Algorithm 1 (Andrade et al).
@@ -62,9 +54,9 @@ class Solver {
 
  private:
   uint64_t num_vtx_{}, min_pts_;
-  float squared_radius_;
+  float radius_, squared_radius_;
   uint8_t num_threads_;
-  std::unique_ptr<Grid> grid_ = nullptr;
+  std::vector<uint64_t> vtx_mapper_;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
   /*
    * Start from |vertex| and visit all the reachable neighbours. If a neighbour

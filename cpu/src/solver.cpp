@@ -8,8 +8,8 @@
 #include <nmmintrin.h>
 #endif
 
-#include <limits>
 #include <memory>
+#include <parallel/algorithm>
 #include <thread>
 
 #include "dataset.h"
@@ -20,6 +20,7 @@
 DBSCAN::Solver::Solver(const std::string& input, const uint64_t& min_pts,
                        const float& radius, const uint8_t& num_threads)
     : min_pts_(min_pts),
+      radius_(radius),
       squared_radius_(radius * radius),
       num_threads_(num_threads) {
   logger_ = spdlog::get("console");
@@ -34,23 +35,15 @@ DBSCAN::Solver::Solver(const std::string& input, const uint64_t& min_pts,
 
   auto ifs = std::ifstream(input);
   ifs >> num_vtx_;
+  vtx_mapper_.resize(num_vtx_, 0);
   dataset_ = std::make_unique<DBSCAN::input_type::TwoDimPoints>(num_vtx_);
   uint64_t n;
   float x, y;
-  // grid
-  float max_x = std::numeric_limits<float>::min(),
-        max_y = std::numeric_limits<float>::min(),
-        min_x = std::numeric_limits<float>::max(),
-        min_y = std::numeric_limits<float>::max();
   while (ifs >> n >> x >> y) {
     dataset_->d1[n] = x;
     dataset_->d2[n] = y;
-    // manually offset by radius/2 such the min/max values fall within
-    // second/second last cell.
-    max_x = std::max(max_x, x + radius / 2);
-    min_x = std::min(min_x, x - radius / 2);
-    max_y = std::max(max_y, y + radius / 2);
-    min_y = std::min(min_y, y - radius / 2);
+    dataset_->l1norm[n] = std::abs(x) + std::abs(y);
+    vtx_mapper_[n] = n;
   }
 
   duration<double> time_spent =
@@ -59,8 +52,37 @@ DBSCAN::Solver::Solver(const std::string& input, const uint64_t& min_pts,
 
   cluster_ids.resize(num_vtx_, -1);
   memberships.resize(num_vtx_, DBSCAN::membership::Noise);
-  grid_ = std::make_unique<Grid>(max_x, max_y, min_x, min_y, radius, num_vtx_,
-                                 num_threads_);
+}
+
+void DBSCAN::Solver::sort_data_by_l1norm() {
+  struct AOS {
+    float l1norm, d1, d2;
+    uint64_t idx;
+  };
+
+  using namespace std::chrono;
+  high_resolution_clock::time_point start = high_resolution_clock::now();
+
+  std::vector<AOS> temp;
+  temp.reserve(num_vtx_);
+  for (auto i = 0u; i < num_vtx_; ++i) {
+    temp.push_back({dataset_->l1norm[i], dataset_->d1[i], dataset_->d2[i],
+                    vtx_mapper_[i]});
+  }
+  __gnu_parallel::sort(
+      temp.begin(), temp.end(),
+      [](const AOS& x, const AOS& y) { return x.l1norm < y.l1norm; });
+
+  for (auto i = 0u; i < num_vtx_; ++i) {
+    dataset_->l1norm[i] = temp[i].l1norm;
+    dataset_->d1[i] = temp[i].d1;
+    dataset_->d2[i] = temp[i].d2;
+    vtx_mapper_[i] = temp[i].idx;
+  }
+
+  high_resolution_clock::time_point end = high_resolution_clock::now();
+  duration<double> time_spent = duration_cast<duration<double>>(end - start);
+  logger_->info("sort_data_by_l1norm takes {} seconds", time_spent.count());
 }
 
 void DBSCAN::Solver::insert_edges() {
@@ -74,17 +96,14 @@ void DBSCAN::Solver::insert_edges() {
   graph_ = std::make_unique<Graph>(num_vtx_, num_threads_);
 
   std::vector<std::thread> threads(num_threads_);
-  const uint64_t chunk = std::ceil(num_vtx_ / num_threads_);
 #if defined(BIT_ADJ)
   logger_->info("insert_edges - BIT_ADJ");
   const uint64_t N = num_vtx_ / 64u + (num_vtx_ % 64u != 0);
   for (uint8_t tid = 0; tid < num_threads_; ++tid) {
     threads[tid] = std::thread(
-        [this, &chunk, &N](const uint8_t& tid) {
+        [this, &N](const uint8_t tid) {
           auto t0 = high_resolution_clock::now();
-          const uint64_t start = tid * chunk;
-          const uint64_t end = std::min(start + chunk, num_vtx_);
-          for (uint64_t u = start; u < end; ++u) {
+          for (uint64_t u = tid; u < num_vtx_; u += num_threads_) {
             const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
 #if defined(AVX)
             __m256 const u_x8 = _mm256_set1_ps(ux);
@@ -183,39 +202,45 @@ void DBSCAN::Solver::insert_edges() {
   const auto dist = input_type::TwoDimPoints::euclidean_distance_square;
   for (uint8_t tid = 0; tid < num_threads_; ++tid) {
     threads[tid] = std::thread(
-        [this, &dist, &chunk](const uint8_t& tid) {
+        [this, &dist](const uint8_t& tid) {
           auto t0 = high_resolution_clock::now();
-          const uint64_t start = tid * chunk;
-          const uint64_t end = std::min(start + chunk, num_vtx_);
 #if defined(AVX)
           // each float is 4 bytes; a 256bit register is 32 bytes. Hence 8
           // float at-a-time.
-          for (uint64_t u = start; u < end; ++u) {
-            graph_->start_insert(u);
+          for (uint64_t u = tid; u < num_vtx_; u += num_threads_) {
+            graph_->start_insert(vtx_mapper_[u]);
             const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
             __m256 const u_x8 = _mm256_set1_ps(ux);
             __m256 const u_y8 = _mm256_set1_ps(uy);
-            const std::vector<uint64_t> nbs =
-                grid_->retrieve_vtx_from_nb_cells(u, ux, uy);
-            for (uint64_t i = 0; i < nbs.size(); i += 8) {
+            uint64_t const v_start =
+                std::lower_bound(dataset_->l1norm.begin(),
+                                 dataset_->l1norm.end(),
+                                 dataset_->l1norm[u] - 2 * radius_) -
+                dataset_->l1norm.begin();
+            uint64_t const v_end =
+                std::upper_bound(dataset_->l1norm.begin(),
+                                 dataset_->l1norm.end(),
+                                 dataset_->l1norm[u] + 2 * radius_) -
+                dataset_->l1norm.begin();
+            for (uint64_t i = v_start; i < v_end; i += 8) {
               __m256 const v_x_8 = _mm256_set_ps(
-                  dataset_->d1[nbs[i]],
-                  i + 1 < nbs.size() ? dataset_->d1[nbs[i + 1]] : max_radius_,
-                  i + 2 < nbs.size() ? dataset_->d1[nbs[i + 2]] : max_radius_,
-                  i + 3 < nbs.size() ? dataset_->d1[nbs[i + 3]] : max_radius_,
-                  i + 4 < nbs.size() ? dataset_->d1[nbs[i + 4]] : max_radius_,
-                  i + 5 < nbs.size() ? dataset_->d1[nbs[i + 5]] : max_radius_,
-                  i + 6 < nbs.size() ? dataset_->d1[nbs[i + 6]] : max_radius_,
-                  i + 7 < nbs.size() ? dataset_->d1[nbs[i + 7]] : max_radius_);
+                  dataset_->d1[i],
+                  i + 1 < v_end ? dataset_->d1[i + 1] : max_radius_,
+                  i + 2 < v_end ? dataset_->d1[i + 2] : max_radius_,
+                  i + 3 < v_end ? dataset_->d1[i + 3] : max_radius_,
+                  i + 4 < v_end ? dataset_->d1[i + 4] : max_radius_,
+                  i + 5 < v_end ? dataset_->d1[i + 5] : max_radius_,
+                  i + 6 < v_end ? dataset_->d1[i + 6] : max_radius_,
+                  i + 7 < v_end ? dataset_->d1[i + 7] : max_radius_);
               __m256 const v_y_8 = _mm256_set_ps(
-                  dataset_->d2[nbs[i]],
-                  i + 1 < nbs.size() ? dataset_->d2[nbs[i + 1]] : max_radius_,
-                  i + 2 < nbs.size() ? dataset_->d2[nbs[i + 2]] : max_radius_,
-                  i + 3 < nbs.size() ? dataset_->d2[nbs[i + 3]] : max_radius_,
-                  i + 4 < nbs.size() ? dataset_->d2[nbs[i + 4]] : max_radius_,
-                  i + 5 < nbs.size() ? dataset_->d2[nbs[i + 5]] : max_radius_,
-                  i + 6 < nbs.size() ? dataset_->d2[nbs[i + 6]] : max_radius_,
-                  i + 7 < nbs.size() ? dataset_->d2[nbs[i + 7]] : max_radius_);
+                  dataset_->d2[i],
+                  i + 1 < v_end ? dataset_->d2[i + 1] : max_radius_,
+                  i + 2 < v_end ? dataset_->d2[i + 2] : max_radius_,
+                  i + 3 < v_end ? dataset_->d2[i + 3] : max_radius_,
+                  i + 4 < v_end ? dataset_->d2[i + 4] : max_radius_,
+                  i + 5 < v_end ? dataset_->d2[i + 5] : max_radius_,
+                  i + 6 < v_end ? dataset_->d2[i + 6] : max_radius_,
+                  i + 7 < v_end ? dataset_->d2[i + 7] : max_radius_);
 
               __m256 const x_diff_8 = _mm256_sub_ps(u_x8, v_x_8);
               __m256 const x_diff_sq_8 = _mm256_mul_ps(x_diff_8, x_diff_8);
@@ -226,31 +251,47 @@ void DBSCAN::Solver::insert_edges() {
 
               int const cmp =
                   _mm256_movemask_ps(_mm256_cmp_ps(sum, sq_rad8_, _CMP_LE_OS));
-              if (cmp & 1 << 7) graph_->insert_edge(u, nbs[i]);
-              if (cmp & 1 << 6) graph_->insert_edge(u, nbs[i + 1]);
-              if (cmp & 1 << 5) graph_->insert_edge(u, nbs[i + 2]);
-              if (cmp & 1 << 4) graph_->insert_edge(u, nbs[i + 3]);
-              if (cmp & 1 << 3) graph_->insert_edge(u, nbs[i + 4]);
-              if (cmp & 1 << 2) graph_->insert_edge(u, nbs[i + 5]);
-              if (cmp & 1 << 1) graph_->insert_edge(u, nbs[i + 6]);
-              if (cmp & 1 << 0) graph_->insert_edge(u, nbs[i + 7]);
+              if (u != i && cmp & 1 << 7)
+                graph_->insert_edge(vtx_mapper_[u], vtx_mapper_[i]);
+              if (u != i + 1 && cmp & 1 << 6)
+                graph_->insert_edge(vtx_mapper_[u], vtx_mapper_[i + 1]);
+              if (u != i + 2 && cmp & 1 << 5)
+                graph_->insert_edge(vtx_mapper_[u], vtx_mapper_[i + 2]);
+              if (u != i + 3 && cmp & 1 << 4)
+                graph_->insert_edge(vtx_mapper_[u], vtx_mapper_[i + 3]);
+              if (u != i + 4 && cmp & 1 << 3)
+                graph_->insert_edge(vtx_mapper_[u], vtx_mapper_[i + 4]);
+              if (u != i + 5 && cmp & 1 << 2)
+                graph_->insert_edge(vtx_mapper_[u], vtx_mapper_[i + 5]);
+              if (u != i + 6 && cmp & 1 << 1)
+                graph_->insert_edge(vtx_mapper_[u], vtx_mapper_[i + 6]);
+              if (u != i + 7 && cmp & 1 << 0)
+                graph_->insert_edge(vtx_mapper_[u], vtx_mapper_[i + 7]);
             }
-            graph_->finish_insert(u);
+            graph_->finish_insert(vtx_mapper_[u]);
           }
 #else
-          for (uint64_t u = start; u < end; ++u) {
-            graph_->start_insert(u);
+          for (uint64_t u = tid; u < num_vtx_; u += num_threads_) {
+            graph_->start_insert(vtx_mapper_[u]);
             const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
-            const std::vector<uint64_t> nbs =
-                grid_->retrieve_vtx_from_nb_cells(u, ux, uy);
+            uint64_t const v_start =
+                std::lower_bound(dataset_->l1norm.begin(),
+                                 dataset_->l1norm.end(),
+                                 dataset_->l1norm[u] - 2 * radius_) -
+                dataset_->l1norm.begin();
+            uint64_t const v_end =
+                std::upper_bound(dataset_->l1norm.begin(),
+                                 dataset_->l1norm.end(),
+                                 dataset_->l1norm[u] + 2 * radius_) -
+                dataset_->l1norm.begin();
             //            logger_->debug("possible nbs of {}: {}", u,
             //                           DBSCAN::utils::print_vector("", nbs));
-            for (const auto v : nbs) {
-              if (dist(ux, uy, dataset_->d1[v], dataset_->d2[v]) <=
-                  squared_radius_)
-                graph_->insert_edge(u, v);
+            for (auto v = v_start; v < v_end; ++v) {
+              if (u != v && dist(ux, uy, dataset_->d1[v], dataset_->d2[v]) <=
+                                squared_radius_)
+                graph_->insert_edge(vtx_mapper_[u], vtx_mapper_[v]);
             }
-            graph_->finish_insert(u);
+            graph_->finish_insert(vtx_mapper_[u]);
           }
 #endif
           auto t1 = high_resolution_clock::now();
@@ -321,21 +362,16 @@ void DBSCAN::Solver::bfs_(uint64_t start_vertex, int cluster) {
 
   std::vector<std::thread> threads(num_threads_);
   // uint64_t lvl_cnt = 0;
-  uint64_t chunk = 0;
   while (!curr_level.empty()) {
-    chunk = curr_level.size() / num_threads_ +
-            (curr_level.size() % num_threads_ != 0);
     // logger_->info("\tBFS level {}", lvl_cnt);
     for (uint8_t tid = 0u; tid < num_threads_; ++tid) {
       threads[tid] = std::thread(
-          [this, &curr_level, &next_level, &cluster,
-           &chunk](const uint8_t& tid) {
+          [this, &curr_level, &next_level, &cluster](const uint8_t& tid) {
             // using namespace std::chrono;
             // auto p_t0 = high_resolution_clock::now();
-            uint64_t start = tid * chunk;
-            uint64_t end = std::min(start + chunk, curr_level.size());
-            for (uint64_t curr_vertex_idx = start; curr_vertex_idx < end;
-                 ++curr_vertex_idx) {
+            for (uint64_t curr_vertex_idx = tid;
+                 curr_vertex_idx < curr_level.size();
+                 curr_vertex_idx += num_threads_) {
               uint64_t vertex = curr_level[curr_vertex_idx];
               // logger_->trace("visiting vertex {}", vertex);
               // Relabel a reachable Noise vertex, but do not keep exploring.
