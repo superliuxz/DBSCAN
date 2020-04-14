@@ -54,8 +54,9 @@ __global__ void k_num_nbs(float const *const x, float const *const y,
   possible_range_end =
       (float *)__shfl_sync(0xffffffff, (uint64_t)possible_range_end, 0);
 
+  // the number of threads might not be blockDim.x, if this is the last block.
+  uint32_t const num_threads = tb_end - tb_start + 1;
   const uint32_t tile_size = SHARED_MEMORY_BYTES / 4 / (1 + 1);
-  uint32_t const num_threads = tb_end - tb_start;
   // first half of shared stores Xs; second half stores Ys.
   __shared__ float shared[tile_size * (1 + 1)];
   auto *const sh_x = shared;
@@ -69,14 +70,12 @@ __global__ void k_num_nbs(float const *const x, float const *const y,
     // current range; might be less than tile_size.
     uint32_t const curr_range =
         min(tile_size, static_cast<uint32_t>(possible_range_end - curr_ptr));
-    // thread 0 updates sh_x[0], sh_x[0+sub_range], sh_x[0+2*sub_range] ...
-    // thread 1 updates sh_x[1], sh_x[1+sub_range], sh_x[1+2*sub_range] ...
+    // thread 0 updates sh_x[0], sh_x[0+num_threads], sh_x[0+2*num_threads] ...
+    // thread 1 updates sh_x[1], sh_x[1+num_threads], sh_x[1+2*num_threads] ...
     // ...
-    // thread t updates sh_x[t], sh_x[t+sub_range], sh_x[t+2*sub_range] ...
-    uint32_t const sub_range =
-        std::ceil(curr_range / static_cast<float>(num_threads));
+    // thread t updates sh_x[t], sh_x[t+num_threads], sh_x[t+2*num_threads] ...
     __syncthreads();
-    for (auto i = threadIdx.x; i < curr_range; i += sub_range) {
+    for (auto i = threadIdx.x; i < curr_range; i += num_threads) {
       sh_x[i] = x[curr_idx + i];
       sh_y[i] = y[curr_idx + i];
     }
@@ -128,10 +127,10 @@ __global__ void k_append_neighbours(float const *const x, float const *const y,
   possible_range_end =
       (float *)__shfl_sync(0xffffffff, (uint64_t)possible_range_end, 0);
 
+  uint32_t const num_threads = tb_end - tb_start + 1;
   // different from previous kernel, here the shared array is tri-partitioned,
   // because of the frequent access to vtx_mapper.
   const uint32_t tile_size = SHARED_MEMORY_BYTES / 4 / (1 + 1 + 1);
-  uint32_t const num_threads = tb_end - tb_start;
   __shared__ float shared[tile_size * (1 + 1 + 1)];
   auto *const sh_x = shared;
   auto *const sh_y = shared + tile_size;
@@ -145,14 +144,12 @@ __global__ void k_append_neighbours(float const *const x, float const *const y,
     // current range; might be less than tile_size.
     uint32_t const curr_range =
         min(tile_size, static_cast<uint32_t>(possible_range_end - curr_ptr));
-    // thread 0 updates sh_x[0], sh_x[0+sub_range], sh_x[0+2*sub_range] ...
-    // thread 1 updates sh_x[1], sh_x[1+sub_range], sh_x[1+2*sub_range] ...
+    // thread 0 updates sh_x[0], sh_x[0+num_threads], sh_x[0+2*num_threads] ...
+    // thread 1 updates sh_x[1], sh_x[1+num_threads], sh_x[1+2*num_threads] ...
     // ...
-    // thread t updates sh_x[t], sh_x[t+sub_range], sh_x[t+2*sub_range] ...
-    uint32_t const sub_range =
-        std::ceil(curr_range / static_cast<float>(num_threads));
+    // thread t updates sh_x[t], sh_x[t+num_threads], sh_x[t+2*num_threads] ...
     __syncthreads();
-    for (auto i = threadIdx.x; i < curr_range; i += sub_range) {
+    for (auto i = threadIdx.x; i < curr_range; i += num_threads) {
       sh_x[i] = x[curr_idx + i];
       sh_y[i] = y[curr_idx + i];
       sh_vtx_mapper[i] = vtx_mapper[curr_idx + i];
