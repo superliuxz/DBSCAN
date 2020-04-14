@@ -14,7 +14,7 @@ int main(int argc, char* argv[]) {
   options.add_options()
       ("p,print", "Print clustering IDs") // boolean
       ("r,eps", "Clustering radius", cxxopts::value<float>())
-      ("n,min-samples", "Number of points within radius", cxxopts::value<size_t>())
+      ("n,min-pts", "Number of points within radius", cxxopts::value<size_t>())
       ("i,input", "Input filename", cxxopts::value<std::string>())
       ("t,num-threads", "Number of threads", cxxopts::value<uint8_t>()->default_value("1"))
       ;
@@ -23,7 +23,7 @@ int main(int argc, char* argv[]) {
 
   bool output_labels = args["print"].as<bool>();
   float radius = args["eps"].as<float>();
-  uint min_pts = args["min-samples"].as<size_t>();
+  uint min_pts = args["min-pts"].as<size_t>();
   std::string input = args["input"].as<std::string>();
   uint8_t num_threads = args["num-threads"].as<uint8_t>();
 
