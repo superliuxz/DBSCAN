@@ -1,7 +1,7 @@
 # DBSCAN
 
 ## Requirements
-C++14/17; GCC; CUDA; Thrust.
+C++17; GCC 7.5; CUDA 10.2; Thrust.
 
 ## How to build
 - For the first time: `git submodule update --init --recursive`
@@ -9,12 +9,16 @@ C++14/17; GCC; CUDA; Thrust.
 - `cmake -DCMAKE_BUILD_TYPE=None -Bbuild -H.`
   - For `cpu-main`
     - set environment variable `AVX=1` to enable AVX instruction set;
-    - set environment variable `BIT_ADJ=1` if on average, each vertex has more than |V|/64
-      number of neighbours.
+    - set environment variable `BIT_ADJ=1` if on average, each vertex has more than `|V|/64`
+      number of neighbours.ss
+  - Fpr `gpu-main`
+    - Modify `gpu/CMakeLists.txt`, replace the architecture code with your corresponding
+      hardware
 - `cmake --build build --target cpu-main/gpu-main`
 ### Build tests
 - `cmake -DCMAKE_BUILD_TYPE=Debug -Bbuild -H.`
   - For `cpu-test` set `AVX=1` and `BIT_ADJ=1` correspondingly.
+  - For `gpu-test` modify `gpu/CMakeLists.txt` correspondingly.
 - `cmake --build build --target cpu-test/gpu-test`
 
 ## How to run

@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
   printf("identify_clusters takes %lf seconds\n", d5.count());
 
   duration<double> time_spent =
-      duration_cast<duration<double>>(high_resolution_clock::now() - start);
+      duration_cast<duration<double>>(high_resolution_clock::now() - t0);
   printf("GDBSCAN takes %lf seconds\n", time_spent.count());
 
   if (output_labels) {

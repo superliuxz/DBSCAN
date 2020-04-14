@@ -33,8 +33,8 @@ int main(int argc, char* argv[]) {
 
   logger->debug("radius {} min_pts {}", radius, min_pts);
 
-  auto const start = std::chrono::high_resolution_clock::now();
   DBSCAN::Solver solver(input, min_pts, radius, num_threads);
+  auto const start = std::chrono::high_resolution_clock::now();
 #if !defined(BIT_ADJ)
   solver.construct_grid();
 #endif
