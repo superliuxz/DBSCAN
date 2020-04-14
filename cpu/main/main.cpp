@@ -35,7 +35,9 @@ int main(int argc, char* argv[]) {
 
   auto const start = std::chrono::high_resolution_clock::now();
   DBSCAN::Solver solver(input, min_pts, radius, num_threads);
+#if !defined(BIT_ADJ)
   solver.construct_grid();
+#endif
   solver.insert_edges();
   solver.finalize_graph();
   solver.classify_vertices();

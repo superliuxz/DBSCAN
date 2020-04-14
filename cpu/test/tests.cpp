@@ -166,7 +166,9 @@ TEST(Solver, make_graph_small_graph) {
   using namespace DBSCAN;
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f,
                 1u);
+#if !defined(BIT_ADJ)
   ASSERT_NO_THROW(solver.construct_grid());
+#endif
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_vertices());
@@ -194,7 +196,9 @@ TEST(Solver, test_input1) {
   using namespace DBSCAN;
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f,
                 1u);
+#if !defined(BIT_ADJ)
   ASSERT_NO_THROW(solver.construct_grid());
+#endif
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_vertices());
@@ -208,7 +212,9 @@ TEST(Solver, test_input2) {
   using namespace DBSCAN;
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input2.txt", 2, 3.0f,
                 1u);
+#if !defined(BIT_ADJ)
   ASSERT_NO_THROW(solver.construct_grid());
+#endif
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_vertices());
@@ -243,7 +249,9 @@ TEST(Solver, test_input3) {
   using namespace DBSCAN;
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input3.txt", 3, 3.0f,
                 1u);
+#if !defined(BIT_ADJ)
   ASSERT_NO_THROW(solver.construct_grid());
+#endif
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_vertices());
@@ -280,7 +288,9 @@ TEST(Solver, test_input_20k) {
   using namespace DBSCAN;
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input_20k.txt", 30,
                 0.15f, 1u);
+#if !defined(BIT_ADJ)
   ASSERT_NO_THROW(solver.construct_grid());
+#endif
   ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_vertices());
@@ -301,8 +311,11 @@ TEST(Solver, test_input_20k_four_threads) {
   using namespace DBSCAN;
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input_20k.txt", 30,
                 0.15f, 4u);
+#if !defined(BIT_ADJ)
   ASSERT_NO_THROW(solver.construct_grid());
-  ASSERT_NO_THROW(solver.insert_edges());
+#endif
+
+      ASSERT_NO_THROW(solver.insert_edges());
   ASSERT_NO_THROW(solver.finalize_graph());
   ASSERT_NO_THROW(solver.classify_vertices());
   ASSERT_NO_THROW(solver.identify_cluster());
