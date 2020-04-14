@@ -2,11 +2,13 @@
 // Created by will on 4/7/20.
 //
 
-#include "grid.h"
-
+#if defined(DBSCAN_TESTING)
 #include <cassert>
+#endif
+
 #include <cmath>
 
+#include "grid.h"
 #include "spdlog/spdlog.h"
 
 DBSCAN::Grid::Grid(float max_x, float max_y, float min_x, float min_y,
@@ -94,17 +96,21 @@ void DBSCAN::Grid::construct_grid(
 
 uint64_t DBSCAN::Grid::calc_cell_id_(float x, float y) const {
   // because of the offset, x/y should never be equal to min/max.
+#if defined(DBSCAN_TESTING)
   assert(min_x_ < x);
   assert(x < max_x_);
   assert(min_y_ < y);
   assert(y < max_y_);
+#endif
   uint64_t col_idx, row_idx;
   col_idx = std::floor((x - min_x_) / radius_) + 1;
   row_idx = std::floor((y - min_y_) / radius_) + 1;
+#if defined(DBSCAN_TESTING)
   assert(0 < col_idx);
   assert(col_idx < grid_cols_);
   assert(0 < row_idx);
   assert(row_idx < grid_rows_);
+#endif
   return row_idx * grid_cols_ + col_idx;
 }
 

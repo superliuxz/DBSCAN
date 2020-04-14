@@ -9,7 +9,6 @@
 #include <cmath>
 #include <vector>
 
-#include "membership.h"
 #include "utils.h"
 
 // ctor

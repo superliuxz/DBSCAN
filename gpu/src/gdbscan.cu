@@ -66,7 +66,7 @@ void GDBSCAN::Solver::sort_input_by_l1norm() {
   CUDA_ERR_CHK(cudaMemcpy(
       dev_vtx_mapper_, thrust::raw_pointer_cast(vtx_mapper_.data()), K, H2D));
 
-  // https://stackoverflow.com/a/31919466
+  // https://thrust.github.io/doc/classthrust_1_1zip__iterator.html
   typedef typename thrust::tuple<float *, float *, uint32_t *> IteratorTuple;
   typedef typename thrust::zip_iterator<IteratorTuple> ZipIterator;
   ZipIterator begin(thrust::make_tuple(dev_x_, dev_y_, dev_vtx_mapper_));

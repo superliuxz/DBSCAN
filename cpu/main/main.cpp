@@ -6,6 +6,10 @@
 #include "solver.h"
 
 int main(int argc, char* argv[]) {
+#if defined(DBSCAN_TESTING)
+  fprintf(stderr, "DBSCAN_TESTING enabled, something is wrong...\n");
+  return 0;
+#endif
   auto logger = spdlog::stdout_color_mt("console");
   logger->set_level(spdlog::level::info);
 
