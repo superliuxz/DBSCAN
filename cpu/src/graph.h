@@ -19,13 +19,13 @@ class Graph {
   std::vector<uint64_t> Va;
   std::vector<uint64_t, DBSCAN::utils::NonConstructAllocator<uint64_t>> Ea;
   // ctor
-  explicit Graph(const uint64_t&, const uint64_t&);
+  explicit Graph(uint64_t, uint8_t);
   // insert edge
 #if defined(BIT_ADJ)
   void insert_edge(const uint64_t&, const uint64_t&, const uint64_t&);
 #else
   void start_insert(const uint64_t u) { temp_adj_[u].reserve(num_vtx_); }
-  void insert_edge(const uint64_t&, const uint64_t&);
+  void insert_edge(uint64_t, uint64_t);
   void finish_insert(const uint64_t u) { temp_adj_[u].shrink_to_fit(); }
 #endif
   // construct Va and Ea.

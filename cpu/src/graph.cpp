@@ -6,7 +6,6 @@
 
 #include <spdlog/spdlog.h>
 
-#include <cmath>
 #include <vector>
 
 #include "utils.h"
@@ -23,7 +22,7 @@ DBSCAN::Graph::Graph(const uint64_t& num_vtx, const uint64_t& num_threads)
   temp_adj_.resize(num_vtx_, std::vector<uint64_t>(num_uint64, 0u));
 }
 #else
-DBSCAN::Graph::Graph(const uint64_t& num_vtx, const uint64_t& num_threads)
+DBSCAN::Graph::Graph(const uint64_t num_vtx, const uint8_t num_threads)
     : Va(num_vtx * 2, 0),
       num_vtx_(num_vtx),
       num_threads_(num_threads),
@@ -47,7 +46,7 @@ void DBSCAN::Graph::insert_edge(const uint64_t& u, const uint64_t& idx,
   temp_adj_[u][idx] |= mask;
 }
 #else
-void DBSCAN::Graph::insert_edge(const uint64_t& u, const uint64_t& v) {
+void DBSCAN::Graph::insert_edge(const uint64_t u, const uint64_t v) {
   assert_mutable_();
   if (u >= num_vtx_ || v >= num_vtx_) {
     std::ostringstream oss;
@@ -98,16 +97,12 @@ void DBSCAN::Graph::finalize() {
   logger_->info("\tInit Ea takes {} seconds", d2.count());
 
   std::vector<std::thread> threads(num_threads_);
-  const uint64_t chunk =
-      std::ceil(num_vtx_ / static_cast<double>(num_threads_));
   for (uint8_t tid = 0; tid < num_threads_; ++tid) {
     // logger_->debug("\tspawning thread {}", tid);
     threads[tid] = std::thread(
-        [this, &chunk](const uint8_t& tid) {
+        [this](const uint8_t tid) {
           auto p_t0 = high_resolution_clock::now();
-          const uint64_t start = tid * chunk;
-          const uint64_t end = std::min(start + chunk, num_vtx_);
-          for (uint64_t u = start; u < end; ++u) {
+          for (uint64_t u = tid; u < num_vtx_; u += num_threads_) {
             const std::vector<uint64_t>& nbs = temp_adj_[u];
             auto it = std::next(Ea.begin(), Va[2 * u]);
             for (uint64_t i = 0; i < nbs.size(); ++i) {
@@ -180,15 +175,12 @@ void DBSCAN::Graph::finalize() {
   logger_->info("\tInit Ea takes {} seconds", d2.count());
 
   std::vector<std::thread> threads(num_threads_);
-  const uint64_t chunk = ceil(num_vtx_ / static_cast<double>(num_threads_));
   for (uint8_t tid = 0; tid < num_threads_; ++tid) {
     // logger_->debug("\tspawning thread {}", tid);
     threads[tid] = std::thread(
-        [this, &chunk](const uint8_t& tid) {
+        [this](const uint8_t tid) {
           auto p_t0 = high_resolution_clock::now();
-          const uint64_t start = tid * chunk;
-          const uint64_t end = std::min(start + chunk, num_vtx_);
-          for (uint64_t u = start; u < end; ++u) {
+          for (uint64_t u = tid; u < num_vtx_; u += num_threads_) {
             const auto& nbs = temp_adj_[u];
             // logger_->trace("\twriting vtx {} with # nbs {}", u,
             // nbs.size());

@@ -23,8 +23,7 @@ class Solver {
  public:
   std::vector<int> cluster_ids;
   std::vector<DBSCAN::membership> memberships;
-  explicit Solver(const std::string&, const uint64_t&, const float&,
-                  const uint8_t&);
+  explicit Solver(const std::string&, const uint64_t&, const float&, uint8_t);
   /*
    * Construct the search grid. Each cell has range {[x0, x0+eps),[y0, y0+eps)}.
    * The number of vtx of each grid is stored in |grid_vtx_counter_|; the vtx

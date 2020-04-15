@@ -8,6 +8,7 @@
 #include <nmmintrin.h>
 #endif
 
+#include <cmath>
 #include <limits>
 #include <memory>
 #include <thread>
@@ -18,7 +19,7 @@
 
 // ctor
 DBSCAN::Solver::Solver(const std::string& input, const uint64_t& min_pts,
-                       const float& radius, const uint8_t& num_threads)
+                       const float& radius, const uint8_t num_threads)
     : min_pts_(min_pts),
       squared_radius_(radius * radius),
       num_threads_(num_threads) {
@@ -74,17 +75,14 @@ void DBSCAN::Solver::insert_edges() {
   graph_ = std::make_unique<Graph>(num_vtx_, num_threads_);
 
   std::vector<std::thread> threads(num_threads_);
-  const uint64_t chunk = std::ceil(num_vtx_ / num_threads_);
 #if defined(BIT_ADJ)
   logger_->info("insert_edges - BIT_ADJ");
-  const uint64_t N = num_vtx_ / 64u + (num_vtx_ % 64u != 0);
+  const uint64_t N = std::ceil(num_vtx_ / 64.f);
   for (uint8_t tid = 0; tid < num_threads_; ++tid) {
     threads[tid] = std::thread(
-        [this, &chunk, &N](const uint8_t& tid) {
+        [this, N](const uint8_t tid) {
           auto t0 = high_resolution_clock::now();
-          const uint64_t start = tid * chunk;
-          const uint64_t end = std::min(start + chunk, num_vtx_);
-          for (uint64_t u = start; u < end; ++u) {
+          for (uint64_t u = tid; u < num_vtx_; u += num_threads_) {
             const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
 #if defined(AVX)
             __m256 const u_x8 = _mm256_set1_ps(ux);
@@ -183,14 +181,12 @@ void DBSCAN::Solver::insert_edges() {
   const auto dist = input_type::TwoDimPoints::euclidean_distance_square;
   for (uint8_t tid = 0; tid < num_threads_; ++tid) {
     threads[tid] = std::thread(
-        [this, &dist, &chunk](const uint8_t& tid) {
+        [this, &dist](const uint8_t tid) {
           auto t0 = high_resolution_clock::now();
-          const uint64_t start = tid * chunk;
-          const uint64_t end = std::min(start + chunk, num_vtx_);
 #if defined(AVX)
           // each float is 4 bytes; a 256bit register is 32 bytes. Hence 8
           // float at-a-time.
-          for (uint64_t u = start; u < end; ++u) {
+          for (uint64_t u = tid; u < num_vtx_; u += num_threads_) {
             graph_->start_insert(u);
             const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
             __m256 const u_x8 = _mm256_set1_ps(ux);
@@ -238,7 +234,7 @@ void DBSCAN::Solver::insert_edges() {
             graph_->finish_insert(u);
           }
 #else
-          for (uint64_t u = start; u < end; ++u) {
+          for (uint64_t u = tid; u < num_vtx_; u += num_threads_) {
             graph_->start_insert(u);
             const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
             const std::vector<uint64_t> nbs =
@@ -321,21 +317,16 @@ void DBSCAN::Solver::bfs_(uint64_t start_vertex, int cluster) {
 
   std::vector<std::thread> threads(num_threads_);
   // uint64_t lvl_cnt = 0;
-  uint64_t chunk = 0;
   while (!curr_level.empty()) {
-    chunk = curr_level.size() / num_threads_ +
-            (curr_level.size() % num_threads_ != 0);
     // logger_->info("\tBFS level {}", lvl_cnt);
     for (uint8_t tid = 0u; tid < num_threads_; ++tid) {
       threads[tid] = std::thread(
-          [this, &curr_level, &next_level, &cluster,
-           &chunk](const uint8_t& tid) {
+          [this, &curr_level, &next_level, cluster](const uint8_t tid) {
             // using namespace std::chrono;
             // auto p_t0 = high_resolution_clock::now();
-            uint64_t start = tid * chunk;
-            uint64_t end = std::min(start + chunk, curr_level.size());
-            for (uint64_t curr_vertex_idx = start; curr_vertex_idx < end;
-                 ++curr_vertex_idx) {
+            for (uint64_t curr_vertex_idx = tid;
+                 curr_vertex_idx < curr_level.size();
+                 curr_vertex_idx += num_threads_) {
               uint64_t vertex = curr_level[curr_vertex_idx];
               // logger_->trace("visiting vertex {}", vertex);
               // Relabel a reachable Noise vertex, but do not keep exploring.

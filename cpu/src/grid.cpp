@@ -40,17 +40,12 @@ void DBSCAN::Grid::construct_grid(
   using namespace std::chrono;
   high_resolution_clock::time_point start = high_resolution_clock::now();
 
-  // TODO: https://github.com/superliuxz/DBSCAN/issues/11, when GCC-10 arrives
-  //       update to a better parallel algorithm.
-  // TODO: for small # of threads, use the sequential implementation.
+  // TODO: when GCC-10 is ready, use std::exclusive_scan with parallel exec.
   std::vector<std::thread> threads(num_threads_);
-  const uint64_t chunk = std::ceil(num_vtx_ / num_threads_);
   for (uint8_t tid = 0; tid < num_threads_; ++tid) {
     threads[tid] = std::thread(
-        [this, &chunk, &xs, &ys](const uint8_t tid) {
-          const uint64_t start = tid * chunk;
-          const uint64_t end = std::min(start + chunk, num_vtx_);
-          for (uint64_t vtx = start; vtx < end; ++vtx) {
+        [this, &xs, &ys](const uint8_t tid) {
+          for (uint64_t vtx = tid; vtx < num_vtx_; vtx += num_threads_) {
             auto id = calc_cell_id_(xs[vtx], ys[vtx]);
             // https://gcc.gnu.org/onlinedocs/gcc/_005f_005fsync-Builtins.html#g_t_005f_005fsync-Builtins
             __sync_fetch_and_add(grid_vtx_counter_.data() + id, 1);
@@ -75,10 +70,8 @@ void DBSCAN::Grid::construct_grid(
 
   for (uint8_t tid = 0; tid < num_threads_; ++tid) {
     threads[tid] = std::thread(
-        [this, &chunk, &xs, &ys, &temp](const uint8_t tid) {
-          const uint64_t start = tid * chunk;
-          const uint64_t end = std::min(start + chunk, num_vtx_);
-          for (uint64_t vtx = start; vtx < end; ++vtx) {
+        [this, &xs, &ys, &temp](const uint8_t tid) {
+          for (uint64_t vtx = tid; vtx < num_vtx_; vtx += num_threads_) {
             auto id = calc_cell_id_(xs[vtx], ys[vtx]);
             const auto pos = __sync_fetch_and_add(temp.data() + id, 1);
             // https://gcc.gnu.org/onlinedocs/gcc/_005f_005fsync-Builtins.html#g_t_005f_005fsync-Builtins
