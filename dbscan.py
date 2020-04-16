@@ -39,7 +39,7 @@ N = len(points)
 
 t = time.time()
 assert len(args.algorithm) == 1
-db = DBSCAN(eps=args.eps, min_samples=args.min_samples + 1,
+db = DBSCAN(eps=args.eps, min_pts=args.min_pts + 1,
             algorithm=args.algorithm[0]).fit(points)
 print(f"DBSCAN takes {time.time() - t:.4f} seconds")
 
