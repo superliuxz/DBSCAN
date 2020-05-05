@@ -1,6 +1,15 @@
 # DBSCAN
 My multi-threaded, GPU-enabled implementation of Density-Based Spatial Clustering of Applications with Noise.
 
+GPU implementation has achieved >20x speedup against SKLearn; while single-threaded
+CPU implementation has achieved ~1.5x speedup, it scales well with multiple threads.
+
+![image info](GPUvsSKL.png)
+
+![image info](CPUvsSKL.png)
+
+![image info](CPU_scalability.png)
+
 ## Requirements
 C++17; GCC 7.5; CUDA 10.2; Thrust; pthread.
 
