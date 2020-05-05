@@ -1,7 +1,8 @@
 # DBSCAN
+My multi-threaded, GPU-enabled implementation of Density-Based Spatial Clustering of Applications with Noise.
 
 ## Requirements
-C++17; GCC 7.5; CUDA 10.2; Thrust.
+C++17; GCC 7.5; CUDA 10.2; Thrust; pthread.
 
 ## How to build
 - For the first time: `git submodule update --init --recursive`
@@ -22,6 +23,7 @@ C++17; GCC 7.5; CUDA 10.2; Thrust.
 - `cmake --build build --target cpu-test/gpu-test`
 
 ## How to run
+Existing test data under `test_inputs/`.
 
 - [optional] Generate an example using the Python script:
 `python3 generate_dateset.py --n-samples=20000 --cluster-std=3.0`
@@ -32,16 +34,15 @@ C++17; GCC 7.5; CUDA 10.2; Thrust.
   - 0.1 radius and 12 neighbour points for clustering.
 
 ### CPU algorithm
-- `./build/bin/cpu-main --input=test_input.txt --eps=0.1 --min-pts=12`.
+- `./build/bin/cpu-main --input=<path_to_input> --eps=<eps> --min-pts=<P>`.
   - Append `--print` to see the cluster ids.
   - Append `--num-threads=K` to speed up the processing.
 
 ### GPU algorithm
-- `./build/bin/gpu-main --input=test_input.txt --eps=0.1 --min-pts=12`.
+- `./build/bin/gpu-main --input=<path_to_input> --eps=<eps> --min-pts=<P>`.
   - Append `--print` to see the cluster ids.
 
 ## Test data
-Placed under `test_inputs/`.
 
 `test_input_20k.txt` is generated using `--cluster-std=2.2 --n-samples=20000`,
 with 4 clusters. Should use `--eps=0.15 --min-pts=180` to query.
