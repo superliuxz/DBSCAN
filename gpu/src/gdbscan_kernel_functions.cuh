@@ -5,7 +5,7 @@
 #ifndef DBSCAN_GDBSCAN_KERNEL_FUNCTIONS_CUH
 #define DBSCAN_GDBSCAN_KERNEL_FUNCTIONS_CUH
 
-#include <membership.h>
+#include <DBSCAN/membership.h>
 #include <thrust/binary_search.h>
 #include <thrust/execution_policy.h>
 

@@ -6,9 +6,9 @@
 
 #include <fstream>
 
+#include "DBSCAN/membership.h"
 #include "gdbscan.cuh"
 #include "gdbscan_kernel_functions.cuh"
-#include "membership.h"
 
 // https://stackoverflow.com/a/14038590
 #define CUDA_ERR_CHK(code) \

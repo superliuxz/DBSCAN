@@ -8,7 +8,7 @@
 
 #include <vector>
 
-#include "utils.h"
+#include "DBSCAN/utils.h"
 
 // ctor
 #if defined(BIT_ADJ)

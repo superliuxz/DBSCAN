@@ -9,8 +9,8 @@
 
 #include <vector>
 
-#include "membership.h"
-#include "utils.h"
+#include "DBSCAN/membership.h"
+#include "DBSCAN/utils.h"
 
 namespace DBSCAN {
 

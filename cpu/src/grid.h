@@ -5,7 +5,7 @@
 #ifndef DBSCAN_GRID_H
 #define DBSCAN_GRID_H
 
-#include <utils.h>
+#include <DBSCAN/utils.h>
 
 #include <cstdint>
 #include <limits>

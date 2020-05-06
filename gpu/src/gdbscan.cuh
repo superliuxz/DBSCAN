@@ -8,8 +8,8 @@
 #include <thrust/execution_policy.h>
 #include <thrust/scan.h>
 
-#include "membership.h"
-#include "utils.h"
+#include "DBSCAN/membership.h"
+#include "DBSCAN/utils.h"
 
 namespace GDBSCAN {
 int const BLOCK_SIZE = 512;

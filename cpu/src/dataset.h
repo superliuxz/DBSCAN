@@ -7,7 +7,7 @@
 
 #include <vector>
 
-#include "utils.h"
+#include "DBSCAN/utils.h"
 
 namespace DBSCAN {
 namespace input_type {
