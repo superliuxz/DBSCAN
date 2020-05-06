@@ -15,7 +15,7 @@
 
 namespace GDBSCAN {
 namespace kernel_functions {
-constexpr uint32_t SHARED_MEMORY_BYTES = 24 * 1024;
+constexpr uint32_t kSharedMemBytes = 24 * 1024;
 
 /*!
  * Calculate the number of neighbours of each vertex. One kernel thread per
@@ -56,7 +56,7 @@ __global__ void k_num_nbs(float const *const x, float const *const y,
 
   // the number of threads might not be blockDim.x, if this is the last block.
   uint32_t const num_threads = tb_end - tb_start + 1;
-  const uint32_t tile_size = SHARED_MEMORY_BYTES / 4 / (1 + 1);
+  const uint32_t tile_size = kSharedMemBytes / 4 / (1 + 1);
   // first half of shared stores Xs; second half stores Ys.
   __shared__ float shared[tile_size * (1 + 1)];
   auto *const sh_x = shared;
@@ -130,7 +130,7 @@ __global__ void k_append_neighbours(float const *const x, float const *const y,
   uint32_t const num_threads = tb_end - tb_start + 1;
   // different from previous kernel, here the shared array is tri-partitioned,
   // because of the frequent access to vtx_mapper.
-  const uint32_t tile_size = SHARED_MEMORY_BYTES / 4 / (1 + 1 + 1);
+  const uint32_t tile_size = kSharedMemBytes / 4 / (1 + 1 + 1);
   __shared__ float shared[tile_size * (1 + 1 + 1)];
   auto *const sh_x = shared;
   auto *const sh_y = shared + tile_size;
