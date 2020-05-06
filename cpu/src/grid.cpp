@@ -47,7 +47,7 @@ void DBSCAN::Grid::Construct(
     threads[tid] = std::thread(
         [this, &xs, &ys](const uint8_t tid) {
           for (uint64_t vtx = tid; vtx < num_vtx_; vtx += num_threads_) {
-            auto id = CalcCellId_(xs[vtx], ys[vtx]);
+            const auto id = CalcCellId_(xs[vtx], ys[vtx]);
             // https://gcc.gnu.org/onlinedocs/gcc/_005f_005fsync-Builtins.html#g_t_005f_005fsync-Builtins
             __sync_fetch_and_add(grid_vtx_counter_.data() + id, 1);
           }
@@ -73,7 +73,7 @@ void DBSCAN::Grid::Construct(
     threads[tid] = std::thread(
         [this, &xs, &ys, &temp](const uint8_t tid) {
           for (uint64_t vtx = tid; vtx < num_vtx_; vtx += num_threads_) {
-            auto id = CalcCellId_(xs[vtx], ys[vtx]);
+            const auto id = CalcCellId_(xs[vtx], ys[vtx]);
             const auto pos = __sync_fetch_and_add(temp.data() + id, 1);
             // https://gcc.gnu.org/onlinedocs/gcc/_005f_005fsync-Builtins.html#g_t_005f_005fsync-Builtins
             __sync_val_compare_and_swap(grid_.data() + pos, 0, vtx);
@@ -112,44 +112,36 @@ std::vector<uint64_t> DBSCAN::Grid::GetNeighbouringVtx(const uint64_t u,
                                                        const float ux,
                                                        const float uy) const {
   const uint64_t cell_id = CalcCellId_(ux, uy);
-  const uint64_t left = cell_id - 1, btm_left = cell_id + grid_cols_ - 1,
-                 btm = cell_id + grid_cols_,
-                 btm_right = cell_id + grid_cols_ + 1, right = cell_id + 1,
-                 top_right = cell_id - grid_cols_ + 1,
-                 top = cell_id - grid_cols_,
-                 top_left = cell_id - grid_cols_ - 1;
+  const uint64_t btm_left = cell_id + grid_cols_ - 1, left = cell_id - 1,
+                 right = cell_id + 1, top_left = cell_id - grid_cols_ - 1;
   std::vector<uint64_t> nbs;
-  nbs.reserve(grid_vtx_counter_[cell_id] + grid_vtx_counter_[left] +
-              grid_vtx_counter_[btm_left] + grid_vtx_counter_[btm] +
-              grid_vtx_counter_[btm_right] + grid_vtx_counter_[right] +
-              grid_vtx_counter_[top_right] + grid_vtx_counter_[top] +
-              grid_vtx_counter_[top_left]);
-  //  logger_->debug("nbs expected size {}", nbs.capacity());
-  //  logger_->debug("{}",
-  //                 DBSCAN::utils::print_vector("nbs @ begin of retrieve:",
-  //                 nbs));
+  nbs.reserve(grid_vtx_counter_[top_left] + grid_vtx_counter_[top_left + 1] +
+              grid_vtx_counter_[top_left + 2] + /* top row */
+              grid_vtx_counter_[left] + grid_vtx_counter_[cell_id] +
+              grid_vtx_counter_[right] + /* current row */
+              grid_vtx_counter_[btm_left] + grid_vtx_counter_[btm_left + 1] +
+              grid_vtx_counter_[btm_left + 2] /* btm row */);
+  // top row
+  for (auto col = 0u; col < 3; ++col) {
+    nbs.insert(nbs.end(), grid_.cbegin() + grid_start_pos_[top_left + col],
+               grid_.cbegin() + grid_start_pos_[top_left + col] +
+                   grid_vtx_counter_[top_left + col]);
+  }
+  // current row
+  nbs.insert(nbs.end(), grid_.cbegin() + grid_start_pos_[left],
+             grid_.cbegin() + grid_start_pos_[left] + grid_vtx_counter_[left]);
   for (auto i = 0u; i < grid_vtx_counter_[cell_id]; ++i) {
     const auto nb = grid_[grid_start_pos_[cell_id] + i];
     if (u != nb) nbs.push_back(nb);
   }
-  //  logger_->debug("{}",
-  //                 DBSCAN::utils::print_vector("nbs @ middle of retrieve:",
-  //                 nbs));
-  for (auto i = 0u; i < grid_vtx_counter_[left]; ++i)
-    nbs.push_back(grid_[grid_start_pos_[left] + i]);
-  for (auto i = 0u; i < grid_vtx_counter_[btm_left]; ++i)
-    nbs.push_back(grid_[grid_start_pos_[btm_left] + i]);
-  for (auto i = 0u; i < grid_vtx_counter_[btm]; ++i)
-    nbs.push_back(grid_[grid_start_pos_[btm] + i]);
-  for (auto i = 0u; i < grid_vtx_counter_[btm_right]; ++i)
-    nbs.push_back(grid_[grid_start_pos_[btm_right] + i]);
-  for (auto i = 0u; i < grid_vtx_counter_[right]; ++i)
-    nbs.push_back(grid_[grid_start_pos_[right] + i]);
-  for (auto i = 0u; i < grid_vtx_counter_[top_right]; ++i)
-    nbs.push_back(grid_[grid_start_pos_[top_right] + i]);
-  for (auto i = 0u; i < grid_vtx_counter_[top]; ++i)
-    nbs.push_back(grid_[grid_start_pos_[top] + i]);
-  for (auto i = 0u; i < grid_vtx_counter_[top_left]; ++i)
-    nbs.push_back(grid_[grid_start_pos_[top_left] + i]);
+  nbs.insert(
+      nbs.end(), grid_.cbegin() + grid_start_pos_[right],
+      grid_.cbegin() + grid_start_pos_[right] + grid_vtx_counter_[right]);
+  // btm row
+  for (auto col = 0u; col < 3; ++col) {
+    nbs.insert(nbs.end(), grid_.cbegin() + grid_start_pos_[btm_left + col],
+               grid_.cbegin() + grid_start_pos_[btm_left + col] +
+                   grid_vtx_counter_[btm_left + col]);
+  }
   return nbs;
 }
