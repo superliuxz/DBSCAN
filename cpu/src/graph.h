@@ -16,20 +16,22 @@ namespace DBSCAN {
 
 class Graph {
  public:
-  std::vector<uint64_t> Va;
-  std::vector<uint64_t, DBSCAN::utils::NonConstructAllocator<uint64_t>> Ea;
+  std::vector<uint64_t> num_nbs;
+  std::vector<uint64_t> start_pos;
+  std::vector<uint64_t, DBSCAN::utils::NonConstructAllocator<uint64_t>>
+      neighbours;
   // ctor
   explicit Graph(uint64_t, uint8_t);
   // insert edge
 #if defined(BIT_ADJ)
-  void insert_edge(const uint64_t&, const uint64_t&, const uint64_t&);
+  void InsertEdge(uint64_t, uint64_t, uint64_t);
 #else
-  void start_insert(const uint64_t u) { temp_adj_[u].reserve(num_vtx_); }
-  void insert_edge(uint64_t, uint64_t);
-  void finish_insert(const uint64_t u) { temp_adj_[u].shrink_to_fit(); }
+  void StartInsert(const uint64_t u) { temp_adj_[u].reserve(num_vtx_); }
+  void InsertEdge(uint64_t, uint64_t);
+  void FinishInsert(const uint64_t u) { temp_adj_[u].shrink_to_fit(); }
 #endif
-  // construct Va and Ea.
-  void finalize();
+  // construct num_nbs and neighbours.
+  void Finalize();
 
  private:
   bool immutable_ = false;
@@ -38,17 +40,12 @@ class Graph {
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
   std::vector<std::vector<uint64_t>> temp_adj_;
 
-  void constexpr assert_mutable_() const {
+  void constexpr AssertMutable_() const {
     if (immutable_) {
       throw std::runtime_error("Graph is immutable!");
     }
   }
-  void constexpr assert_immutable_() const {
-    if (!immutable_) {
-      throw std::runtime_error("finalize is not called on graph!");
-    }
-  }
-  void set_logger_() {
+  void SetLogger_() {
     logger_ = spdlog::get("console");
     if (logger_ == nullptr) {
       throw std::runtime_error("logger not created!");

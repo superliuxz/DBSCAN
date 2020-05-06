@@ -30,17 +30,17 @@ TEST(Solver, test_input1) {
   ASSERT_NO_THROW(solver.identify_cores());
   ASSERT_NO_THROW(solver.identify_clusters());
   /*
-   * Va:
-   * 0 2 4 6 7 8 <- start pos in Ea
+   * num_nbs:
+   * 0 2 4 6 7 8 <- start pos in neighbours
    * 2 2 2 1 1 0 <- number of neighbours
    * 0 1 2 3 4 5 <- index
    *
-   * Ea:
+   * neighbours:
    * 1 2 0 2 0 1 4 3 <- neighbours
    * 0 1 2 3 4 5 6 7 <- index
    *
-   * even though in Va, vertex 5's neighbours starts at index 8 in Ea, but since
-   * vertex 5 has not neighbours, so Ea does not actually have index 8.
+   * even though in num_nbs, vertex 5's neighbours starts at index 8 in neighbours, but since
+   * vertex 5 has not neighbours, so neighbours does not actually have index 8.
    */
   EXPECT_THAT(solver.num_neighbours, testing::ElementsAre(2, 2, 2, 1, 1, 0));
   EXPECT_THAT(solver.start_pos, testing::ElementsAre(0, 2, 4, 6, 7, 8));

@@ -22,122 +22,126 @@ class GDBSCAN_TestEnvironment : public testing::Environment {
 
 TEST(Graph, ctor_success) {
   DBSCAN::Graph g(5, 1);
-  EXPECT_EQ(g.Va.size(), 10);
-  EXPECT_TRUE(g.Ea.empty());
+  EXPECT_EQ(g.num_nbs.size(), 5);
+  EXPECT_EQ(g.start_pos.size(), 5);
+  EXPECT_TRUE(g.neighbours.empty());
 }
 
 TEST(Graph, insert_edge_success) {
   DBSCAN::Graph g(5, 1);
 #if defined(BIT_ADJ)
-  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
-  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 4u));
-  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 0u));
-  ASSERT_NO_THROW(g.insert_edge(0, 0, 1u << 3u));
+  ASSERT_NO_THROW(g.InsertEdge(2, 0, 1u << 1u));
+  ASSERT_NO_THROW(g.InsertEdge(2, 0, 1u << 4u));
+  ASSERT_NO_THROW(g.InsertEdge(2, 0, 1u << 0u));
+  ASSERT_NO_THROW(g.InsertEdge(0, 0, 1u << 3u));
 #else
-  ASSERT_NO_THROW(g.insert_edge(2, 1));
-  ASSERT_NO_THROW(g.insert_edge(2, 4));
-  ASSERT_NO_THROW(g.insert_edge(2, 0));
-  ASSERT_NO_THROW(g.insert_edge(0, 3));
+  ASSERT_NO_THROW(g.InsertEdge(2, 1));
+  ASSERT_NO_THROW(g.InsertEdge(2, 4));
+  ASSERT_NO_THROW(g.InsertEdge(2, 0));
+  ASSERT_NO_THROW(g.InsertEdge(0, 3));
 #endif
 }
 
 TEST(Graph, insert_edge_failed_oob) {
   DBSCAN::Graph g(5, 1);
 #if defined(BIT_ADJ)
-  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
-  ASSERT_THROW(g.insert_edge(0, 1, 1u << 5u), std::runtime_error);
-  ASSERT_THROW(g.insert_edge(-1, 0, 1u << 2u), std::runtime_error);
-  ASSERT_THROW(g.insert_edge(-2, 0, 1u << 9u), std::runtime_error);
+  ASSERT_NO_THROW(g.InsertEdge(2, 0, 1u << 1u));
+  ASSERT_THROW(g.InsertEdge(0, 1, 1u << 5u), std::runtime_error);
+  ASSERT_THROW(g.InsertEdge(-1, 0, 1u << 2u), std::runtime_error);
+  ASSERT_THROW(g.InsertEdge(-2, 0, 1u << 9u), std::runtime_error);
 #else
-  ASSERT_NO_THROW(g.insert_edge(2, 1));
-  ASSERT_THROW(g.insert_edge(0, 5), std::runtime_error);
-  ASSERT_THROW(g.insert_edge(-1, 2), std::runtime_error);
-  ASSERT_THROW(g.insert_edge(-2, 9), std::runtime_error);
+  ASSERT_NO_THROW(g.InsertEdge(2, 1));
+  ASSERT_THROW(g.InsertEdge(0, 5), std::runtime_error);
+  ASSERT_THROW(g.InsertEdge(-1, 2), std::runtime_error);
+  ASSERT_THROW(g.InsertEdge(-2, 9), std::runtime_error);
 #endif
 }
 
 TEST(Graph, finalize_success) {
   DBSCAN::Graph g(5, 1);
 #if defined(BIT_ADJ)
-  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
-  ASSERT_NO_THROW(g.insert_edge(1, 0, 1u << 2u));
-  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 4u));
-  ASSERT_NO_THROW(g.insert_edge(4, 0, 1u << 2u));
-  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 0u));
-  ASSERT_NO_THROW(g.insert_edge(0, 0, 1u << 2u));
-  ASSERT_NO_THROW(g.insert_edge(0, 0, 1u << 3u));
-  ASSERT_NO_THROW(g.insert_edge(3, 0, 1u << 0u));
+  ASSERT_NO_THROW(g.InsertEdge(2, 0, 1u << 1u));
+  ASSERT_NO_THROW(g.InsertEdge(1, 0, 1u << 2u));
+  ASSERT_NO_THROW(g.InsertEdge(2, 0, 1u << 4u));
+  ASSERT_NO_THROW(g.InsertEdge(4, 0, 1u << 2u));
+  ASSERT_NO_THROW(g.InsertEdge(2, 0, 1u << 0u));
+  ASSERT_NO_THROW(g.InsertEdge(0, 0, 1u << 2u));
+  ASSERT_NO_THROW(g.InsertEdge(0, 0, 1u << 3u));
+  ASSERT_NO_THROW(g.InsertEdge(3, 0, 1u << 0u));
 #else
-  ASSERT_NO_THROW(g.insert_edge(2, 1));
-  ASSERT_NO_THROW(g.insert_edge(1, 2));
-  ASSERT_NO_THROW(g.insert_edge(2, 4));
-  ASSERT_NO_THROW(g.insert_edge(4, 2));
-  ASSERT_NO_THROW(g.insert_edge(2, 0));
-  ASSERT_NO_THROW(g.insert_edge(0, 2));
-  ASSERT_NO_THROW(g.insert_edge(0, 3));
-  ASSERT_NO_THROW(g.insert_edge(3, 0));
+  ASSERT_NO_THROW(g.InsertEdge(2, 1));
+  ASSERT_NO_THROW(g.InsertEdge(1, 2));
+  ASSERT_NO_THROW(g.InsertEdge(2, 4));
+  ASSERT_NO_THROW(g.InsertEdge(4, 2));
+  ASSERT_NO_THROW(g.InsertEdge(2, 0));
+  ASSERT_NO_THROW(g.InsertEdge(0, 2));
+  ASSERT_NO_THROW(g.InsertEdge(0, 3));
+  ASSERT_NO_THROW(g.InsertEdge(3, 0));
 #endif
-  ASSERT_NO_THROW(g.finalize());
+  ASSERT_NO_THROW(g.Finalize());
 
-  ASSERT_THAT(g.Va, testing::ElementsAre(0, 2, 2, 1, 3, 3, 6, 1, 7, 1));
+  ASSERT_THAT(g.num_nbs, testing::ElementsAre(2, 1, 3, 1, 1));
+  ASSERT_THAT(g.start_pos, testing::ElementsAre(0, 2, 3, 6, 7));
 // if use bit adjacency matrix, the neighbours are ascending order, where
 // as other type of adjacency list respect the insertion order.
 #if defined(BIT_ADJ)
-  ASSERT_THAT(g.Ea, testing::ElementsAre(2, 3, 2, 0, 1, 4, 0, 2));
+  ASSERT_THAT(g.neighbours, testing::ElementsAre(2, 3, 2, 0, 1, 4, 0, 2));
 #else
-  ASSERT_THAT(g.Ea, testing::ElementsAre(2, 3, 2, 1, 4, 0, 0, 2));
+  ASSERT_THAT(g.neighbours, testing::ElementsAre(2, 3, 2, 1, 4, 0, 0, 2));
 #endif
 }
 
 TEST(Graph, finalize_fail_second_finalize) {
   DBSCAN::Graph g(5, 1);
 #if defined(BIT_ADJ)
-  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
-  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 4u));
-  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 0u));
-  ASSERT_NO_THROW(g.insert_edge(0, 0, 1u << 3u));
+  ASSERT_NO_THROW(g.InsertEdge(2, 0, 1u << 1u));
+  ASSERT_NO_THROW(g.InsertEdge(2, 0, 1u << 4u));
+  ASSERT_NO_THROW(g.InsertEdge(2, 0, 1u << 0u));
+  ASSERT_NO_THROW(g.InsertEdge(0, 0, 1u << 3u));
 #else
-  ASSERT_NO_THROW(g.insert_edge(2, 1));
-  ASSERT_NO_THROW(g.insert_edge(2, 4));
-  ASSERT_NO_THROW(g.insert_edge(2, 0));
-  ASSERT_NO_THROW(g.insert_edge(0, 3));
+  ASSERT_NO_THROW(g.InsertEdge(2, 1));
+  ASSERT_NO_THROW(g.InsertEdge(2, 4));
+  ASSERT_NO_THROW(g.InsertEdge(2, 0));
+  ASSERT_NO_THROW(g.InsertEdge(0, 3));
 #endif
-  ASSERT_NO_THROW(g.finalize());
+  ASSERT_NO_THROW(g.Finalize());
 
-  ASSERT_THROW(g.finalize(), std::runtime_error);
+  ASSERT_THROW(g.Finalize(), std::runtime_error);
 }
 
 TEST(Graph, finalize_success_disconnected_graph) {
   DBSCAN::Graph g(5, 1);
 #if defined(BIT_ADJ)
-  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 1u));
-  ASSERT_NO_THROW(g.insert_edge(1, 0, 1u << 2u));
-  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 4u));
-  ASSERT_NO_THROW(g.insert_edge(4, 0, 1u << 2u));
-  ASSERT_NO_THROW(g.insert_edge(0, 0, 1u << 2u));
-  ASSERT_NO_THROW(g.insert_edge(2, 0, 1u << 0u));
+  ASSERT_NO_THROW(g.InsertEdge(2, 0, 1u << 1u));
+  ASSERT_NO_THROW(g.InsertEdge(1, 0, 1u << 2u));
+  ASSERT_NO_THROW(g.InsertEdge(2, 0, 1u << 4u));
+  ASSERT_NO_THROW(g.InsertEdge(4, 0, 1u << 2u));
+  ASSERT_NO_THROW(g.InsertEdge(0, 0, 1u << 2u));
+  ASSERT_NO_THROW(g.InsertEdge(2, 0, 1u << 0u));
 #else
-  ASSERT_NO_THROW(g.insert_edge(2, 1));
-  ASSERT_NO_THROW(g.insert_edge(1, 2));
-  ASSERT_NO_THROW(g.insert_edge(2, 4));
-  ASSERT_NO_THROW(g.insert_edge(4, 2));
-  ASSERT_NO_THROW(g.insert_edge(0, 2));
-  ASSERT_NO_THROW(g.insert_edge(2, 0));
+  ASSERT_NO_THROW(g.InsertEdge(2, 1));
+  ASSERT_NO_THROW(g.InsertEdge(1, 2));
+  ASSERT_NO_THROW(g.InsertEdge(2, 4));
+  ASSERT_NO_THROW(g.InsertEdge(4, 2));
+  ASSERT_NO_THROW(g.InsertEdge(0, 2));
+  ASSERT_NO_THROW(g.InsertEdge(2, 0));
 #endif
-  ASSERT_NO_THROW(g.finalize());
-  ASSERT_THAT(g.Va, testing::ElementsAre(0, 1, 1, 1, 2, 3, 5, 0, 5, 1));
+  ASSERT_NO_THROW(g.Finalize());
+  ASSERT_THAT(g.num_nbs, testing::ElementsAre(1, 1, 3, 0, 1));
+  ASSERT_THAT(g.start_pos, testing::ElementsAre(0, 1, 2, 5, 5));
 #if defined(BIT_ADJ)
-  ASSERT_THAT(g.Ea, testing::ElementsAre(2, 2, 0, 1, 4, 2));
+  ASSERT_THAT(g.neighbours, testing::ElementsAre(2, 2, 0, 1, 4, 2));
 #else
-  ASSERT_THAT(g.Ea, testing::ElementsAre(2, 2, 1, 4, 0, 2));
+  ASSERT_THAT(g.neighbours, testing::ElementsAre(2, 2, 1, 4, 0, 2));
 #endif
 }
 
 TEST(Graph, finalize_success_no_edges) {
   DBSCAN::Graph g(5, 1);
-  ASSERT_NO_THROW(g.finalize());
-  ASSERT_THAT(g.Va, testing::ElementsAre(0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
-  ASSERT_TRUE(g.Ea.empty());
+  ASSERT_NO_THROW(g.Finalize());
+  ASSERT_THAT(g.num_nbs, testing::ElementsAre(0, 0, 0, 0, 0));
+  ASSERT_THAT(g.num_nbs, testing::ElementsAre(0, 0, 0, 0, 0));
+  ASSERT_TRUE(g.neighbours.empty());
 }
 
 TEST(TwoDimPoints, distance_squared) {
@@ -167,27 +171,30 @@ TEST(Solver, make_graph_small_graph) {
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f,
                 1u);
 #if !defined(BIT_ADJ)
-  ASSERT_NO_THROW(solver.construct_grid());
+  ASSERT_NO_THROW(solver.ConstructGrid());
 #endif
-  ASSERT_NO_THROW(solver.insert_edges());
-  ASSERT_NO_THROW(solver.finalize_graph());
-  ASSERT_NO_THROW(solver.classify_vertices());
+  ASSERT_NO_THROW(solver.InsertEdges());
+  ASSERT_NO_THROW(solver.FinalizeGraph());
+  ASSERT_NO_THROW(solver.ClassifyNoises());
   /*
-   * Va:
-   * 0 2 4 6 7 8 <- start pos in Ea
-   * 2 2 2 1 1 0 <- number of neighbours
+   * num_nbs
+   * 2 2 2 1 1 0
+   * start_pos
+   * 0 2 4 6 7 8
    * 0 1 2 3 4 5 <- index
    *
-   * Ea:
+   * neighbours:
    * 1 2 0 2 0 1 4 3 <- neighbours
    * 0 1 2 3 4 5 6 7 <- index
    *
-   * even though in Va, vertex 5's neighbours starts at index 8 in Ea, but since
-   * vertex 5 has not neighbours, so Ea does not actually have index 8.
+   * even though in num_nbs, vertex 5's neighbours starts at index 8 in
+   * neighbours, but since vertex 5 has not neighbours, so neighbours does not
+   * actually have index 8.
    */
-  EXPECT_THAT(solver.graph_->Va,
-              testing::ElementsAre(0, 2, 2, 2, 4, 2, 6, 1, 7, 1, 8, 0));
-  EXPECT_THAT(solver.graph_->Ea, testing::ElementsAre(1, 2, 0, 2, 0, 1, 4, 3));
+  EXPECT_THAT(solver.graph_->num_nbs, testing::ElementsAre(2, 2, 2, 1, 1, 0));
+  EXPECT_THAT(solver.graph_->start_pos, testing::ElementsAre(0, 2, 4, 6, 7, 8));
+  EXPECT_THAT(solver.graph_->neighbours,
+              testing::ElementsAre(1, 2, 0, 2, 0, 1, 4, 3));
   EXPECT_THAT(solver.memberships,
               testing::ElementsAre(Core, Core, Core, Noise, Noise, Noise));
 }
@@ -197,12 +204,12 @@ TEST(Solver, test_input1) {
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input1.txt", 2, 3.0f,
                 1u);
 #if !defined(BIT_ADJ)
-  ASSERT_NO_THROW(solver.construct_grid());
+  ASSERT_NO_THROW(solver.ConstructGrid());
 #endif
-  ASSERT_NO_THROW(solver.insert_edges());
-  ASSERT_NO_THROW(solver.finalize_graph());
-  ASSERT_NO_THROW(solver.classify_vertices());
-  ASSERT_NO_THROW(solver.identify_cluster());
+  ASSERT_NO_THROW(solver.InsertEdges());
+  ASSERT_NO_THROW(solver.FinalizeGraph());
+  ASSERT_NO_THROW(solver.ClassifyNoises());
+  ASSERT_NO_THROW(solver.IdentifyClusters());
   // vertices 0 1 and 2 are core vertices with cluster id = 0; vertices 3 4 and
   // 5 are noise vertices hence cluster id = -1.
   EXPECT_THAT(solver.cluster_ids, testing::ElementsAre(0, 0, 0, -1, -1, -1));
@@ -213,12 +220,12 @@ TEST(Solver, test_input2) {
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input2.txt", 2, 3.0f,
                 1u);
 #if !defined(BIT_ADJ)
-  ASSERT_NO_THROW(solver.construct_grid());
+  ASSERT_NO_THROW(solver.ConstructGrid());
 #endif
-  ASSERT_NO_THROW(solver.insert_edges());
-  ASSERT_NO_THROW(solver.finalize_graph());
-  ASSERT_NO_THROW(solver.classify_vertices());
-  ASSERT_NO_THROW(solver.identify_cluster());
+  ASSERT_NO_THROW(solver.InsertEdges());
+  ASSERT_NO_THROW(solver.FinalizeGraph());
+  ASSERT_NO_THROW(solver.ClassifyNoises());
+  ASSERT_NO_THROW(solver.IdentifyClusters());
   EXPECT_THAT(solver.memberships,
               testing::ElementsAre(Core,    // 0
                                    Core,    // 1
@@ -250,12 +257,12 @@ TEST(Solver, test_input3) {
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input3.txt", 3, 3.0f,
                 1u);
 #if !defined(BIT_ADJ)
-  ASSERT_NO_THROW(solver.construct_grid());
+  ASSERT_NO_THROW(solver.ConstructGrid());
 #endif
-  ASSERT_NO_THROW(solver.insert_edges());
-  ASSERT_NO_THROW(solver.finalize_graph());
-  ASSERT_NO_THROW(solver.classify_vertices());
-  ASSERT_NO_THROW(solver.identify_cluster());
+  ASSERT_NO_THROW(solver.InsertEdges());
+  ASSERT_NO_THROW(solver.FinalizeGraph());
+  ASSERT_NO_THROW(solver.ClassifyNoises());
+  ASSERT_NO_THROW(solver.IdentifyClusters());
   EXPECT_THAT(solver.memberships,
               testing::ElementsAre(Core,    // 0
                                    Core,    // 1
@@ -289,12 +296,12 @@ TEST(Solver, test_input_20k) {
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input_20k.txt", 30,
                 0.15f, 1u);
 #if !defined(BIT_ADJ)
-  ASSERT_NO_THROW(solver.construct_grid());
+  ASSERT_NO_THROW(solver.ConstructGrid());
 #endif
-  ASSERT_NO_THROW(solver.insert_edges());
-  ASSERT_NO_THROW(solver.finalize_graph());
-  ASSERT_NO_THROW(solver.classify_vertices());
-  ASSERT_NO_THROW(solver.identify_cluster());
+  ASSERT_NO_THROW(solver.InsertEdges());
+  ASSERT_NO_THROW(solver.FinalizeGraph());
+  ASSERT_NO_THROW(solver.ClassifyNoises());
+  ASSERT_NO_THROW(solver.IdentifyClusters());
   std::vector<int> expected_labels;
   std::ifstream ifs(DBSCAN_TestVariables::abs_loc +
                     "/test_input_20k_labels.txt");
@@ -312,13 +319,13 @@ TEST(Solver, test_input_20k_four_threads) {
   Solver solver(DBSCAN_TestVariables::abs_loc + "/test_input_20k.txt", 30,
                 0.15f, 4u);
 #if !defined(BIT_ADJ)
-  ASSERT_NO_THROW(solver.construct_grid());
+  ASSERT_NO_THROW(solver.ConstructGrid());
 #endif
 
-      ASSERT_NO_THROW(solver.insert_edges());
-  ASSERT_NO_THROW(solver.finalize_graph());
-  ASSERT_NO_THROW(solver.classify_vertices());
-  ASSERT_NO_THROW(solver.identify_cluster());
+  ASSERT_NO_THROW(solver.InsertEdges());
+  ASSERT_NO_THROW(solver.FinalizeGraph());
+  ASSERT_NO_THROW(solver.ClassifyNoises());
+  ASSERT_NO_THROW(solver.IdentifyClusters());
   std::vector<int> expected_labels;
   std::ifstream ifs(DBSCAN_TestVariables::abs_loc +
                     "/test_input_20k_labels.txt");

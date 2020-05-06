@@ -38,10 +38,10 @@ int main(int argc, char* argv[]) {
 #if !defined(BIT_ADJ)
   solver.construct_grid();
 #endif
-  solver.insert_edges();
-  solver.finalize_graph();
-  solver.classify_vertices();
-  solver.identify_cluster();
+  solver.InsertEdges();
+  solver.FinalizeGraph();
+  solver.ClassifyNoises();
+  solver.IdentifyClusters();
   auto const end = std::chrono::high_resolution_clock::now();
   auto const duration =
       std::chrono::duration_cast<std::chrono::duration<double>>(end - start);

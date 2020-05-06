@@ -32,7 +32,7 @@ std::string print_vector(const std::string& vector_name,
 }
 
 // This allocator only allocates memory but never initializes anything. It's
-// used to speed up Ea vector (which is huge).
+// used to speed up neighbours vector (which is huge).
 // Copied from https://en.cppreference.com/w/cpp/named_req/Allocator
 template <class T>
 class NonConstructAllocator {

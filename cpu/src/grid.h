@@ -17,12 +17,11 @@ namespace DBSCAN {
 class Grid {
  public:
   Grid(float, float, float, float, float, uint64_t, uint8_t);
-  void construct_grid(
+  void Construct(
       const std::vector<float, DBSCAN::utils::AlignedAllocator<float, 32>>&,
       const std::vector<float, DBSCAN::utils::AlignedAllocator<float, 32>>&);
-  [[nodiscard]] std::vector<uint64_t> retrieve_vtx_from_nb_cells(uint64_t,
-                                                                 float,
-                                                                 float) const;
+  [[nodiscard]] std::vector<uint64_t> GetNeighbouringVtx(uint64_t, float,
+                                                         float) const;
 
  private:
   float radius_;
@@ -33,7 +32,7 @@ class Grid {
   uint64_t grid_rows_, grid_cols_;
   std::vector<uint64_t> grid_vtx_counter_, grid_start_pos_, grid_;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
-  [[nodiscard]] uint64_t calc_cell_id_(float, float) const;
+  [[nodiscard]] uint64_t CalcCellId_(float, float) const;
 };
 }  // namespace DBSCAN
 

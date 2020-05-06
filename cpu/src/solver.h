@@ -23,41 +23,38 @@ class Solver {
  public:
   std::vector<int> cluster_ids;
   std::vector<DBSCAN::membership> memberships;
-  explicit Solver(const std::string&, const uint64_t&, const float&, uint8_t);
+  explicit Solver(const std::string&, uint64_t, float, uint8_t);
   /*
    * Construct the search grid. Each cell has range {[x0, x0+eps),[y0, y0+eps)}.
    * The number of vtx of each grid is stored in |grid_vtx_counter_|; the vtx
    * indices reside within each cell is stored in |grid_|.
    */
-  inline void construct_grid() {
-    grid_->construct_grid(dataset_->d1, dataset_->d2);
-  }
+  inline void ConstructGrid() { grid_->Construct(dataset_->d1, dataset_->d2); }
   /*
    * For each two vertices, if the distance is <= |squared_radius_|, insert them
-   * into the graph (|temp_adj_|). Part of Algorithm 1 (Andrade et al).
+   * into the graph (|temp_adj_|).
    */
-  void insert_edges();
+  void InsertEdges();
   /*
-   * Construct |Va| and |Ea| from |temp_adj|. Part of Algorithm 1
-   * (Andrade et al).
+   * Construct |num_nbs| and |neighbours| from |temp_adj|.
    */
-  void finalize_graph() const {
+  void FinalizeGraph() const {
     using namespace std::chrono;
     high_resolution_clock::time_point start = high_resolution_clock::now();
-    graph_->finalize();
+    graph_->Finalize();
     duration<double> time_spent =
         duration_cast<duration<double>>(high_resolution_clock::now() - start);
-    logger_->info("finalize_graph takes {} seconds", time_spent.count());
+    logger_->info("FinalizeGraph takes {} seconds", time_spent.count());
   }
   /*
    * Classify vertices to Core or Noise; the Border vertices are classified in
-   * the BFS stage. Algorithm 2 from Andrade et al.
+   * the BFS stage.
    */
-  void classify_vertices();
+  void ClassifyNoises();
   /*
-   * Initiate a BFS on each un-clustered vertex. Algorithm 2 from Andrade et al.
+   * Initiate a BFS on each un-clustered vertex.
    */
-  void identify_cluster();
+  void IdentifyClusters();
 
  private:
   uint64_t num_vtx_{}, min_pts_;
@@ -69,7 +66,7 @@ class Solver {
    * Start from |vertex| and visit all the reachable neighbours. If a neighbour
    * is Noise, relabel it to Border.
    */
-  void bfs_(uint64_t, int);
+  void BFS_(uint64_t, int);
 
 #if defined(AVX)
   const float max_radius_ = std::sqrt(std::numeric_limits<float>::max()) - 1;

@@ -11,8 +11,9 @@
 #include "grid.h"
 #include "spdlog/spdlog.h"
 
-DBSCAN::Grid::Grid(float max_x, float max_y, float min_x, float min_y,
-                   float radius, uint64_t num_vtx, uint8_t num_threads)
+DBSCAN::Grid::Grid(const float max_x, const float max_y, const float min_x,
+                   const float min_y, const float radius,
+                   const uint64_t num_vtx, const uint8_t num_threads)
     : radius_(radius),
       num_vtx_(num_vtx),
       max_x_(max_x),
@@ -34,7 +35,7 @@ DBSCAN::Grid::Grid(float max_x, float max_y, float min_x, float min_y,
   grid_.resize(num_vtx_);
 }
 
-void DBSCAN::Grid::construct_grid(
+void DBSCAN::Grid::Construct(
     const std::vector<float, DBSCAN::utils::AlignedAllocator<float, 32>>& xs,
     const std::vector<float, DBSCAN::utils::AlignedAllocator<float, 32>>& ys) {
   using namespace std::chrono;
@@ -46,7 +47,7 @@ void DBSCAN::Grid::construct_grid(
     threads[tid] = std::thread(
         [this, &xs, &ys](const uint8_t tid) {
           for (uint64_t vtx = tid; vtx < num_vtx_; vtx += num_threads_) {
-            auto id = calc_cell_id_(xs[vtx], ys[vtx]);
+            auto id = CalcCellId_(xs[vtx], ys[vtx]);
             // https://gcc.gnu.org/onlinedocs/gcc/_005f_005fsync-Builtins.html#g_t_005f_005fsync-Builtins
             __sync_fetch_and_add(grid_vtx_counter_.data() + id, 1);
           }
@@ -72,7 +73,7 @@ void DBSCAN::Grid::construct_grid(
     threads[tid] = std::thread(
         [this, &xs, &ys, &temp](const uint8_t tid) {
           for (uint64_t vtx = tid; vtx < num_vtx_; vtx += num_threads_) {
-            auto id = calc_cell_id_(xs[vtx], ys[vtx]);
+            auto id = CalcCellId_(xs[vtx], ys[vtx]);
             const auto pos = __sync_fetch_and_add(temp.data() + id, 1);
             // https://gcc.gnu.org/onlinedocs/gcc/_005f_005fsync-Builtins.html#g_t_005f_005fsync-Builtins
             __sync_val_compare_and_swap(grid_.data() + pos, 0, vtx);
@@ -84,10 +85,10 @@ void DBSCAN::Grid::construct_grid(
   logger_->debug(DBSCAN::utils::print_vector("grid", grid_));
   duration<double> time_spent =
       duration_cast<duration<double>>(high_resolution_clock::now() - start);
-  logger_->info("construct_grid takes {} seconds", time_spent.count());
+  logger_->info("Construct takes {} seconds", time_spent.count());
 }
 
-uint64_t DBSCAN::Grid::calc_cell_id_(float x, float y) const {
+uint64_t DBSCAN::Grid::CalcCellId_(const float x, const float y) const {
   // because of the offset, x/y should never be equal to min/max.
 #if defined(DBSCAN_TESTING)
   assert(min_x_ < x);
@@ -107,14 +108,16 @@ uint64_t DBSCAN::Grid::calc_cell_id_(float x, float y) const {
   return row_idx * grid_cols_ + col_idx;
 }
 
-std::vector<uint64_t> DBSCAN::Grid::retrieve_vtx_from_nb_cells(uint64_t u,
-                                                               float ux,
-                                                               float uy) const {
-  uint64_t cell_id = calc_cell_id_(ux, uy);
-  uint64_t left = cell_id - 1, btm_left = cell_id + grid_cols_ - 1,
-           btm = cell_id + grid_cols_, btm_right = cell_id + grid_cols_ + 1,
-           right = cell_id + 1, top_right = cell_id - grid_cols_ + 1,
-           top = cell_id - grid_cols_, top_left = cell_id - grid_cols_ - 1;
+std::vector<uint64_t> DBSCAN::Grid::GetNeighbouringVtx(const uint64_t u,
+                                                       const float ux,
+                                                       const float uy) const {
+  const uint64_t cell_id = CalcCellId_(ux, uy);
+  const uint64_t left = cell_id - 1, btm_left = cell_id + grid_cols_ - 1,
+                 btm = cell_id + grid_cols_,
+                 btm_right = cell_id + grid_cols_ + 1, right = cell_id + 1,
+                 top_right = cell_id - grid_cols_ + 1,
+                 top = cell_id - grid_cols_,
+                 top_left = cell_id - grid_cols_ - 1;
   std::vector<uint64_t> nbs;
   nbs.reserve(grid_vtx_counter_[cell_id] + grid_vtx_counter_[left] +
               grid_vtx_counter_[btm_left] + grid_vtx_counter_[btm] +
