@@ -1,8 +1,10 @@
 # DBSCAN
-My multi-threaded, GPU-enabled implementation of Density-Based Spatial Clustering of Applications with Noise.
+My multi-threaded, GPU-enabled implementation of Density-Based Spatial 
+Clustering of Applications with Noise.
 
-GPU implementation has achieved >20x speedup against SKLearn; while single-threaded
-CPU implementation has achieved ~1.5x speedup, it scales well with multiple threads.
+The GPU implementation has achieved >20x speedup against *de facto* SKLearn; 
+While single-threaded CPU implementation is 40% faster than SKLearn, it also 
+scales well with multiple threads.
 
 ![image info](GPUvsSKL.png)
 
@@ -18,11 +20,11 @@ C++17; GCC 7.5; CUDA 10.2; Thrust; pthread.
 ### Build main
 - `cmake -DCMAKE_BUILD_TYPE=None -Bbuild -H.`
   - For `cpu-main`
-    - set environment variable `AVX=1` to enable AVX instruction set (most modern CPUs do);
-    - set environment variable `BIT_ADJ=1` if on average, each vertex has more than `|V|/64`
-      number of neighbours.
+    - set environment variable `AVX=1` to enable AVX;
+    - set environment variable `BIT_ADJ=1` if on average, each vertex has more 
+      than `|V|/64` number of neighbours.
   - For `gpu-main`
-    - Modify `gpu/CMakeLists.txt`, replace the architecture code with your corresponding
+    - Modify `gpu/CMakeLists.txt`, change the architecture code to fit your 
       hardware.
 - `cmake --build build --target cpu-main/gpu-main`
 ### Build tests
@@ -52,6 +54,7 @@ Existing test data under `test_inputs/`.
   - Append `--print` to see the cluster ids.
 
 ## Test data
+The query parameters are selected to emulate 10% Noises.
 
 `test_input_20k.txt` is generated using `--cluster-std=2.2 --n-samples=20000`,
 with 4 clusters. Should use `--eps=0.15 --min-pts=180` to query.
