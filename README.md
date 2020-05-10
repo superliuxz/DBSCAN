@@ -3,8 +3,8 @@ My multi-threaded, GPU-enabled implementation of Density-Based Spatial
 Clustering of Applications with Noise.
 
 The GPU implementation has achieved >20x speedup against *de facto* SKLearn; 
-While single-threaded CPU implementation is 40% faster than SKLearn, it also 
-scales well with multiple threads.
+multi-threaded CPU implementation is 40% faster than SKLearn with one thread, 
+and scalable with multiple threads.
 
 ![image info](GPUvsSKL.png)
 
