@@ -6,6 +6,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <execution>
 #include <vector>
 
 #include "DBSCAN/utils.h"
@@ -68,16 +69,35 @@ void DBSCAN::Graph::Finalize() {
   using namespace std::chrono;
   auto t0 = high_resolution_clock::now();
 
-  // TODO: exclusive scan
-  for (uint64_t vertex = 0; vertex < num_vtx_; ++vertex) {
-    // position in neighbours
-    start_pos[vertex] =
-        vertex == 0 ? 0 : (num_nbs[vertex - 1] + start_pos[vertex - 1]);
-    for (const uint64_t& val : temp_adj_[vertex]) {
-      // number of neighbours
-      num_nbs[vertex] += __builtin_popcountll(val);
+  // Used for exclusive_scan to construct start_pos vector. "binary_op(init,
+  // *first), binary_op(init, init), and binary_op(*first, *first) must be
+  // convertible to T" -
+  // https://en.cppreference.com/w/cpp/algorithm/exclusive_scan
+  struct bin_op {
+    uint64_t operator()(uint64_t x, uint64_t y) { return x + y; }
+    uint64_t operator()(uint64_t x, const std::vector<uint64_t>& nbs) {
+      uint64_t total = 0;
+      for (const uint64_t val : nbs) total += __builtin_popcountll(val);
+      return total + x;
     }
-  }
+    uint64_t operator()(const std::vector<uint64_t>& a,
+                        const std::vector<uint64_t>& b) {
+      uint64_t total = 0;
+      for (const uint64_t val : a) total += __builtin_popcountll(val);
+      for (const uint64_t val : b) total += __builtin_popcountll(val);
+      return total;
+    }
+  };
+  std::exclusive_scan(std::execution::par_unseq, temp_adj_.cbegin(),
+                      temp_adj_.cend(), start_pos.begin(), 0, bin_op{});
+  std::transform(std::execution::par_unseq, temp_adj_.cbegin(),
+                 temp_adj_.cend(), num_nbs.begin(),
+                 [](const std::vector<uint64_t>& nbs) {
+                   uint64_t total = 0;
+                   for (const uint64_t val : nbs)
+                     total += __builtin_popcountll(val);
+                   return total;
+                 });
 
   auto t1 = high_resolution_clock::now();
   auto d1 = duration_cast<duration<double>>(t1 - t0);
@@ -146,16 +166,25 @@ void DBSCAN::Graph::Finalize() {
   using namespace std::chrono;
   auto t0 = high_resolution_clock::now();
 
-  uint64_t vertex = 0;
-  // TODO: paralleled exclusive scan
-  for (const auto& nbs : temp_adj_) {
-    // pos in neighbours
-    start_pos[vertex] =
-        vertex == 0 ? 0 : (start_pos[vertex - 1] + num_nbs[vertex - 1]);
-    // number of neighbours
-    num_nbs[vertex] = nbs.size();
-    ++vertex;
-  }
+  // Used for exclusive_scan to construct start_pos vector. "binary_op(init,
+  // *first), binary_op(init, init), and binary_op(*first, *first) must be
+  // convertible to T" -
+  // https://en.cppreference.com/w/cpp/algorithm/exclusive_scan
+  struct bin_op {
+    uint64_t operator()(uint64_t x, uint64_t y) { return x + y; }
+    uint64_t operator()(uint64_t x, const std::vector<uint64_t>& nbs) {
+      return x + nbs.size();
+    }
+    uint64_t operator()(const std::vector<uint64_t>& a,
+                        const std::vector<uint64_t>& b) {
+      return a.size() + b.size();
+    }
+  };
+  std::exclusive_scan(std::execution::par_unseq, temp_adj_.cbegin(),
+                      temp_adj_.cend(), start_pos.begin(), 0, bin_op{});
+  std::transform(std::execution::par_unseq, temp_adj_.cbegin(),
+                 temp_adj_.cend(), num_nbs.begin(),
+                 [](const std::vector<uint64_t>& nbs) { return nbs.size(); });
 
   auto t1 = high_resolution_clock::now();
   auto d1 = duration_cast<duration<double>>(t1 - t0);

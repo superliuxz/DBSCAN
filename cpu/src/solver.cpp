@@ -187,12 +187,12 @@ void DBSCAN::Solver::InsertEdges() {
           // each float is 4 bytes; a 256bit register is 32 bytes. Hence 8
           // float at-a-time.
           for (uint64_t u = tid; u < num_vtx_; u += num_threads_) {
-            graph_->StartInsert(u);
             const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
             const __m256 u_x8 = _mm256_set1_ps(ux);
             const __m256 u_y8 = _mm256_set1_ps(uy);
             const std::vector<uint64_t> nbs =
                 grid_->GetNeighbouringVtx(u, ux, uy);
+            graph_->StartInsert(u, nbs.size());
             for (uint64_t i = 0; i < nbs.size(); i += 8) {
               const __m256 v_x_8 = _mm256_set_ps(
                   dataset_->d1[nbs[i]],
@@ -235,10 +235,10 @@ void DBSCAN::Solver::InsertEdges() {
           }
 #else
           for (uint64_t u = tid; u < num_vtx_; u += num_threads_) {
-            graph_->StartInsert(u);
             const float &ux = dataset_->d1[u], uy = dataset_->d2[u];
             const std::vector<uint64_t> nbs =
                 grid_->GetNeighbouringVtx(u, ux, uy);
+            graph_->StartInsert(u, nbs.size());
             // logger_->debug("possible nbs of {}: {}", u,
             //                DBSCAN::utils::print_vector("", nbs));
             for (const auto v : nbs) {

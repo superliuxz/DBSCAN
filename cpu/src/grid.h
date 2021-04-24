@@ -30,9 +30,14 @@ class Grid {
   float max_x_, max_y_, min_x_, min_y_;
   uint8_t num_threads_;
   uint64_t grid_rows_, grid_cols_;
-  std::vector<uint64_t> grid_vtx_counter_, grid_start_pos_, grid_;
+  // Number of vertices in each grid cell. Size RxC.
+  std::vector<uint64_t> grid_vtx_counter_;
+  // Partial sum of |grid_vtx_counter_|. Size RxC.
+  std::vector<uint64_t> grid_start_pos_;
+  // grid_[i] = j means the ith vtx is in jth grid. Size num_vtx_.
+  std::vector<uint64_t> grid_;
   std::shared_ptr<spdlog::logger> logger_ = nullptr;
-  [[nodiscard]] uint64_t CalcCellId_(float, float) const;
+  [[nodiscard]] uint64_t CalcCellId_(float x, float y) const;
 };
 }  // namespace DBSCAN
 

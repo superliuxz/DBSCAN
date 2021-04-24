@@ -26,9 +26,9 @@ class Graph {
 #if defined(BIT_ADJ)
   void InsertEdge(uint64_t, uint64_t, uint64_t);
 #else
-  void StartInsert(const uint64_t u) { temp_adj_[u].reserve(num_vtx_); }
+  void StartInsert(uint64_t u, size_t sz) { temp_adj_[u].reserve(sz); }
   void InsertEdge(uint64_t, uint64_t);
-  void FinishInsert(const uint64_t u) { temp_adj_[u].shrink_to_fit(); }
+  void FinishInsert(uint64_t u) { temp_adj_[u].shrink_to_fit(); }
 #endif
   // construct num_nbs and neighbours.
   void Finalize();
